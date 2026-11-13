@@ -12,10 +12,17 @@ const eval = @import("eval.zig");
 pub const Error = eval.Error;
 pub const StringSet = std.StringHashMapUnmanaged(void);
 
+/// `vpath PATTERN DIRS`: search DIRS for a missing file that matches PATTERN.
+pub const Vpath = struct { pattern: []const u8, dirs: []const []const u8 };
+
 pub const Database = struct {
     mode: ast.SyntaxMode,
     filename: []const u8,
     rules: []const ast.Rule,
+    /// The `vpath` directives in file order.
+    vpaths: []const Vpath = &.{},
+    /// The directories of the `VPATH` variable, searched after `vpaths`.
+    vpath_dirs: []const []const u8 = &.{},
     phony: StringSet = .empty,
     precious: StringSet = .empty,
     silent: StringSet = .empty,
@@ -38,6 +45,7 @@ const default_suffixes = [_][]const u8{
 pub const Builder = struct {
     db: Database,
     rules: std.ArrayList(ast.Rule) = .empty,
+    vpaths: std.ArrayList(Vpath) = .empty,
 
     pub fn init(mode: ast.SyntaxMode, filename: []const u8) Builder {
         assert(filename.len > 0);
@@ -69,10 +77,34 @@ pub const Builder = struct {
         assert(b.rules.items.len >= before);
     }
 
-    /// Take the rules and resolve `.DEFAULT_GOAL`.
+    /// `vpath PATTERN DIRS` adds a search entry. `vpath PATTERN` (no dirs)
+    /// removes the entries of PATTERN. `vpath` alone removes all entries.
+    pub fn vpath(b: *Builder, ev: *eval.Evaluator, pattern: ?[]const u8, dirs: []const []const u8) Error!void {
+        const p = pattern orelse {
+            b.vpaths.clearRetainingCapacity();
+            return;
+        };
+        assert(p.len > 0);
+        if (dirs.len > 0) return b.vpaths.append(ev.arena, .{ .pattern = p, .dirs = dirs });
+        var kept: usize = 0;
+        for (b.vpaths.items) |v| {
+            if (std.mem.eql(u8, v.pattern, p)) continue;
+            b.vpaths.items[kept] = v;
+            kept += 1;
+        }
+        b.vpaths.items.len = kept;
+        assert(kept <= b.vpaths.capacity);
+    }
+
+    /// Take the rules and resolve `.DEFAULT_GOAL` and `VPATH`.
     pub fn finish(b: *Builder, ev: *eval.Evaluator) Error!Database {
         b.db.rules = b.rules.items;
+        b.db.vpaths = b.vpaths.items;
         ev.line = 0;
+        if (ev.lookup("VPATH")) |v| {
+            const value = if (v.recursive) try ev.expand(v.value, null) else v.value;
+            b.db.vpath_dirs = try splitDirs(ev.arena, value);
+        }
         if (ev.lookup(".DEFAULT_GOAL")) |v| {
             const value = if (v.recursive) try ev.expand(v.value, null) else v.value;
             var it = std.mem.tokenizeAny(u8, value, fns.whitespace);
@@ -94,6 +126,18 @@ pub fn load(ev: *eval.Evaluator, mk: ast.Makefile) Error!Database {
     const db = try b.finish(ev);
     assert(db.rules.len <= mk.statements.len * ast.limits.names_per_line_max);
     return db;
+}
+
+/// Split a directory list on colons and white space, as GNU Make does.
+pub fn splitDirs(arena: std.mem.Allocator, text: []const u8) error{OutOfMemory}![]const []const u8 {
+    var out: std.ArrayList([]const u8) = .empty;
+    var it = std.mem.tokenizeAny(u8, text, ": \t\n");
+    while (it.next()) |dir| {
+        assert(dir.len > 0);
+        try out.append(arena, dir);
+    }
+    assert(out.items.len <= text.len);
+    return out.items;
 }
 
 fn assign(ev: *eval.Evaluator, a: ast.Assignment) Error!void {

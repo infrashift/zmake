@@ -47,7 +47,7 @@ const Missing = struct { name: []const u8, file: []const u8, line: u32 };
 const conditional_words = [_][]const u8{ "ifeq", "ifneq", "ifdef", "ifndef", "else", "endif" };
 const if_words = [_][]const u8{ "ifeq", "ifneq", "ifdef", "ifndef" };
 const include_words = [_][]const u8{ "include", "-include", "sinclude" };
-const reader_words = conditional_words ++ include_words ++ [_][]const u8{ "define", "endef", "override", "undefine", "export", "unexport" };
+const reader_words = conditional_words ++ include_words ++ [_][]const u8{ "define", "endef", "override", "undefine", "export", "unexport", "vpath" };
 
 pub const Reader = struct {
     arena: std.mem.Allocator,
@@ -274,6 +274,7 @@ fn directive(r: *Reader, word: []const u8, ll: lexer.LogicalLine) Error!void {
     if (eql(u8, word, "endef")) return r.fail(ll.line, "extraneous 'endef'", .{});
     if (eql(u8, word, "export")) return exportLine(r, tail, ll.line, false);
     if (eql(u8, word, "unexport")) return unexportLine(r, tail, ll.line);
+    if (eql(u8, word, "vpath")) return vpathLine(r, tail, ll.line);
     assert(eql(u8, word, "override"));
     if (parser.leadingDirective(tail, &.{"define"})) |w| {
         const name = try define(r, rest(tail, w), ll.line, true);
@@ -325,6 +326,19 @@ fn exportLine(r: *Reader, text: []const u8, line: u32, override: bool) Error!voi
     const names = try fns.splitWords(r.arena, try r.ev.expand(text, null));
     for (names) |name| try r.ev.setExport(name, true);
     assert(r.ev.export_flags.count() >= @min(names.len, 1));
+}
+
+/// `vpath`, `vpath PATTERN` and `vpath PATTERN DIRS`. Directories split on
+/// colons and white space.
+fn vpathLine(r: *Reader, text: []const u8, line: u32) Error!void {
+    assert(line > 0);
+    r.ev.line = line;
+    const value = std.mem.trim(u8, try r.ev.expand(text, null), ws);
+    if (value.len == 0) return r.b.vpath(r.ev, null, &.{});
+    const end = std.mem.indexOfAny(u8, value, ws) orelse value.len;
+    const dirs = try database.splitDirs(r.arena, value[end..]);
+    try r.b.vpath(r.ev, value[0..end], dirs);
+    assert(end > 0);
 }
 
 /// `unexport NAMES`, or `unexport` alone, which ends `export` with no names.

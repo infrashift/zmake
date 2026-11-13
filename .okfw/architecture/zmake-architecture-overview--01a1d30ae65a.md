@@ -36,7 +36,7 @@ input file → reader (lexer → parser → evaluator) → database → DAG → 
 | `src/builtins.zig` | Applies the eager functions to their expanded arguments. The evaluator handles the lazy ones on its frame stack ([ADR-0011](/decisions/adr-0011-lazy-functions-use-staged-calls-on-the-frame-stack--01a1d35f6009.md)). |
 | `src/reader.zig` | Reads the input file line by line and applies each statement at once. Handles the conditionals, `define`, `override`, `undefine`, `include` and the queued `$(eval ...)` texts on explicit stacks. Each source has its own file name for messages ([ADR-0012](/decisions/adr-0012-a-reader-evaluates-each-statement-while-it-reads--01a1d36899c8.md)). |
 | `src/database.zig` | Replays the statements through the evaluator. Collects the expanded rules and the special targets. Classifies each target. |
-| `src/dag.zig` | Resolves each goal through explicit rules, pattern rules and existing files. Detects cycles with a three-color search on an explicit stack. Sorts the graph. |
+| `src/dag.zig` | Resolves each goal through explicit rules, pattern rules and existing files. Searches `vpath` and `VPATH` for missing files ([ADR-0015](/decisions/adr-0015-directory-search-keeps-the-found-path-per-node--01a1d376370d.md)). Detects cycles with a three-color search on an explicit stack. Sorts the graph. |
 | `src/executor.zig` | Decides which targets are out of date. Expands each recipe before its first line runs. Runs recipe lines through `/bin/sh -c`. Schedules jobs on `Io` tasks. |
 | `src/jobserver.zig` | Holds the GNU-compatible token pool for `-j` ([ADR-0008](/decisions/adr-0008-take-jobserver-tokens-through-a-private-non-blocking-descriptor--01a1d327df28.md)). Reads and writes `MAKEFLAGS`. |
 

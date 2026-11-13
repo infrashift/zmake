@@ -27,6 +27,17 @@ pub const Node = struct {
     line: u32,
     /// The input file of that rule, or empty when no rule exists.
     file: []const u8 = "",
+    /// The path where directory search found the file, or empty when the
+    /// file is in the working directory or missing. See `filePath`.
+    path: []const u8 = "",
+
+    /// The path of the file on disk: the search result, else the name.
+    pub fn filePath(node: *const Node) []const u8 {
+        assert(node.name.len > 0);
+        const p = if (node.path.len > 0) node.path else node.name;
+        assert(p.len > 0);
+        return p;
+    }
 };
 
 pub const Graph = struct {
@@ -176,13 +187,22 @@ fn resolve(b: *Builder, name: []const u8, needed_by: ?[]const u8) Error!Node {
     const phony = b.db.phony.contains(name);
     if (b.explicit.getPtr(name)) |e| {
         const match = if (e.recipe == null and !phony) try findPattern(b, name) else null;
-        return explicitNode(b, name, e, match);
+        var node = try explicitNode(b, name, e, match);
+        if (!phony) node.path = try searchPath(b, name);
+        return node;
     }
     if (!phony) {
-        if (try findPattern(b, name)) |m| return patternNode(b, name, m);
+        if (try findPattern(b, name)) |m| {
+            var node = patternNode(b, name, m);
+            node.path = try searchPath(b, name);
+            return node;
+        }
     }
-    if (phony or try exists(b, name)) {
-        return .{ .name = name, .kind = classifyNode(b, name, false, false, false, &.{}), .prerequisites = &.{}, .order_only = &.{}, .recipes = &.{}, .stem = "", .line = 0 };
+    const found = if (phony) null else try locate(b, name);
+    if (phony or found != null) {
+        const kind = classifyNode(b, name, false, false, false, &.{});
+        const path = if (found) |f| (if (f.ptr == name.ptr) "" else f) else "";
+        return .{ .name = name, .kind = kind, .prerequisites = &.{}, .order_only = &.{}, .recipes = &.{}, .stem = "", .line = 0, .path = path };
     }
     if (needed_by) |parent| {
         return b.fail("*** No rule to make target '{s}', needed by '{s}'.  Stop.", .{ name, parent });
@@ -235,11 +255,46 @@ fn exists(b: *Builder, name: []const u8) Error!bool {
     }
 }
 
-/// True when `name` exists, has an explicit rule or is phony.
+/// True when `name` exists (also through directory search), has an explicit
+/// rule or is phony.
 fn known(b: *Builder, name: []const u8) Error!bool {
     assert(name.len > 0);
     if (b.explicit.contains(name) or b.db.phony.contains(name)) return true;
-    return exists(b, name);
+    return (try locate(b, name)) != null;
+}
+
+/// Find `name` in the working directory, then in the `vpath` directories
+/// whose pattern matches, then in the `VPATH` directories. Return the path.
+fn locate(b: *Builder, name: []const u8) Error!?[]const u8 {
+    assert(name.len > 0);
+    if (try exists(b, name)) return name;
+    if (name[0] == '/') return null;
+    for (b.db.vpaths) |v| {
+        if (fns.matchPattern(v.pattern, name) == null) continue;
+        if (try firstIn(b, v.dirs, name)) |p| return p;
+    }
+    const found = try firstIn(b, b.db.vpath_dirs, name);
+    assert(found == null or found.?.len > name.len);
+    return found;
+}
+
+fn firstIn(b: *Builder, dirs: []const []const u8, name: []const u8) Error!?[]const u8 {
+    assert(name.len > 0);
+    for (dirs) |dir| {
+        const sep: []const u8 = if (dir[dir.len - 1] == '/') "" else "/";
+        const candidate = try std.mem.concat(b.arena, u8, &.{ dir, sep, name });
+        if (try exists(b, candidate)) return candidate;
+    }
+    assert(dirs.len <= ast.limits.names_per_line_max);
+    return null;
+}
+
+/// The search path of a target, or empty when it is in the working directory or missing.
+fn searchPath(b: *Builder, name: []const u8) Error![]const u8 {
+    assert(name.len > 0);
+    const found = try locate(b, name) orelse return "";
+    assert(found.len >= name.len);
+    return if (found.ptr == name.ptr) "" else found;
 }
 
 /// Pick the viable pattern rule with the shortest stem; the first rule wins a tie.
@@ -488,6 +543,35 @@ test "pattern rules keep order-only prerequisites (ISSUE-007)" {
     try testing.expectEqual(@as(usize, 2), obj.order_only.len);
     try testing.expectEqualStrings("main.dep", obj.order_only[1]);
     try testing.expectEqual(@as(usize, 1), obj.prerequisites.len);
+}
+
+test "directory search finds prerequisites through vpath and VPATH" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    const a = arena.allocator();
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+    for ([_][]const u8{ "src/main.c", "inc/x.h", "lib/libz.a" }) |f| {
+        try tmp.dir.createDirPath(testing.io, std.fs.path.dirname(f).?);
+        try tmp.dir.writeFile(testing.io, .{ .sub_path = f, .data = "" });
+    }
+    const mk = try parser.parse(a, "app: main.o libz.a\n\tcc -o $@ $^\n%.o: %.c x.h\n\tcc -c $<\n", "Makefile", .legacy, &diag);
+    var ev = eval.Evaluator.init(a, testing.io, tmp.dir, &diag);
+    try ev.define("VPATH", "nope:src", false, .file);
+    var b: database.Builder = .init(.legacy, "Makefile");
+    for (mk.statements) |st| try b.apply(&ev, st);
+    try b.vpath(&ev, "%.h", &.{"inc"});
+    try b.vpath(&ev, "%.a", &.{"lib"});
+    const db = try a.create(database.Database);
+    db.* = try b.finish(&ev);
+    const g = try build(a, testing.io, tmp.dir, db, &.{}, &diag);
+    try testing.expectEqualStrings("src/main.c", g.nodes[g.index.get("main.c").?].filePath());
+    try testing.expectEqualStrings("inc/x.h", g.nodes[g.index.get("x.h").?].filePath());
+    try testing.expectEqualStrings("lib/libz.a", g.nodes[g.index.get("libz.a").?].filePath());
+    try testing.expectEqualStrings("main.o", g.nodes[g.index.get("main.o").?].filePath());
+    try b.vpath(&ev, "%.h", &.{});
+    try testing.expectEqual(@as(usize, 1), b.vpaths.items.len);
 }
 
 test "modern mode classifies graph nodes" {

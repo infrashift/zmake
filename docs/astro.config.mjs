@@ -43,6 +43,7 @@ export default defineConfig({
 						{ label: 'Conditionals & define', slug: 'docs/guides/conditionals' },
 						{ label: 'Include Files', slug: 'docs/guides/include' },
 						{ label: 'Export & Environment', slug: 'docs/guides/export' },
+						{ label: 'Directory Search', slug: 'docs/guides/vpath' },
 						{ label: 'Parallel Builds & Jobserver', slug: 'docs/guides/parallel-builds' },
 						{ label: 'Migrating from GNU Make', slug: 'docs/guides/migrating' },
 					],

@@ -21,13 +21,13 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **10. Reader** | Conditionals, `define`, `override`, `undefine` and `$(eval ...)` | Done |
 | **11. Include** | `include`, `-include`, `sinclude`, `MAKEFILE_LIST`, file names in messages | Done |
 | **12. Export** | `export`, `unexport`, `.EXPORT_ALL_VARIABLES`, the recipe environment | Done |
+| **13. vpath** | `VPATH` and `vpath` directory search; paths in automatic variables | Done |
 
 ## Follow-ups
 
 These features are outside the current scope. Each one stops the build with an
 error today:
 
-- `vpath`
 - Built-in implicit rules and built-in variables such as `CC`, suffix rules, double-colon rules and target-specific variables
 - The options `-k` (keep going), `-q`, `-t` and `-B`
 - Quoted values with spaces in `MAKEFLAGS` overrides

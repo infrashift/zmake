@@ -39,7 +39,7 @@ zmake has no binary release. Build it from source with Zig 0.17.1 on Linux. See
 		jobserver, so recursive builds share one pool of jobs.
 	</Card>
 	<Card title="Fails loudly" icon="warning">
-		`vpath`, `load` and `$(guile ...)` stop the build with
+		`load`, `.ONESHELL` and `$(guile ...)` stop the build with
 		`file:line`. zmake does not misread a feature outside its scope.
 	</Card>
 	<Card title="Power of 10" icon="setting">

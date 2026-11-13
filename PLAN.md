@@ -100,8 +100,8 @@ Tracking: [ISSUE-012](.okfw/issues/issue-012-export-and-unexport--01a1d34ecd36.m
 
 ## Phase 13 — vpath and VPATH
 Tracking: [ISSUE-013](.okfw/issues/issue-013-vpath-and-vpath--01a1d34ecd3c.md)
-- [ ] `VPATH` and `vpath` search for prerequisites
-- [ ] Automatic variables give the found path
+- [x] `VPATH` and `vpath` search for prerequisites
+- [x] Automatic variables give the found path
 
 ## Phase 14 — Target-specific and pattern-specific variables
 Tracking: [ISSUE-014](.okfw/issues/issue-014-target-specific-and-pattern-specific-variables--01a1d34ecd43.md)

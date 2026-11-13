@@ -389,5 +389,28 @@ if [ -n "$GNU_MAKE" ]; then
   expect_eq "override export matches GNU Make" "$("$GNU_MAKE" X=cli Y=cli 2>&1)" "$("$ZMAKE" X=cli Y=cli 2>&1)"
 fi
 
+scenario "14. vpath and VPATH (Phase 13)"
+mkdir -p src inc lib g z
+cat > probe.sh <<'EOS'
+cd "$1" || exit 2
+mkdir -p src inc lib
+echo 'int main(void){return 0;}' > src/main.c
+echo 'int u;' > src/util.c
+echo '#define X 1' > inc/x.h
+printf 'VPATH = src\nvpath %%.h inc\napp: main.o util.o\n\t@echo link $@ from $^\n%%.o: %%.c x.h\n\t@echo compile $< into $@ with $^\n\t@touch $@\n' > Makefile
+"$2" 2>&1; "$2" 2>&1
+sleep 1; touch inc/x.h; "$2" 2>&1
+rm -f ./*.o
+touch lib/libz.a
+printf 'vpath %%.a lib\nall: libz.a\n\t@echo all uses $^\nlibz.a: z.c\n\t@echo rebuild $@\n' > M2; touch z.c; sleep 1; touch lib/libz.a; "$2" -f M2 2>&1
+sleep 1; touch z.c; "$2" -f M2 2>&1
+printf 'vpath %%.c src\nvpath %%.c\nall: main.c\n\t@echo $<\n' > M3; "$2" -f M3 2>&1 | sed 's/^[a-z]*make:/make:/'
+printf 'VPATH = nope:src inc\nall: main.c x.h\n\t@echo $^\n' > M4; "$2" -f M4 2>&1
+printf '.PHONY: main.c\nVPATH = src\nall: main.c\n\t@echo [$^]\nmain.c:\n\t@echo phony main.c\n' > M5; "$2" -f M5 2>&1
+EOS
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "directory search matches GNU Make" "$(bash probe.sh g "$GNU_MAKE")" "$(bash probe.sh z "$ZMAKE")"
+fi
+
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -112,3 +112,10 @@ with no names. For each job, the executor starts from the environment of zmake,
 adds each exported variable expanded for the target, and removes each
 `unexport` name. Command-line variables and changed environment variables go
 by default, as in GNU Make. See [Export and the Environment](../../guides/export/).
+
+### ADR-0015: Directory search keeps the found path per node
+
+A graph node keeps the path where `vpath` or `VPATH` found its file. The
+automatic variables give the found paths. A target that is out of date gets its
+own name back and rebuilds in the working directory, as in GNU Make. See
+[Directory Search](../../guides/vpath/).

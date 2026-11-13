@@ -34,6 +34,9 @@ const NodeState = struct {
     ran: bool = false,
     /// The modification time after the node is done; null when missing.
     mtime: ?i96 = null,
+    /// The file on disk: the directory search result, or the name after a
+    /// rebuild in the working directory.
+    path: []const u8 = "",
 };
 
 const Command = struct {
@@ -135,6 +138,7 @@ pub const Executor = struct {
         for (ex.graph.order) |id| {
             const node = ex.graph.nodes[id];
             ex.states[id].pending = @intCast(node.deps.len);
+            ex.states[id].path = node.filePath();
             for (node.deps) |dep| try rev[dep].append(ex.arena, id);
             if (node.deps.len == 0) try ex.ready.append(ex.arena, id);
         }
@@ -337,7 +341,7 @@ pub const Executor = struct {
         assert(!st.done);
         st.done = true;
         ex.finished += 1;
-        if (ex.graph.nodes[id].kind == .file) st.mtime = try ex.mtimeOf(ex.graph.nodes[id].name);
+        if (ex.graph.nodes[id].kind == .file) st.mtime = try ex.mtimeOf(st.path);
         if (ex.graph.nodes[id].kind.isPhony()) st.rebuilt = true;
         for (ex.dependents[id]) |dep| {
             assert(ex.states[dep].pending > 0);
@@ -360,13 +364,19 @@ pub const Executor = struct {
         const node = ex.graph.nodes[id];
         assert(ex.states[id].pending == 0);
         assert(!ex.states[id].started and !ex.states[id].done);
-        const before = if (node.kind == .file) try ex.mtimeOf(node.name) else null;
+        var before = if (node.kind == .file) try ex.mtimeOf(ex.states[id].path) else null;
         if (node.kind == .inferred_phony and try ex.mtimeOf(node.name) != null) {
             ex.printf("zmake: warning: target '{s}' shadows existing path './{s}'; prefix with '@{s}:' to silence\n", .{ node.name, node.name, node.name });
         }
         const newer = try ex.newerPrerequisites(id, before);
         const out_of_date = node.kind.isPhony() or before == null or newer.len > 0;
         if (!out_of_date) return null;
+        if (node.kind == .file and ex.states[id].path.ptr != node.name.ptr) {
+            // GNU Make rebuilds a target that directory search found in the
+            // working directory, under its own name.
+            ex.states[id].path = node.name;
+            before = try ex.mtimeOf(node.name);
+        }
         if (node.recipes.len == 0) {
             ex.states[id].rebuilt = true;
             return null;
@@ -376,12 +386,24 @@ pub const Executor = struct {
             ex.states[id].rebuilt = true;
             return null;
         }
-        const auto: eval.Auto = .{ .target = node.name, .prerequisites = node.prerequisites, .stem = node.stem, .newer = newer };
+        const auto: eval.Auto = .{ .target = node.name, .prerequisites = try ex.pathsOf(node.prerequisites), .stem = node.stem, .newer = try ex.pathsOf(newer) };
         const env = try ex.jobEnvironment(&auto);
         const job = try ex.arena.create(Job);
         job.* = .{ .node = id, .commands = commands, .before = before, .env = env };
         assert(job.commands.len > 0);
         return job;
+    }
+
+    /// The paths on disk of prerequisite names, for `$<`, `$^`, `$+` and `$?`.
+    fn pathsOf(ex: *Executor, names: []const []const u8) Error![]const []const u8 {
+        const paths = try ex.arena.alloc([]const u8, names.len);
+        for (names, paths) |name, *slot| {
+            const id = ex.graph.index.get(name).?;
+            assert(ex.states[id].done);
+            slot.* = ex.states[id].path;
+        }
+        assert(paths.len == names.len);
+        return paths;
     }
 
     /// The normal prerequisites that make the target out of date (`$?`).
@@ -408,7 +430,7 @@ pub const Executor = struct {
         const node = ex.graph.nodes[id];
         assert(node.recipes.len > 0);
         assert(ex.states[id].pending == 0);
-        const auto: eval.Auto = .{ .target = node.name, .prerequisites = node.prerequisites, .stem = node.stem, .newer = newer };
+        const auto: eval.Auto = .{ .target = node.name, .prerequisites = try ex.pathsOf(node.prerequisites), .stem = node.stem, .newer = try ex.pathsOf(newer) };
         const silent_target = ex.db.silent_all or ex.db.silent.contains(node.name);
         if (node.file.len > 0) ex.ev.filename = node.file;
         var commands: std.ArrayList(Command) = .empty;
