@@ -49,6 +49,18 @@ fn runChecked(init: std.process.Init) Reported!void {
     var ev = zmake.eval.Evaluator.init(arena, io, Io.Dir.cwd(), &diag);
     const db = try evaluate(&ev, init, opts, mk);
     assert(db.rules.len <= mk.statements.len * zmake.ast.limits.names_per_line_max);
+    const graph = zmake.dag.build(arena, io, Io.Dir.cwd(), &db, opts.goals, &diag) catch |err| switch (err) {
+        error.Graph => return report(io, diag.message()),
+        error.OutOfMemory => return report(io, "out of memory"),
+    };
+    for (graph.warnings) |w| warn(io, w);
+    assert(graph.goals.len >= 1);
+}
+
+fn warn(io: Io, message: []const u8) void {
+    assert(message.len > 0);
+    writeAll(io, Io.File.stderr(), message);
+    writeAll(io, Io.File.stderr(), "\n");
 }
 
 /// Define the variables in origin order, then replay the input file.

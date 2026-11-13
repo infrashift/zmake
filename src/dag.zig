@@ -1,0 +1,475 @@
+//! Dependency graph. `build` resolves each goal through explicit rules, pattern
+//! rules and existing files. A three-color depth-first search on an explicit
+//! stack detects cycles and gives a topological order (ADR-0003, rule R1).
+
+const std = @import("std");
+const assert = std.debug.assert;
+const Io = std.Io;
+const ast = @import("ast.zig");
+const fns = @import("functions.zig");
+const database = @import("database.zig");
+const Diagnostic = @import("diag.zig").Diagnostic;
+
+pub const Error = error{ Graph, OutOfMemory };
+pub const NodeId = u32;
+
+pub const Node = struct {
+    name: []const u8,
+    kind: ast.TargetKind,
+    /// The normal prerequisites in rule order, with duplicates (`$+`).
+    prerequisites: []const []const u8,
+    order_only: []const []const u8,
+    /// The nodes of all prerequisites, without duplicates. Set by the search.
+    deps: []const NodeId = &.{},
+    recipes: []const ast.RecipeLine,
+    stem: []const u8,
+    /// The line of the rule that makes the target, or 0 when no rule exists.
+    line: u32,
+};
+
+pub const Graph = struct {
+    nodes: []const Node,
+    /// Each node after its prerequisites.
+    order: []const NodeId,
+    goals: []const NodeId,
+    /// GNU-style warnings, for example an overriding recipe.
+    warnings: []const []const u8,
+};
+
+const Explicit = struct {
+    prerequisites: std.ArrayList([]const u8) = .empty,
+    order_only: std.ArrayList([]const u8) = .empty,
+    recipe: ?*const ast.Rule = null,
+    task: bool = false,
+    line: u32,
+};
+
+const Match = struct {
+    rule: *const ast.Rule,
+    stem: []const u8,
+    prerequisites: []const []const u8,
+};
+
+const Color = enum(u2) { white, gray, black };
+
+const Builder = struct {
+    arena: std.mem.Allocator,
+    io: Io,
+    dir: Io.Dir,
+    db: *const database.Database,
+    diag: *Diagnostic,
+    explicit: std.StringHashMapUnmanaged(Explicit) = .empty,
+    patterns: std.ArrayList(*const ast.Rule) = .empty,
+    index: std.StringHashMapUnmanaged(NodeId) = .empty,
+    nodes: std.ArrayList(Node) = .empty,
+    colors: std.ArrayList(Color) = .empty,
+    warnings: std.ArrayList([]const u8) = .empty,
+
+    fn fail(b: *Builder, comptime fmt: []const u8, args: anytype) Error {
+        comptime assert(fmt.len > 0);
+        b.diag.set(fmt, args);
+        assert(b.diag.len > 0);
+        return error.Graph;
+    }
+};
+
+pub fn build(
+    arena: std.mem.Allocator,
+    io: Io,
+    dir: Io.Dir,
+    db: *const database.Database,
+    goal_names: []const []const u8,
+    diag: *Diagnostic,
+) Error!Graph {
+    var b: Builder = .{ .arena = arena, .io = io, .dir = dir, .db = db, .diag = diag };
+    try indexRules(&b);
+    const names: []const []const u8 = if (goal_names.len > 0) goal_names else blk: {
+        const goal = db.default_goal orelse return b.fail("*** No targets.  Stop.", .{});
+        break :blk &.{goal};
+    };
+    var goals: std.ArrayList(NodeId) = .empty;
+    var order: std.ArrayList(NodeId) = .empty;
+    for (names) |name| {
+        assert(name.len > 0);
+        const id = try nodeFor(&b, name, null);
+        try goals.append(arena, id);
+        try search(&b, id, &order);
+    }
+    assert(order.items.len == countBlack(&b));
+    return .{ .nodes = b.nodes.items, .order = order.items, .goals = goals.items, .warnings = b.warnings.items };
+}
+
+fn countBlack(b: *const Builder) usize {
+    var n: usize = 0;
+    for (b.colors.items) |c| n += @intFromBool(c == .black);
+    assert(n <= b.nodes.items.len);
+    return n;
+}
+
+/// Merge the explicit rules per target and keep the pattern rules in order.
+fn indexRules(b: *Builder) Error!void {
+    for (b.db.rules) |*rule| {
+        assert(rule.targets.len > 0);
+        if (rule.is_pattern) {
+            if (rule.has_recipe) try b.patterns.append(b.arena, rule);
+            continue;
+        }
+        for (rule.targets) |t| {
+            const gop = try b.explicit.getOrPut(b.arena, t);
+            if (!gop.found_existing) gop.value_ptr.* = .{ .line = rule.source_line };
+            const e = gop.value_ptr;
+            try e.prerequisites.appendSlice(b.arena, rule.prerequisites);
+            try e.order_only.appendSlice(b.arena, rule.order_only);
+            e.task = e.task or rule.task;
+            if (rule.has_recipe) {
+                if (e.recipe) |old| try warnOverride(b, t, old, rule);
+                e.recipe = rule;
+            }
+        }
+    }
+    assert(b.patterns.items.len <= b.db.rules.len);
+}
+
+fn warnOverride(b: *Builder, target: []const u8, old: *const ast.Rule, new: *const ast.Rule) Error!void {
+    assert(old.has_recipe and new.has_recipe);
+    const file = b.db.filename;
+    try b.warnings.append(b.arena, try std.fmt.allocPrint(b.arena, "{s}:{d}: warning: overriding recipe for target '{s}'", .{ file, recipeLine(new), target }));
+    try b.warnings.append(b.arena, try std.fmt.allocPrint(b.arena, "{s}:{d}: warning: ignoring old recipe for target '{s}'", .{ file, recipeLine(old), target }));
+    assert(b.warnings.items.len >= 2);
+}
+
+/// GNU Make reports the line of the first recipe line, or of the rule for an empty recipe.
+fn recipeLine(rule: *const ast.Rule) u32 {
+    assert(rule.has_recipe);
+    const line = if (rule.recipes.len > 0) rule.recipes[0].line else rule.source_line;
+    assert(line >= rule.source_line);
+    return line;
+}
+
+/// Return the node for `name`. Resolve its rule when the node is new.
+fn nodeFor(b: *Builder, name: []const u8, needed_by: ?[]const u8) Error!NodeId {
+    assert(name.len > 0);
+    if (b.index.get(name)) |id| return id;
+    if (b.nodes.items.len >= ast.limits.graph_nodes_max) {
+        return b.fail("*** more than {d} targets.  Stop.", .{ast.limits.graph_nodes_max});
+    }
+    const node = try resolve(b, name, needed_by);
+    const id: NodeId = @intCast(b.nodes.items.len);
+    try b.nodes.append(b.arena, node);
+    try b.colors.append(b.arena, .white);
+    try b.index.put(b.arena, name, id);
+    assert(b.nodes.items.len == b.colors.items.len);
+    assert(b.index.get(name).? == id);
+    return id;
+}
+
+/// Find the rule that makes `name`: an explicit rule (with a pattern rule for a
+/// missing recipe), a pattern rule, or an existing file.
+fn resolve(b: *Builder, name: []const u8, needed_by: ?[]const u8) Error!Node {
+    assert(name.len > 0);
+    assert(!b.index.contains(name));
+    const phony = b.db.phony.contains(name);
+    if (b.explicit.getPtr(name)) |e| {
+        const match = if (e.recipe == null and !phony) try findPattern(b, name) else null;
+        return explicitNode(b, name, e, match);
+    }
+    if (!phony) {
+        if (try findPattern(b, name)) |m| return patternNode(b, name, m);
+    }
+    if (phony or try exists(b, name)) {
+        return .{ .name = name, .kind = classifyNode(b, name, false, false, false, &.{}), .prerequisites = &.{}, .order_only = &.{}, .recipes = &.{}, .stem = "", .line = 0 };
+    }
+    if (needed_by) |parent| {
+        return b.fail("*** No rule to make target '{s}', needed by '{s}'.  Stop.", .{ name, parent });
+    }
+    return b.fail("*** No rule to make target '{s}'.  Stop.", .{name});
+}
+
+fn explicitNode(b: *Builder, name: []const u8, e: *const Explicit, match: ?Match) Error!Node {
+    assert(name.len > 0);
+    var prereqs: []const []const u8 = e.prerequisites.items;
+    var recipes: []const ast.RecipeLine = if (e.recipe) |r| r.recipes else &.{};
+    var stem: []const u8 = "";
+    var line = if (e.recipe) |r| r.source_line else e.line;
+    if (match) |m| {
+        // The pattern prerequisites come first, so `$<` is the pattern source.
+        prereqs = try std.mem.concat(b.arena, []const u8, &.{ m.prerequisites, prereqs });
+        recipes = m.rule.recipes;
+        stem = m.stem;
+        line = m.rule.source_line;
+    }
+    const kind = classifyNode(b, name, true, e.task, match != null, recipes);
+    assert(line > 0);
+    return .{ .name = name, .kind = kind, .prerequisites = prereqs, .order_only = e.order_only.items, .recipes = recipes, .stem = stem, .line = line };
+}
+
+fn patternNode(b: *Builder, name: []const u8, m: Match) Node {
+    assert(m.rule.is_pattern and m.rule.has_recipe);
+    const kind = classifyNode(b, name, true, false, true, m.rule.recipes);
+    assert(kind == .file or kind == .explicit_phony);
+    return .{ .name = name, .kind = kind, .prerequisites = m.prerequisites, .order_only = &.{}, .recipes = m.rule.recipes, .stem = m.stem, .line = m.rule.source_line };
+}
+
+fn classifyNode(b: *Builder, name: []const u8, has_rule: bool, task: bool, from_pattern: bool, recipes: []const ast.RecipeLine) ast.TargetKind {
+    assert(name.len > 0);
+    const facts: database.TargetFacts = .{ .has_rule = has_rule, .task = task, .from_pattern = from_pattern, .recipes = recipes };
+    const kind = database.classify(b.db, name, facts);
+    assert(b.db.mode == .modern or kind != .inferred_phony);
+    return kind;
+}
+
+fn exists(b: *Builder, name: []const u8) Error!bool {
+    assert(name.len > 0);
+    if (b.dir.access(b.io, name, .{})) |_| return true else |err| switch (err) {
+        error.FileNotFound => return false,
+        else => return b.fail("*** {s}: {s}.  Stop.", .{ name, @errorName(err) }),
+    }
+}
+
+/// True when `name` exists, has an explicit rule or is phony.
+fn known(b: *Builder, name: []const u8) Error!bool {
+    assert(name.len > 0);
+    if (b.explicit.contains(name) or b.db.phony.contains(name)) return true;
+    return exists(b, name);
+}
+
+/// Pick the viable pattern rule with the shortest stem; the first rule wins a tie.
+/// A prerequisite is viable when it is known, or when a second pattern rule can
+/// make it from known files (one level of chaining).
+fn findPattern(b: *Builder, name: []const u8) Error!?Match {
+    assert(name.len > 0);
+    var best: ?Match = null;
+    for (b.patterns.items) |rule| {
+        const m = try matchRule(b, rule, name) orelse continue;
+        if (best != null and m.stem.len >= best.?.stem.len) continue;
+        var viable = true;
+        for (m.prerequisites) |p| {
+            if (try known(b, p)) continue;
+            if (try findDirectPattern(b, p, rule) == null) {
+                viable = false;
+                break;
+            }
+        }
+        if (viable) best = m;
+    }
+    assert(best == null or best.?.rule.is_pattern);
+    return best;
+}
+
+/// Like `findPattern`, but each prerequisite must be known. `skip` is the rule
+/// that asks, so a rule cannot chain to itself.
+fn findDirectPattern(b: *Builder, name: []const u8, skip: *const ast.Rule) Error!?Match {
+    assert(name.len > 0);
+    var best: ?Match = null;
+    for (b.patterns.items) |rule| {
+        if (rule == skip) continue;
+        const m = try matchRule(b, rule, name) orelse continue;
+        if (best != null and m.stem.len >= best.?.stem.len) continue;
+        const all_known = for (m.prerequisites) |p| {
+            if (!try known(b, p)) break false;
+        } else true;
+        if (all_known) best = m;
+    }
+    assert(best == null or best.?.rule != skip);
+    return best;
+}
+
+/// Match `name` against each target pattern of `rule`. A pattern without `/`
+/// matches the file part of the name, and the directory joins the stem.
+fn matchRule(b: *Builder, rule: *const ast.Rule, name: []const u8) Error!?Match {
+    assert(rule.is_pattern);
+    for (rule.targets) |pattern| {
+        const slash = std.mem.lastIndexOfScalar(u8, name, '/');
+        const use_dir = std.mem.indexOfScalar(u8, pattern, '/') == null and slash != null;
+        const subject = if (use_dir) name[slash.? + 1 ..] else name;
+        if (subject.len == 0) continue;
+        const part = fns.matchPattern(pattern, subject) orelse continue;
+        const stem = if (use_dir) try std.mem.concat(b.arena, u8, &.{ name[0 .. slash.? + 1], part }) else part;
+        const prereqs = try b.arena.alloc([]const u8, rule.prerequisites.len);
+        for (rule.prerequisites, prereqs) |p, *out| out.* = try fns.applyStem(b.arena, p, stem);
+        assert(prereqs.len == rule.prerequisites.len);
+        return .{ .rule = rule, .stem = stem, .prerequisites = prereqs };
+    }
+    return null;
+}
+
+const Visit = struct { id: NodeId, next: u32 };
+
+/// Depth-first search from `root` on an explicit stack. Append each node to
+/// `order` after its prerequisites. A gray node on the path is a cycle.
+fn search(b: *Builder, root: NodeId, order: *std.ArrayList(NodeId)) Error!void {
+    assert(root < b.nodes.items.len);
+    if (b.colors.items[root] != .white) return;
+    var stack: std.ArrayList(Visit) = .empty;
+    try stack.append(b.arena, .{ .id = root, .next = 0 });
+    b.colors.items[root] = .gray;
+    var steps: u64 = 0;
+    const max_steps: u64 = @as(u64, ast.limits.graph_nodes_max) * ast.limits.names_per_line_max;
+    while (stack.items.len > 0 and steps < max_steps) : (steps += 1) {
+        const top = &stack.items[stack.items.len - 1];
+        assert(b.colors.items[top.id] == .gray);
+        const node = b.nodes.items[top.id];
+        const total = node.prerequisites.len + node.order_only.len;
+        if (top.next == total) {
+            try finishNode(b, top.id);
+            b.colors.items[top.id] = .black;
+            try order.append(b.arena, top.id);
+            stack.items.len -= 1;
+            continue;
+        }
+        const i = top.next;
+        top.next += 1;
+        const child_name = if (i < node.prerequisites.len) node.prerequisites[i] else node.order_only[i - node.prerequisites.len];
+        const child = try nodeFor(b, child_name, node.name);
+        switch (b.colors.items[child]) {
+            .black => {},
+            .gray => return cycleError(b, stack.items, child),
+            .white => {
+                if (stack.items.len >= ast.limits.graph_depth_max) {
+                    return b.fail("*** prerequisites nest more than {d} levels.  Stop.", .{ast.limits.graph_depth_max});
+                }
+                b.colors.items[child] = .gray;
+                try stack.append(b.arena, .{ .id = child, .next = 0 });
+            },
+        }
+    }
+    assert(stack.items.len == 0);
+}
+
+/// Record the deduplicated prerequisite nodes of a finished node.
+fn finishNode(b: *Builder, id: NodeId) Error!void {
+    assert(b.colors.items[id] == .gray);
+    const node = &b.nodes.items[id];
+    var deps: std.ArrayList(NodeId) = .empty;
+    for ([_][]const []const u8{ node.prerequisites, node.order_only }) |list| {
+        for (list) |name| {
+            const dep = b.index.get(name).?;
+            assert(b.colors.items[dep] == .black);
+            if (std.mem.indexOfScalar(NodeId, deps.items, dep) == null) try deps.append(b.arena, dep);
+        }
+    }
+    node.deps = deps.items;
+    assert(node.deps.len <= node.prerequisites.len + node.order_only.len);
+}
+
+fn cycleError(b: *Builder, path: []const Visit, back: NodeId) Error {
+    assert(path.len > 0);
+    var text: std.ArrayList(u8) = .empty;
+    var started = false;
+    for (path) |v| {
+        if (v.id == back) started = true;
+        if (!started) continue;
+        const n = b.nodes.items[v.id];
+        text.print(b.arena, "{s} ({s}:{d}) -> ", .{ n.name, b.db.filename, n.line }) catch return error.OutOfMemory;
+    }
+    assert(started);
+    text.appendSlice(b.arena, b.nodes.items[back].name) catch return error.OutOfMemory;
+    return b.fail("*** Circular dependency: {s}.  Stop.", .{text.items});
+}
+
+const testing = std.testing;
+const parser = @import("parser.zig");
+const eval = @import("eval.zig");
+
+fn buildTest(arena: std.mem.Allocator, dir: Io.Dir, src: []const u8, mode: ast.SyntaxMode, goals: []const []const u8, diag: *Diagnostic) !Graph {
+    const mk = try parser.parse(arena, src, "Makefile", mode, diag);
+    var ev = eval.Evaluator.init(arena, testing.io, dir, diag);
+    const db = try arena.create(database.Database);
+    db.* = try database.load(&ev, mk);
+    return build(arena, testing.io, dir, db, goals, diag);
+}
+
+fn testNames(arena: std.mem.Allocator, g: Graph) ![]const u8 {
+    var out: std.ArrayList(u8) = .empty;
+    for (g.order) |id| try fns.appendWord(arena, &out, g.nodes[id].name);
+    return out.items;
+}
+
+test "topological order with a diamond" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    const a = arena.allocator();
+    const src = ".PHONY: a b c d\na: b c\nb: d\nc: d\nd:\n";
+    const g = try buildTest(a, Io.Dir.cwd(), src, .legacy, &.{}, &diag);
+    try testing.expectEqualStrings("d b c a", try testNames(a, g));
+    try testing.expectEqual(@as(usize, 2), g.nodes[g.goals[0]].deps.len);
+}
+
+test "cycle error shows the path with lines" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    try testing.expectError(error.Graph, buildTest(arena.allocator(), Io.Dir.cwd(), "a: b\n\techo a\nb: a\n\techo b\n", .legacy, &.{}, &diag));
+    try testing.expectEqualStrings("*** Circular dependency: a (Makefile:1) -> b (Makefile:3) -> a.  Stop.", diag.message());
+    try testing.expectError(error.Graph, buildTest(arena.allocator(), Io.Dir.cwd(), "x: x\n", .legacy, &.{}, &diag));
+}
+
+test "missing prerequisite and missing goal" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    const a = arena.allocator();
+    try testing.expectError(error.Graph, buildTest(a, Io.Dir.cwd(), "app: nope.c\n\tcc\n", .legacy, &.{}, &diag));
+    try testing.expectEqualStrings("*** No rule to make target 'nope.c', needed by 'app'.  Stop.", diag.message());
+    try testing.expectError(error.Graph, buildTest(a, Io.Dir.cwd(), "app:\n", .legacy, &.{"other"}, &diag));
+    try testing.expectEqualStrings("*** No rule to make target 'other'.  Stop.", diag.message());
+    try testing.expectError(error.Graph, buildTest(a, Io.Dir.cwd(), "X = 1\n", .legacy, &.{}, &diag));
+    try testing.expectEqualStrings("*** No targets.  Stop.", diag.message());
+}
+
+test "pattern rules: stem, explicit prerequisites and shortest stem" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    const a = arena.allocator();
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+    for ([_][]const u8{ "main.c", "util.c", "main.h", "src/lib/x.c" }) |f| {
+        try tmp.dir.createDirPath(testing.io, std.fs.path.dirname(f) orelse ".");
+        try tmp.dir.writeFile(testing.io, .{ .sub_path = f, .data = "" });
+    }
+    const src = "app: main.o util.o src/lib/x.o\n\tcc -o $@ $^\nmain.o: main.h\n%.o: %.c\n\tcc -c $<\nsrc/%.o: src/%.c\n\tcc -c $< # src\n";
+    const g = try buildTest(a, tmp.dir, src, .legacy, &.{}, &diag);
+    try testing.expectEqualStrings("main.c main.h main.o util.c util.o src/lib/x.c src/lib/x.o app", try testNames(a, g));
+    const app = g.nodes[g.goals[0]];
+    const main_o = g.nodes[app.deps[0]];
+    try testing.expectEqualStrings("main.o", main_o.name);
+    try testing.expectEqualStrings("main.c", main_o.prerequisites[0]);
+    try testing.expectEqualStrings("main.h", main_o.prerequisites[1]);
+    try testing.expectEqualStrings("main", main_o.stem);
+    const x_o = g.nodes[app.deps[2]];
+    try testing.expectEqualStrings("lib/x", x_o.stem);
+    try testing.expectEqual(@as(u32, 6), x_o.line);
+}
+
+test "modern mode classifies graph nodes" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    const a = arena.allocator();
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.createDirPath(testing.io, "build");
+    const src = "build:\n    echo b\n@deploy: build app\n    echo d\napp:\n    cc -o $@\n";
+    const g = try buildTest(a, tmp.dir, src, .modern, &.{"deploy"}, &diag);
+    try testing.expectEqualStrings("build app deploy", try testNames(a, g));
+    try testing.expectEqual(ast.TargetKind.inferred_phony, g.nodes[g.order[0]].kind);
+    try testing.expectEqual(ast.TargetKind.file, g.nodes[g.order[1]].kind);
+    try testing.expectEqual(ast.TargetKind.explicit_phony, g.nodes[g.order[2]].kind);
+}
+
+test "overriding recipe warnings and merged prerequisites" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    const a = arena.allocator();
+    const src = ".PHONY: a b c\na: b\n\techo 1\na: c\n\techo 2\nb:\nc:\n";
+    const g = try buildTest(a, Io.Dir.cwd(), src, .legacy, &.{}, &diag);
+    try testing.expectEqual(@as(usize, 2), g.warnings.len);
+    try testing.expectEqualStrings("Makefile:5: warning: overriding recipe for target 'a'", g.warnings[0]);
+    try testing.expectEqualStrings("Makefile:3: warning: ignoring old recipe for target 'a'", g.warnings[1]);
+    const node = g.nodes[g.goals[0]];
+    try testing.expectEqual(@as(usize, 2), node.prerequisites.len);
+    try testing.expectEqualStrings("echo 2", node.recipes[0].text);
+}

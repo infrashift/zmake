@@ -62,6 +62,18 @@ A name with no rule (a prerequisite only) is always `file`. The `$@` scan reads 
 
 Any other special target is an error. An old-style suffix rule such as `.c.o:` is an error.
 
+## Goal resolution
+zmake resolves each target in this order:
+1. Use the explicit rules for the target. Merge their prerequisites. The last recipe wins, with the GNU warnings.
+2. For an explicit rule without a recipe, take the recipe from a pattern rule. Its prerequisites come first, so `$<` is the pattern source.
+3. Otherwise, use the viable pattern rule with the shortest stem. The first rule in the file wins a tie.
+4. Otherwise, use an existing file or a `.PHONY` name with no recipe.
+5. Otherwise, stop with `No rule to make target`.
+
+A pattern prerequisite is viable when it exists, has an explicit rule or is phony. zmake also accepts one level of chaining: a second pattern rule can make it from such files. A pattern without `/` matches the file part of a name, and the directory joins the stem.
+
+**Cycles:** a circular dependency stops zmake with the path and a line for each rule. GNU Make drops the circular edge with a warning and continues. zmake does not continue, because the plan requires an error.
+
 ## Collision guard
 When an `inferred_phony` target has the same name as a file or directory, zmake runs the recipe. It also prints this warning:
 

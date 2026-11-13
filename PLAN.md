@@ -43,9 +43,9 @@ Tracking: [ISSUE-003](.okfw/issues/issue-003-two-phase-variable-evaluator-and-ta
 
 ## Phase 4 — Dependency graph and cycle detection
 Tracking: [ISSUE-004](.okfw/issues/issue-004-dependency-graph-pattern-rules-and-cycle-detection--01a1d30ae6a0.md)
-- [ ] `src/dag.zig`: goal resolution through explicit rules, pattern rules and files
-- [ ] Three-color DFS on an explicit stack; the cycle error shows `file:line` for each rule
-- [ ] Topological order for the executor
+- [x] `src/dag.zig`: goal resolution through explicit rules, pattern rules and files
+- [x] Three-color DFS on an explicit stack; the cycle error shows `file:line` for each rule
+- [x] Topological order for the executor
 
 ## Phase 5 — Parallel executor and jobserver
 Tracking: [ISSUE-005](.okfw/issues/issue-005-parallel-executor-and-gnu-make-jobserver--01a1d30ae6a7.md)

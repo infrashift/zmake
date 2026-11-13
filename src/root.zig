@@ -8,6 +8,7 @@ pub const parser = @import("parser.zig");
 pub const functions = @import("functions.zig");
 pub const eval = @import("eval.zig");
 pub const database = @import("database.zig");
+pub const dag = @import("dag.zig");
 pub const Diagnostic = diag.Diagnostic;
 
 test {
