@@ -26,7 +26,6 @@ Makefile:12: *** unsupported function 'guile'.  Stop.
 |---|---|---|
 | `unsupported directive 'load'` | `load` | zmake cannot load shared objects. Use `$(shell ...)` or a script. |
 | `$(eval ...) in a recipe is not supported` | `$(eval ...)` in a recipe | Move the eval to a line of its own, outside the recipe. |
-| An empty command | A built-in variable such as `$(CC)` | Set `CC := cc` in the input file. |
 | `zmake does not remake included files` | A rule makes an included file | Make the file in an earlier step, or use `-include`. |
 
 zmake also rejects shell assignments (`X != cmd`).

@@ -8,6 +8,7 @@ pub const parser = @import("parser.zig");
 pub const functions = @import("functions.zig");
 pub const textfns = @import("textfns.zig");
 pub const builtins = @import("builtins.zig");
+pub const builtin_rules = @import("builtin_rules.zig");
 pub const eval = @import("eval.zig");
 pub const database = @import("database.zig");
 pub const reader = @import("reader.zig");

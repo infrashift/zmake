@@ -45,6 +45,8 @@ zmake [options] [VAR=value ...] [target ...]
   -C DIR      Change to DIR before reading the input file.
   -j N        Run up to N jobs at the same time.
   -n          Print the recipe lines. Do not run them.
+  -r          Do not use the built-in implicit rules.
+  -R          Do not define the built-in variables. Implies -r.
   --modern    Use modern mode for any input file.
   --legacy    Use legacy mode for any input file.
 ```
@@ -57,6 +59,7 @@ zmake supports these GNU Make features:
 - The assignments `=`, `:=`, `::=`, `?=` and `+=`, and command-line overrides
 - Explicit rules, pattern rules, double-colon rules, order-only prerequisites and inline `; recipe` text
 - Target-specific and pattern-specific variables, with `override`, `export` and `private`
+- The built-in variables and implicit rules of GNU Make, suffix rules, `-r` and `-R`
 - The automatic variables `$@`, `$<`, `$^`, `$+`, `$*`, `$?` and their `D` and `F` forms
 - The GNU Make functions, for example `foreach`, `call`, `if`, `filter` and `file`, and substitution references
 - `.PHONY`, `.DEFAULT_GOAL`, `.PRECIOUS`, `.SILENT`, `.NOTPARALLEL`, `.DELETE_ON_ERROR` and `.EXPORT_ALL_VARIABLES`

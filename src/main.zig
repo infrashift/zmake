@@ -45,7 +45,7 @@ fn runChecked(init: std.process.Init) Reported!void {
         };
     }
     const mf = zmake.jobserver.parseMakeflags(arena, init.environ_map.get("MAKEFLAGS") orelse "") catch return report(io, "out of memory");
-    opts.dry_run = opts.dry_run or mf.dry_run;
+    opts.flags = opts.flags.merge(mf.flags);
     const input = try load(arena, io, opts, &diag);
     assert(input.path.len > 0);
     var ev = zmake.eval.Evaluator.init(arena, io, Io.Dir.cwd(), &diag);
@@ -77,14 +77,14 @@ fn execute(
     const js = try setupJobserver(init, opts, mf, &jobs);
     assert(jobs >= 1);
     const overrides = std.mem.concat(arena, zmake.cli.Override, &.{ mf.overrides, opts.overrides }) catch return report(io, "out of memory");
-    const env = childEnvironment(init, opts.dry_run, jobs, js, overrides) catch return report(io, "out of memory");
+    const env = childEnvironment(init, opts.flags, jobs, js, overrides) catch return report(io, "out of memory");
     var ex: zmake.executor.Executor = .{
         .arena = arena,
         .io = io,
         .graph = graph,
         .db = db,
         .ev = ev,
-        .opts = .{ .jobs = jobs, .dry_run = opts.dry_run, .env = env },
+        .opts = .{ .jobs = jobs, .dry_run = opts.flags.dry_run, .env = env },
         .js = js,
         .diag = diag,
         .shell = "/bin/sh",
@@ -120,15 +120,15 @@ fn setupJobserver(init: std.process.Init, opts: zmake.cli.Options, mf: zmake.job
 
 /// The environment of each recipe line: the zmake environment plus
 /// `MAKEFLAGS` and `MAKELEVEL`.
-fn childEnvironment(init: std.process.Init, dry_run: bool, jobs: u32, js: ?*zmake.jobserver.Jobserver, overrides: []const zmake.cli.Override) error{ OutOfMemory, Jobserver }!*std.process.Environ.Map {
+fn childEnvironment(init: std.process.Init, flags: zmake.cli.Flags, jobs: u32, js: ?*zmake.jobserver.Jobserver, overrides: []const zmake.cli.Override) error{ OutOfMemory, Jobserver }!*std.process.Environ.Map {
     assert(jobs >= 1);
     const arena = init.arena.allocator();
     const env = try arena.create(std.process.Environ.Map);
     env.* = try init.environ_map.clone(arena);
     const auth: ?[]const u8 = if (js) |j| j.auth else null;
-    const flags = try zmake.jobserver.composeMakeflags(arena, dry_run, jobs, auth, overrides);
-    if (flags.len > 0) {
-        try env.put("MAKEFLAGS", flags);
+    const text = try zmake.jobserver.composeMakeflags(arena, flags, jobs, auth, overrides);
+    if (text.len > 0) {
+        try env.put("MAKEFLAGS", text);
     } else if (env.contains("MAKEFLAGS")) {
         const removed = env.swapRemove("MAKEFLAGS");
         assert(removed);
@@ -151,6 +151,8 @@ fn evaluate(ev: *zmake.eval.Evaluator, init: std.process.Init, opts: zmake.cli.O
     const make_path = std.process.executablePathAlloc(io, init.arena.allocator()) catch return report(io, "cannot find the zmake executable path");
     assert(make_path.len > 0);
     ev.defineDefaults(make_path) catch return report(io, "out of memory");
+    if (!opts.flags.no_builtin_variables) ev.defineBuiltins() catch return report(io, "out of memory");
+    ev.builtin_rules = !opts.flags.no_builtin_rules;
     ev.importEnvironment(init.environ_map) catch return report(io, "out of memory");
     for ([_][]const zmake.cli.Override{ mf.overrides, opts.overrides }) |list| for (list) |o| {
         const value = if (o.simple) ev.expand(o.value, null) catch |err| return evalError(io, ev, err) else o.value;

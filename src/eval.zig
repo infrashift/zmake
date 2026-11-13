@@ -17,6 +17,7 @@ const ast = @import("ast.zig");
 const fns = @import("functions.zig");
 const textfns = @import("textfns.zig");
 const builtins = @import("builtins.zig");
+const builtin_rules = @import("builtin_rules.zig");
 const parser = @import("parser.zig");
 const Diagnostic = @import("diag.zig").Diagnostic;
 
@@ -213,6 +214,8 @@ pub const Evaluator = struct {
     cwd: ?[]const u8 = null,
     /// True while the reader reads the input files. `$(eval)` works only then.
     reading: bool = false,
+    /// The database adds the built-in implicit rules (not `-r`).
+    builtin_rules: bool = false,
     /// The texts of `$(eval ...)` calls. The reader reads them after the statement.
     eval_queue: std.ArrayList([]const u8) = .empty,
     /// `export NAME` (true) and `unexport NAME` (false). See `exported`.
@@ -295,6 +298,14 @@ pub const Evaluator = struct {
         try ev.define("MAKE", make_path, false, .default);
         try ev.define("SHELL", "/bin/sh", false, .default);
         assert(ev.vars.count() >= 2);
+    }
+
+    /// Define the built-in variables of GNU Make, such as `CC` and `COMPILE.c`,
+    /// with the `default` origin. `-R` leaves them out.
+    pub fn defineBuiltins(ev: *Evaluator) Error!void {
+        for (builtin_rules.variables) |v| try ev.define(v.name, v.value, true, .default);
+        assert(ev.vars.contains("CC"));
+        assert(ev.vars.count() >= builtin_rules.variables.len);
     }
 
     /// Import the environment as recursive variables, except `SHELL`.

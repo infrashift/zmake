@@ -256,7 +256,12 @@ pub const Executor = struct {
     fn runCommand(ex: *Executor, job: *const Job, cmd: Command) bool {
         assert(cmd.execute);
         const target = ex.graph.nodes[job.node].name;
-        const file = cmd.file;
+        // GNU Make writes `[<builtin>: x.o]` for a built-in rule, which has no line.
+        var loc_buf: [Diagnostic.capacity]u8 = undefined;
+        const file = if (cmd.line > 0)
+            std.fmt.bufPrint(&loc_buf, "{s}:{d}", .{ cmd.file, cmd.line }) catch cmd.file
+        else
+            cmd.file;
         const files: []const Io.File = if (ex.js) |js| js.files else &.{};
         var child = std.process.spawn(ex.io, .{
             .argv = &.{ ex.shell, "-c", cmd.text },
@@ -264,11 +269,11 @@ pub const Executor = struct {
             .inherit_files = files,
         }) catch |err| {
             ex.printf("zmake: {s}: {s}\n", .{ ex.shell, @errorName(err) });
-            ex.printf("zmake: *** [{s}:{d}: {s}] Error 127\n", .{ file, cmd.line, target });
+            ex.printf("zmake: *** [{s}: {s}] Error 127\n", .{ file, target });
             return false;
         };
         const term = child.wait(ex.io) catch {
-            ex.printf("zmake: *** [{s}:{d}: {s}] Interrupted\n", .{ file, cmd.line, target });
+            ex.printf("zmake: *** [{s}: {s}] Interrupted\n", .{ file, target });
             return false;
         };
         switch (term) {
@@ -276,9 +281,9 @@ pub const Executor = struct {
                 if (code == 0) return true;
                 const ignored: []const u8 = if (cmd.ignore_error) " (ignored)" else "";
                 const stars: []const u8 = if (cmd.ignore_error) "" else "*** ";
-                ex.printf("zmake: {s}[{s}:{d}: {s}] Error {d}{s}\n", .{ stars, file, cmd.line, target, code, ignored });
+                ex.printf("zmake: {s}[{s}: {s}] Error {d}{s}\n", .{ stars, file, target, code, ignored });
             },
-            else => ex.printf("zmake: *** [{s}:{d}: {s}] {f}\n", .{ file, cmd.line, target, term }),
+            else => ex.printf("zmake: *** [{s}: {s}] {f}\n", .{ file, target, term }),
         }
         assert(term != .exited or term.exited != 0);
         return cmd.ignore_error and term == .exited;

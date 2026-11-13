@@ -15,6 +15,8 @@ zmake [options] [VAR=value ...] [target ...]
 | `-C DIR` | Change to DIR before zmake reads the input file. |
 | `-j N`, `-jN` | Run up to N jobs at the same time. |
 | `-n` | Print the recipe lines. Do not run them. |
+| `-r` | Do not use the built-in implicit rules. |
+| `-R` | Do not define the built-in variables. Implies `-r`. |
 | `--modern` | Use modern mode for any input file. |
 | `--legacy` | Use legacy mode for any input file. |
 | `-h`, `--help` | Print the usage and exit. |
@@ -30,7 +32,7 @@ Without `-f`, zmake searches the directory in this order: `ZMakefile`,
 
 ## Environment
 
-- zmake reads `MAKEFLAGS` from a parent make: the `n` flag, `-jN`, `--jobserver-auth`, `--jobserver-fds` and `-- VAR=value` overrides.
+- zmake reads `MAKEFLAGS` from a parent make: the `n`, `r` and `R` flags, `-jN`, `--jobserver-auth`, `--jobserver-fds` and `-- VAR=value` overrides.
 - Each recipe line gets `MAKEFLAGS` with the same forms, and `MAKELEVEL` plus one.
 - A line with `+` or with `$(MAKE)` also runs under `-n`.
 - zmake ignores `SHELL` from the environment. Set `SHELL` in the input file to change the shell.

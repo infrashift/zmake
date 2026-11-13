@@ -12,6 +12,7 @@ feature outside this subset. A silent misparse is worse than an error
 | Area | Features |
 |---|---|
 | Assignments | `=`, `:=`, `::=`, `?=`, `+=`, command-line overrides |
+| Built-ins | The built-in variables and implicit rules of GNU Make 4.3, suffix rules, `.SUFFIXES` |
 | Rules | Explicit rules, pattern rules, double-colon rules, order-only prerequisites, inline `; recipe` text |
 | Target variables | Target-specific and pattern-specific variables, `override`, `export`, `private` ([Target-Specific Variables](../../guides/target-variables/)) |
 | Automatic variables | `$@`, `$<`, `$^`, `$+`, `$*`, `$?` and their `D` and `F` forms |
@@ -19,7 +20,7 @@ feature outside this subset. A silent misparse is worse than an error
 | Directives | `ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif`, `define`, `override`, `undefine` ([Conditionals](../../guides/conditionals/)), `include`, `-include`, `sinclude` ([Include Files](../../guides/include/)), `export`, `unexport` ([Export](../../guides/export/)), `vpath` ([Directory Search](../../guides/vpath/)) |
 | Variables | `MAKE`, `MAKEFLAGS`, `MAKELEVEL`, `SHELL`, `MAKEFILE_LIST`, `VPATH` |
 | Recipe prefixes | `@`, `-`, `+` |
-| Options | `-f`, `-C`, `-j`, `-n` |
+| Options | `-f`, `-C`, `-j`, `-n`, `-r`, `-R` |
 | Jobserver | `--jobserver-auth=R,W`, `--jobserver-fds=R,W`, `--jobserver-auth=fifo:PATH` |
 
 ## Special targets
@@ -33,10 +34,10 @@ feature outside this subset. A silent misparse is worse than an error
 | `.NOTPARALLEL` | zmake runs one job at a time. |
 | `.EXPORT_ALL_VARIABLES` | Each variable with a valid shell name goes to the recipe environment. |
 | `.DELETE_ON_ERROR` | Legacy mode deletes a partial file target after a failed recipe line. |
-| `.SUFFIXES`, `.INTERMEDIATE`, `.NOTINTERMEDIATE`, `.POSIX`, `.LOW_RESOLUTION_TIME` | No effect. zmake accepts them. |
+| `.SUFFIXES` | Sets the suffixes of suffix rules and built-in rules. With no names, it clears the list. |
+| `.INTERMEDIATE`, `.NOTINTERMEDIATE`, `.POSIX`, `.LOW_RESOLUTION_TIME` | No effect. zmake accepts them. |
 
-Any other special target is an error. An old-style suffix rule such as `.c.o:`
-is an error.
+Any other special target is an error.
 
 ## Not supported
 
@@ -55,7 +56,6 @@ directive.
 
 ## Known differences
 
-- **Built-in variables and rules.** zmake has no built-in implicit rules and no built-in variables such as `CC`. An undefined variable expands to an empty string.
 - **Cycles.** A circular dependency is an error. GNU Make drops the edge with a warning.
 - **Modern-mode deletion.** Modern mode deletes a partial file target by default. See [Syntax Modes](../../guides/syntax-modes/).
 - **Recursive variable errors.** The error shows the line that uses the variable. GNU Make shows the line that defines it.

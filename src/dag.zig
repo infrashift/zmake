@@ -345,8 +345,13 @@ fn searchPath(b: *Builder, name: []const u8) Error![]const u8 {
 /// make it from known files (one level of chaining).
 fn findPattern(b: *Builder, name: []const u8) Error!?Match {
     assert(name.len > 0);
+    // GNU Make first looks for a rule whose prerequisites exist or have rules.
+    // Only when none applies does it try rules that need a chain.
+    if (try findDirectPattern(b, name, null)) |m| return m;
+    const specific = specificType(b, name);
     var best: ?Match = null;
     for (b.patterns.items) |rule| {
+        if (specific and matchAnything(rule)) continue;
         const m = try matchRule(b, rule, name) orelse continue;
         if (best != null and m.stem.len >= best.?.stem.len) continue;
         if (try viableChain(b, m, rule)) best = m;
@@ -355,18 +360,49 @@ fn findPattern(b: *Builder, name: []const u8) Error!?Match {
     return best;
 }
 
-/// Like `findPattern`, but each prerequisite must be known. `skip` is the rule
-/// that asks, so a rule cannot chain to itself.
-fn findDirectPattern(b: *Builder, name: []const u8, skip: *const ast.Rule) Error!?Match {
+/// A rule with the target `%` alone, such as the built-in `%: %.o`.
+fn matchAnything(rule: *const ast.Rule) bool {
+    assert(rule.is_pattern);
+    for (rule.targets) |t| {
+        if (std.mem.eql(u8, t, "%")) return true;
+    }
+    assert(rule.targets.len > 0);
+    return false;
+}
+
+/// True when `name` has a known suffix, or when a pattern target other than
+/// `%` matches it. GNU Make does not use a match-anything rule for such a name,
+/// so `%: %.o` cannot make `main.c`.
+fn specificType(b: *const Builder, name: []const u8) bool {
     assert(name.len > 0);
+    for (b.db.suffixes) |s| {
+        if (name.len > s.len and std.mem.endsWith(u8, name, s)) return true;
+    }
+    for (b.patterns.items) |rule| {
+        for (rule.targets) |t| {
+            if (!std.mem.eql(u8, t, "%") and fns.matchPattern(t, name) != null) return true;
+        }
+    }
+    assert(b.patterns.items.len <= b.db.rules.len);
+    return false;
+}
+
+/// Like `findPattern`, but each prerequisite must be known. `skip` is the rule
+/// that asks for a prerequisite of its own, so a rule cannot chain to itself.
+/// A match-anything rule cannot make the prerequisite of another rule, and it
+/// cannot make a name of a specific type.
+fn findDirectPattern(b: *Builder, name: []const u8, skip: ?*const ast.Rule) Error!?Match {
+    assert(name.len > 0);
+    const no_match_anything = skip != null or specificType(b, name);
     var best: ?Match = null;
     for (b.patterns.items) |rule| {
-        if (rule == skip) continue;
+        if (skip != null and rule == skip.?) continue;
+        if (no_match_anything and matchAnything(rule)) continue;
         const m = try matchRule(b, rule, name) orelse continue;
         if (best != null and m.stem.len >= best.?.stem.len) continue;
         if (try allKnown(b, m.prerequisites) and try allKnown(b, m.order_only)) best = m;
     }
-    assert(best == null or best.?.rule != skip);
+    assert(best == null or skip == null or best.?.rule != skip.?);
     return best;
 }
 

@@ -24,6 +24,8 @@ description: "The zmake command line: options, input file discovery, variable ov
 | `-C DIR` | Change to DIR before zmake reads the input file. |
 | `-j N`, `-jN` | Run up to N jobs at the same time. |
 | `-n` | Print the recipe lines. Do not run them. |
+| `-r` | Add no built-in implicit rules ([ADR-0018](/decisions/adr-0018-built-in-rules-come-from-gnu-make-and-follow-the-suffix-list--01a1d38a371f.md)). |
+| `-R` | Define no built-in variables. Implies `-r`. |
 | `--modern` | Use modern mode for any input file. |
 | `--legacy` | Use legacy mode for any input file. |
 | `-h`, `--help` | Print the usage and exit. |

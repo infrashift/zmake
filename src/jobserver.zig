@@ -131,7 +131,7 @@ fn reopenNonblocking(arena: std.mem.Allocator, fd: posix.fd_t) Error!posix.fd_t 
 
 /// The settings that a parent make passes in `MAKEFLAGS`.
 pub const Makeflags = struct {
-    dry_run: bool = false,
+    flags: cli.Flags = .{},
     jobs: ?u32 = null,
     auth: ?[]const u8 = null,
     overrides: []const cli.Override = &.{},
@@ -153,7 +153,7 @@ pub fn parseMakeflags(arena: std.mem.Allocator, text: []const u8) Error!Makeflag
         } else if (std.mem.eql(u8, word, "--")) {
             after_dashes = true;
         } else if (first and word[0] != '-' and std.mem.indexOfScalar(u8, word, '=') == null) {
-            mf.dry_run = std.mem.indexOfScalar(u8, word, 'n') != null;
+            mf.flags = cli.Flags.fromLetters(word);
         } else if (std.mem.startsWith(u8, word, "--jobserver-auth=") or std.mem.startsWith(u8, word, "--jobserver-fds=")) {
             mf.auth = word[std.mem.indexOfScalar(u8, word, '=').? + 1 ..];
         } else if (std.mem.startsWith(u8, word, "-j")) {
@@ -166,10 +166,11 @@ pub fn parseMakeflags(arena: std.mem.Allocator, text: []const u8) Error!Makeflag
 }
 
 /// Build the `MAKEFLAGS` value for child processes.
-pub fn composeMakeflags(arena: std.mem.Allocator, dry_run: bool, jobs: u32, auth: ?[]const u8, overrides: []const cli.Override) Error![]const u8 {
+pub fn composeMakeflags(arena: std.mem.Allocator, flags: cli.Flags, jobs: u32, auth: ?[]const u8, overrides: []const cli.Override) Error![]const u8 {
     assert(jobs >= 1);
     var out: std.ArrayList(u8) = .empty;
-    if (dry_run) try out.append(arena, 'n');
+    var buf: [8]u8 = undefined;
+    try out.appendSlice(arena, flags.letters(&buf));
     if (jobs > 1) try out.print(arena, " -j{d}", .{jobs});
     if (auth) |a| {
         try out.print(arena, " --jobserver-auth={s}", .{a});
@@ -179,7 +180,7 @@ pub fn composeMakeflags(arena: std.mem.Allocator, dry_run: bool, jobs: u32, auth
         try out.appendSlice(arena, " --");
         for (overrides) |o| try out.print(arena, " {s}={s}", .{ o.name, o.value });
     }
-    assert(out.items.len >= @intFromBool(dry_run));
+    assert(out.items.len >= @intFromBool(flags.dry_run));
     return out.items;
 }
 
@@ -213,13 +214,13 @@ test "parse MAKEFLAGS" {
     var arena: std.heap.ArenaAllocator = .init(testing.allocator);
     defer arena.deinit();
     const mf = try parseMakeflags(arena.allocator(), "n -j4 --jobserver-auth=3,4 -- CC=clang X=1");
-    try testing.expect(mf.dry_run);
+    try testing.expect(mf.flags.dry_run);
     try testing.expectEqual(@as(?u32, 4), mf.jobs);
     try testing.expectEqualStrings("3,4", mf.auth.?);
     try testing.expectEqual(@as(usize, 2), mf.overrides.len);
     try testing.expectEqualStrings("clang", mf.overrides[0].value);
     const plain = try parseMakeflags(arena.allocator(), " --jobserver-auth=fifo:/tmp/GMfifo1 -j");
-    try testing.expect(!plain.dry_run);
+    try testing.expect(!plain.flags.dry_run);
     try testing.expectEqualStrings("fifo:/tmp/GMfifo1", plain.auth.?);
 }
 
@@ -227,7 +228,11 @@ test "compose MAKEFLAGS" {
     var arena: std.heap.ArenaAllocator = .init(testing.allocator);
     defer arena.deinit();
     const o = [_]cli.Override{.{ .name = "CC", .value = "clang", .simple = false }};
-    const got = try composeMakeflags(arena.allocator(), true, 4, "3,4", &o);
+    const got = try composeMakeflags(arena.allocator(), .{ .dry_run = true }, 4, "3,4", &o);
     try testing.expectEqualStrings("n -j4 --jobserver-auth=3,4 --jobserver-fds=3,4 -- CC=clang", got);
-    try testing.expectEqualStrings("", try composeMakeflags(arena.allocator(), false, 1, null, &.{}));
+    try testing.expectEqualStrings("", try composeMakeflags(arena.allocator(), .{}, 1, null, &.{}));
+    const no_rules = try composeMakeflags(arena.allocator(), .{ .dry_run = true, .no_builtin_rules = true, .no_builtin_variables = true }, 1, null, &.{});
+    try testing.expectEqualStrings("nrR", no_rules);
+    const back = (try parseMakeflags(arena.allocator(), no_rules)).flags;
+    try testing.expect(back.dry_run and back.no_builtin_rules and back.no_builtin_variables);
 }

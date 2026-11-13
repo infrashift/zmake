@@ -114,9 +114,9 @@ Tracking: [ISSUE-015](.okfw/issues/issue-015-double-colon-rules--01a1d34ecd4a.md
 
 ## Phase 16 — Built-in variables, implicit rules and suffix rules
 Tracking: [ISSUE-016](.okfw/issues/issue-016-built-in-variables-implicit-rules-and-suffix-rules--01a1d34ecd51.md)
-- [ ] Built-in variables and implicit rules
-- [ ] Old-style suffix rules and `.SUFFIXES`
-- [ ] `-r` and `-R`
+- [x] Built-in variables and implicit rules
+- [x] Old-style suffix rules and `.SUFFIXES`
+- [x] `-r` and `-R`
 
 ## Phase 17 — The options -k, -q, -t and -B
 Tracking: [ISSUE-017](.okfw/issues/issue-017-the-options-k-q-t-and-b--01a1d34ecd58.md)

@@ -481,5 +481,32 @@ if [ -n "$GNU_MAKE" ]; then
   expect_eq "double-colon rules match GNU Make" "$(bash probe.sh g "$GNU_MAKE" 2>&1 | sed 's/^z*make:/make:/')" "$(bash probe.sh z "$ZMAKE" 2>&1 | sed 's/^z*make:/make:/')"
 fi
 
+scenario "17. Built-in variables, implicit rules and suffix rules (Phase 16)"
+mkdir -p g z
+cat > probe.sh <<'EOS'
+cd "$1" || exit 2
+printf 'int main(void){return 0;}\n' > hello.c
+printf 'int main(void){return 0;}\n' > prog.c
+printf 'int u;\n' > util.c
+printf 'all: hello\n' > Makefile; "$2" -n
+printf 'app: prog.o util.o\n\t$(CC) -o $@ $^\n' > M2; "$2" -n -f M2
+printf '%%.o: %%.c\n\t@echo user $<\nall: util.o\n' > M3; "$2" -n -f M3
+printf '%%.o: %%.c\nall: util.o\n' > M4; "$2" -n -f M4
+"$2" -r -n -f M2; "$2" -R -n -f M2
+printf 'MAKEFLAGS += -r\napp: prog.o\n\t$(CC) -o $@ $^\n' > M5; "$2" -n -f M5
+printf '.SUFFIXES: .x .y\n.x.y:\n\t@echo convert $< to $@\n.c.o:\n\t@echo suffix-compile $<\nall: a.y util.o\n' > M6; touch a.x; "$2" -f M6
+printf '.SUFFIXES:\nall: util.o\n' > M7; "$2" -n -f M7
+printf '$(info $(origin CC) $(CC) $(origin CFLAGS) [$(CFLAGS)] $(origin COMPILE.c))\nall:;@:\n' > M8; "$2" -f M8; CC=clang "$2" -f M8
+printf 'int x = ;\n' > bad.c; printf 'all: bad.o\n' > M9; "$2" -f M9 2>&1 | grep -v 'error:\|^ *|\|^ *\^\|bad.c:'
+EOS
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "built-in rules match GNU Make" "$(bash probe.sh g "$GNU_MAKE" 2>&1 | sed 's/^z*make:/make:/')" "$(bash probe.sh z "$ZMAKE" 2>&1 | sed 's/^z*make:/make:/')"
+fi
+printf 'int main(void){return 0;}\n' > tool.c
+printf 'all: tool\n' > Makefile
+out=$("$ZMAKE" 2>&1); code=$?
+expect_eq "a C program builds with no rules in the input file" "0" "$code"
+expect_eq "the program runs" "0" "$(./tool; echo $?)"
+
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

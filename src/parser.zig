@@ -222,9 +222,10 @@ pub const Parser = struct {
     }
 };
 
-/// Split the `@`, `-` and `+` prefixes from a recipe command.
+/// Split the `@`, `-` and `+` prefixes from a recipe command. Line 0 marks a
+/// built-in rule, which has no line in an input file.
 pub fn recipeLine(text: []const u8, line: u32) ast.RecipeLine {
-    assert(line > 0);
+    assert(line <= ast.limits.read_lines_max);
     var r: ast.RecipeLine = .{ .text = text, .silent = false, .ignore_error = false, .always_run = false, .line = line };
     var i: usize = 0;
     while (i < text.len) : (i += 1) {

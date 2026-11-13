@@ -13,13 +13,62 @@ pub const Override = struct {
     simple: bool,
 };
 
+/// The flags that pass to a sub-make as letters in the first word of
+/// `MAKEFLAGS`, as in GNU Make.
+pub const Flags = struct {
+    /// `-n`: print the recipe lines, do not run them.
+    dry_run: bool = false,
+    /// `-r`: no built-in implicit rules.
+    no_builtin_rules: bool = false,
+    /// `-R`: no built-in variables. It implies `-r`.
+    no_builtin_variables: bool = false,
+
+    const table = [_]struct { u8, []const u8 }{
+        .{ 'n', "dry_run" }, .{ 'r', "no_builtin_rules" }, .{ 'R', "no_builtin_variables" },
+    };
+
+    /// Read the letters of a `MAKEFLAGS` word such as `nrR`.
+    pub fn fromLetters(word: []const u8) Flags {
+        var f: Flags = .{};
+        inline for (table) |entry| {
+            if (std.mem.indexOfScalar(u8, word, entry[0]) != null) @field(f, entry[1]) = true;
+        }
+        if (f.no_builtin_variables) f.no_builtin_rules = true;
+        assert(!f.no_builtin_variables or f.no_builtin_rules);
+        return f;
+    }
+
+    /// Write the letters of the set flags into `buf`. Return the used part.
+    pub fn letters(f: Flags, buf: []u8) []const u8 {
+        assert(buf.len >= table.len);
+        var n: usize = 0;
+        inline for (table) |entry| {
+            if (@field(f, entry[1])) {
+                buf[n] = entry[0];
+                n += 1;
+            }
+        }
+        assert(n <= table.len);
+        return buf[0..n];
+    }
+
+    /// Each flag that `a` or `b` sets.
+    pub fn merge(a: Flags, b: Flags) Flags {
+        var f: Flags = .{};
+        inline for (table) |entry| @field(f, entry[1]) = @field(a, entry[1]) or @field(b, entry[1]);
+        assert(!a.dry_run or f.dry_run);
+        assert(!b.dry_run or f.dry_run);
+        return f;
+    }
+};
+
 pub const Options = struct {
     file: ?[]const u8 = null,
     directory: ?[]const u8 = null,
     jobs: u32 = 1,
     /// True when the command line gives `-j`.
     jobs_given: bool = false,
-    dry_run: bool = false,
+    flags: Flags = .{},
     mode: ?ast.SyntaxMode = null,
     help: bool = false,
     overrides: []const Override = &.{},
@@ -36,6 +85,8 @@ pub const usage =
     \\  -C DIR        Change to DIR before reading the input file.
     \\  -j N          Run up to N jobs at the same time.
     \\  -n            Print the recipe lines. Do not run them.
+    \\  -r            Do not use the built-in implicit rules.
+    \\  -R            Do not define the built-in variables. Implies -r.
     \\  --modern      Use modern mode (ZMakefile syntax) for any input file.
     \\  --legacy      Use legacy mode (strict Make syntax) for any input file.
     \\  -h, --help    Print this help.
@@ -99,7 +150,12 @@ fn parseOption(opts: *Options, rest: []const []const u8, diag: *Diagnostic) Pars
     if (eqlAny(arg, &.{ "-h", "--help" })) {
         opts.help = true;
     } else if (eqlAny(arg, &.{ "-n", "--dry-run", "--just-print" })) {
-        opts.dry_run = true;
+        opts.flags.dry_run = true;
+    } else if (eqlAny(arg, &.{ "-r", "--no-builtin-rules" })) {
+        opts.flags.no_builtin_rules = true;
+    } else if (eqlAny(arg, &.{ "-R", "--no-builtin-variables" })) {
+        opts.flags.no_builtin_variables = true;
+        opts.flags.no_builtin_rules = true;
     } else if (std.mem.eql(u8, arg, "--modern")) {
         opts.mode = .modern;
     } else if (std.mem.eql(u8, arg, "--legacy")) {
@@ -260,7 +316,7 @@ test "parse options" {
     try testing.expectEqualStrings("x.mk", o.file.?);
     try testing.expectEqualStrings("dir", o.directory.?);
     try testing.expectEqual(@as(u32, 4), o.jobs);
-    try testing.expect(o.dry_run);
+    try testing.expect(o.flags.dry_run);
     try testing.expectEqual(ast.SyntaxMode.modern, o.mode.?);
 }
 

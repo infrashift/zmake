@@ -135,3 +135,11 @@ The graph node of a `::` target keeps each rule as an instance with its own
 prerequisites and recipe. The executor decides each instance on its own and
 runs the due ones in file order, in one job. Since this phase, zmake prints the
 "is up to date" message of a goal when the goal is done, as GNU Make does.
+
+### ADR-0018: Built-in rules come from GNU Make and follow the suffix list
+
+A script generates the built-in variables and rules from `make -p` of GNU Make
+4.3. The rules come after the rules of the input file and need their suffixes
+in `.SUFFIXES`. The pattern search tries rules without a chain first. A rule
+with the target `%` alone does not make a file of a specific type. See
+[Pattern Rules](../../guides/pattern-rules/#built-in-rules).

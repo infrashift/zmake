@@ -22,10 +22,8 @@ A command-line variable overrides the input file and the environment:
 zmake CFLAGS=-g
 ```
 
-:::note[No built-in variables]
-GNU Make defines `CC`, `CXX`, `RM` and other built-in variables. zmake defines
-only `MAKE`. Set `CC := cc` in the input file, or give `CC=cc` on the command line.
-:::
+zmake defines the built-in variables of GNU Make, such as `CC`, `CXX`, `RM`,
+`COMPILE.c` and `LINK.o`. Their origin is `default`. `-R` leaves them out.
 
 ## Automatic variables
 
@@ -93,6 +91,37 @@ A pattern rule can have order-only prerequisites, for example
 make the object out of date. The order-only prerequisites must also exist or
 have a rule. Otherwise the pattern rule does not apply.
 :::
+
+## Built-in rules
+
+zmake has the built-in implicit rules of GNU Make 4.3, for example
+`%.o: %.c`, `%.o: %.cpp`, `%: %.o` and `%.c: %.y`. With only this line in the
+input file, `zmake` compiles and links `tool.c`:
+
+```make
+all: tool
+```
+
+```text
+cc     tool.c   -o tool
+```
+
+- The rules of the input file come first. A rule with the same target and prerequisite replaces a built-in rule. Without a recipe, it cancels the built-in rule.
+- `-r`, or `MAKEFLAGS += -r` in the input file, turns the built-in rules off.
+- Each built-in rule needs its suffixes in `.SUFFIXES`. `.SUFFIXES:` with no names turns them off.
+- zmake first tries rules whose prerequisites exist or have rules. Only then does it try a chain of two rules.
+- A rule with the target `%` alone does not make a file with a known suffix, such as `main.c`.
+
+## Suffix rules
+
+An old-style suffix rule becomes a pattern rule when `.SUFFIXES` has its
+suffixes: `.c.o:` is `%.o: %.c`, and `.c:` is `%: %.c`.
+
+```make
+.SUFFIXES: .md .html
+.md.html:
+	pandoc $< -o $@
+```
 
 ## Double-colon rules
 
