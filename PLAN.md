@@ -131,14 +131,18 @@ Tracking: [ISSUE-018](.okfw/issues/issue-018-quoted-values-in-makeflags--01a1d34
 Tracking: [ISSUE-019](.okfw/issues/issue-019-jobserver-on-macos-and-the-bsds--01a1d34ecd67.md)
 - [x] Portable token reads and pipe creation; cross-compile checks
 
+## Phase 20 — Static pattern rules
+Tracking: [ISSUE-020](.okfw/issues/issue-020-static-pattern-rules--01a1d399e029.md) · [ADR-0022](.okfw/decisions/adr-0022-a-static-pattern-rule-gives-one-explicit-rule-per-target--01a1d4cdf854.md)
+- [x] One explicit rule per target, with the stem in `$*`; GNU Make warning and errors
+- [x] `$|` gives the order-only prerequisites
+
 ## Acceptance scenarios
 1. **The `build/` directory (modern mode).** Create `./build` and a `ZMakefile` with a `build:` rule. `zmake build` runs the recipe.
 2. **Explicit task (modern mode).** Declare `@deploy: build` with 4-space indentation. `zmake deploy` runs `build`, then `deploy`.
 3. **Strict legacy compatibility.** A `Makefile` with `.PHONY: clean`, `CC := gcc`, `%.o: %.c`, `$@` and `$<` compiles only dirty objects.
 
 ## Follow-ups
-Phases 8 to 19 cover the earlier follow-ups. Open:
-- [ISSUE-020](.okfw/issues/issue-020-static-pattern-rules--01a1d399e029.md): static pattern rules (`objs: %.o: %.c`)
+Phases 8 to 20 cover the earlier follow-ups. Open:
 - Test runs on FreeBSD, and the acceptance suite on macOS (CI runs the unit tests on macOS since [ADR-0021](.okfw/decisions/adr-0021-ci-runs-every-gate-on-linux-and-the-unit-tests-on-macos--01a1d3a9a48c.md))
 
 Outside the scope:

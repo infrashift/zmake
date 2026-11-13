@@ -31,6 +31,8 @@ pub const Auto = struct {
     stem: []const u8,
     /// The prerequisites newer than the target (`$?`).
     newer: []const []const u8,
+    /// The order-only prerequisites (`$|`).
+    order_only: []const []const u8 = &.{},
 };
 
 pub const VarTable = std.StringHashMapUnmanaged(ast.Variable);
@@ -739,8 +741,8 @@ pub const Evaluator = struct {
     /// Return the value of an automatic variable, or null when `name` is not one.
     pub fn autoValue(ev: *Evaluator, name: []const u8, auto: ?*const Auto) Error!?[]const u8 {
         assert(name.len > 0);
-        if (name.len > 2 or std.mem.indexOfScalar(u8, "@<^+*?", name[0]) == null) return null;
-        if (name.len == 2 and name[1] != 'D' and name[1] != 'F') return null;
+        if (name.len > 2 or std.mem.indexOfScalar(u8, "@<^+*?|", name[0]) == null) return null;
+        if (name.len == 2 and ((name[1] != 'D' and name[1] != 'F') or name[0] == '|')) return null;
         const a = auto orelse return "";
         const raw: []const u8 = switch (name[0]) {
             '@' => a.target,
@@ -749,6 +751,7 @@ pub const Evaluator = struct {
             '+' => try joinWords(ev.arena, a.prerequisites, false),
             '*' => a.stem,
             '?' => try joinWords(ev.arena, a.newer, true),
+            '|' => try joinWords(ev.arena, a.order_only, true),
             else => unreachable,
         };
         if (name.len == 1) return raw;
@@ -939,9 +942,10 @@ test "automatic variables" {
         .prerequisites = &.{ "src/a.o", "b.o", "src/a.o" },
         .stem = "app",
         .newer = &.{"b.o"},
+        .order_only = &.{ "dir", "log", "dir" },
     };
-    const got = try ev.expand("$@ $< [$^] [$+] $* $? $(@D) $(@F) ${<D}", &auto);
-    try testing.expectEqualStrings("out/app src/a.o [src/a.o b.o] [src/a.o b.o src/a.o] app b.o out app src", got);
+    const got = try ev.expand("$@ $< [$^] [$+] $* $? $(@D) $(@F) ${<D} [$|]", &auto);
+    try testing.expectEqualStrings("out/app src/a.o [src/a.o b.o] [src/a.o b.o src/a.o] app b.o out app src [dir log]", got);
     try testing.expectEqualStrings(" ", try ev.expand("$@ $<", null));
 }
 

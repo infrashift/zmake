@@ -135,6 +135,9 @@ pub const RuleDecl = struct {
     file: []const u8 = "",
     /// `target:: prerequisites`: an independent rule for the target.
     double_colon: bool = false,
+    /// `targets: target-pattern: prerequisite-patterns`: the unexpanded target
+    /// pattern of a static pattern rule, else null.
+    target_pattern: ?[]const u8 = null,
 };
 
 /// A line with no separator, for example `$(info text)`. The loader expands it.
@@ -179,6 +182,8 @@ pub const Rule = struct {
     source_line: u32,
     file: []const u8 = "",
     double_colon: bool = false,
+    /// The stem of the target of a static pattern rule (`$*`), else null.
+    stem: ?[]const u8 = null,
 };
 
 /// True when `name` contains a `%` stem marker.

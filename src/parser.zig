@@ -136,11 +136,11 @@ pub const Parser = struct {
             const inline_recipe = std.mem.trimStart(u8, rhs[semi + 1 ..], " \t");
             if (inline_recipe.len > 0) try p.recipes.append(p.arena, recipeLine(inline_recipe, line));
         }
-        if (findTopLevel(prereq_text, ":") != null) {
-            // `objs: %.o: %.c` is a static pattern rule. Read as plain
-            // prerequisites, it gives a wrong rule, so stop (ADR-0005).
-            p.recipes.clearRetainingCapacity();
-            return p.fail(line, "static pattern rules are not supported", .{});
+        var target_pattern: ?[]const u8 = null;
+        if (findTopLevel(prereq_text, ":")) |colon| {
+            // `objs: %.o: %.c` is a static pattern rule (ADR-0022).
+            target_pattern = std.mem.trim(u8, prereq_text[0..colon], " \t");
+            prereq_text = prereq_text[colon + 1 ..];
         }
         var normal = prereq_text;
         var order_only: []const u8 = "";
@@ -158,6 +158,7 @@ pub const Parser = struct {
             .line = line,
             .file = p.filename,
             .double_colon = double_colon,
+            .target_pattern = target_pattern,
         };
         assert(p.open_rule.?.targets.len > 0);
     }
@@ -381,8 +382,22 @@ test "errors carry file and line" {
     try testing.expectError(error.Syntax, parse(a, "hello\n", "Makefile", .legacy, &diag));
     try testing.expectEqualStrings("Makefile:1: *** missing separator.  Stop.", diag.message());
     try testing.expectError(error.Syntax, parse(a, "X != ls\n", "Makefile", .legacy, &diag));
-    try testing.expectError(error.Syntax, parse(a, "a.o b.o: %.o: %.c\n", "Makefile", .legacy, &diag));
-    try testing.expectEqualStrings("Makefile:1: *** static pattern rules are not supported.  Stop.", diag.message());
+}
+
+test "static pattern rules keep the target pattern" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    const src = "$(OBJS): %.o: %.c x.h | dir ; cc -c $<\nb.o:: %.o : %.c\nplain: x\n";
+    const mk = try parseTest(arena.allocator(), src, .legacy);
+    const r = mk.statements[0].rule;
+    try testing.expectEqualStrings("$(OBJS)", r.targets);
+    try testing.expectEqualStrings("%.o", r.target_pattern.?);
+    try testing.expectEqualStrings("%.c x.h", r.prerequisites);
+    try testing.expectEqualStrings("dir", r.order_only);
+    try testing.expectEqualStrings("cc -c $<", r.recipes[0].text);
+    try testing.expect(mk.statements[1].rule.double_colon);
+    try testing.expectEqualStrings("%.o", mk.statements[1].rule.target_pattern.?);
+    try testing.expect(mk.statements[2].rule.target_pattern == null);
 }
 
 test "target-specific variables" {

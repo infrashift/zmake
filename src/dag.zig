@@ -20,6 +20,9 @@ pub const Instance = struct {
     recipes: []const ast.RecipeLine,
     line: u32,
     file: []const u8,
+    /// The stem of a static pattern rule (`$*`), else empty.
+    stem: []const u8 = "",
+    order_only: []const []const u8 = &.{},
 };
 
 pub const Node = struct {
@@ -74,6 +77,8 @@ const Explicit = struct {
     /// True after a `::` rule, false after a `:` rule, null before either.
     double_colon: ?bool = null,
     instances: std.ArrayList(Instance) = .empty,
+    /// The stem from a static pattern rule of the target, else null.
+    stem: ?[]const u8 = null,
 };
 
 const Match = struct {
@@ -163,8 +168,9 @@ fn indexRules(b: *Builder) Error!void {
             try e.prerequisites.appendSlice(b.arena, rule.prerequisites);
             try e.order_only.appendSlice(b.arena, rule.order_only);
             e.task = e.task or rule.task;
+            if (rule.stem) |s| e.stem = s;
             if (rule.double_colon) {
-                try e.instances.append(b.arena, .{ .prerequisites = rule.prerequisites, .recipes = rule.recipes, .line = rule.source_line, .file = rule.file });
+                try e.instances.append(b.arena, .{ .prerequisites = rule.prerequisites, .recipes = rule.recipes, .line = rule.source_line, .file = rule.file, .stem = rule.stem orelse "", .order_only = rule.order_only });
                 continue;
             }
             if (rule.has_recipe) {
@@ -245,7 +251,7 @@ fn explicitNode(b: *Builder, name: []const u8, e: *const Explicit, match: ?Match
     assert(name.len > 0);
     var prereqs: []const []const u8 = e.prerequisites.items;
     var recipes: []const ast.RecipeLine = if (e.recipe) |r| r.recipes else &.{};
-    var stem: []const u8 = "";
+    var stem: []const u8 = e.stem orelse "";
     var order_only: []const []const u8 = e.order_only.items;
     var line = if (e.recipe) |r| r.source_line else e.line;
     var file = if (e.recipe) |r| r.file else e.file;
@@ -417,20 +423,12 @@ fn matchRule(b: *Builder, rule: *const ast.Rule, name: []const u8) Error!?Match 
         if (subject.len == 0) continue;
         const part = fns.matchPattern(pattern, subject) orelse continue;
         const stem = if (use_dir) try std.mem.concat(b.arena, u8, &.{ name[0 .. slash.? + 1], part }) else part;
-        const prereqs = try applyStemAll(b, rule.prerequisites, stem);
-        const order_only = try applyStemAll(b, rule.order_only, stem);
+        const prereqs = try fns.applyStemAll(b.arena, rule.prerequisites, stem);
+        const order_only = try fns.applyStemAll(b.arena, rule.order_only, stem);
         assert(prereqs.len == rule.prerequisites.len);
         return .{ .rule = rule, .stem = stem, .prerequisites = prereqs, .order_only = order_only };
     }
     return null;
-}
-
-fn applyStemAll(b: *Builder, names: []const []const u8, stem: []const u8) Error![]const []const u8 {
-    const out = try b.arena.alloc([]const u8, names.len);
-    for (names, out) |p, *slot| slot.* = try fns.applyStem(b.arena, p, stem);
-    assert(out.len == names.len);
-    assert(out.len == 0 or out[0].len > 0);
-    return out;
 }
 
 /// True when each prerequisite of `m`, normal and order-only, is known or can

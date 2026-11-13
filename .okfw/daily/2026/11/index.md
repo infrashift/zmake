@@ -5,4 +5,5 @@
 ## Concepts
 
 * [2026-11-12 Thursday](2026-11-12-thursday--01a1d30f54cc.md)
+* [2026-11-13 Friday](2026-11-13-friday--01a1d2343800.md)
 

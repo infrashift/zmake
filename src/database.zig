@@ -288,6 +288,7 @@ fn addRule(ev: *eval.Evaluator, b: *Builder, r: ast.RuleDecl) Error!void {
     assert(r.targets.len > 0);
     const targets = try fns.splitWords(ev.arena, try ev.expand(r.targets, null));
     if (targets.len == 0) return;
+    if (r.target_pattern) |tp| return addStaticRule(ev, b, r, targets, tp);
     const prereqs = try fns.splitWords(ev.arena, try ev.expand(r.prerequisites, null));
     const order_only = try fns.splitWords(ev.arena, try ev.expand(r.order_only, null));
     if (targets.len == 1 and prereqs.len == 0 and order_only.len == 0 and suffixCandidate(targets[0])) {
@@ -330,11 +331,70 @@ fn addRule(ev: *eval.Evaluator, b: *Builder, r: ast.RuleDecl) Error!void {
         .file = r.file,
         .double_colon = r.double_colon,
     });
-    if (b.db.default_goal == null and !is_pattern) {
-        const first = targets[0];
-        if (first[0] != '.' or std.mem.indexOfScalar(u8, first, '/') != null) b.db.default_goal = first;
-    }
+    if (!is_pattern) noteDefaultGoal(b, targets[0]);
     assert(b.rules.items.len > 0);
+}
+
+/// The first target that does not start with `.` is the default goal.
+fn noteDefaultGoal(b: *Builder, first: []const u8) void {
+    assert(first.len > 0);
+    if (b.db.default_goal != null) return;
+    if (first[0] != '.' or std.mem.indexOfScalar(u8, first, '/') != null) b.db.default_goal = first;
+    assert(b.db.default_goal == null or b.db.default_goal.?.len > 0);
+}
+
+/// `targets: target-pattern: prerequisite-patterns` gives one explicit rule
+/// per target. The stem replaces `%` in each prerequisite (ADR-0022).
+fn addStaticRule(ev: *eval.Evaluator, b: *Builder, r: ast.RuleDecl, targets: []const []const u8, pattern_text: []const u8) Error!void {
+    assert(targets.len > 0);
+    const patterns = try fns.splitWords(ev.arena, try ev.expand(pattern_text, null));
+    if (patterns.len == 0) return ev.fail("missing target pattern", .{});
+    if (patterns.len > 1) return ev.fail("multiple target patterns", .{});
+    if (!ast.isPattern(patterns[0])) return ev.fail("target pattern contains no '%'", .{});
+    const prereqs = try fns.splitWords(ev.arena, try ev.expand(r.prerequisites, null));
+    const order_only = try fns.splitWords(ev.arena, try ev.expand(r.order_only, null));
+    const before = b.rules.items.len;
+    for (targets, 0..) |t, i| {
+        var rule = staticRule(r, targets[i .. i + 1], t);
+        if (fns.matchPattern(patterns[0], t)) |stem| {
+            rule.stem = stem;
+            rule.prerequisites = try fns.applyStemAll(ev.arena, prereqs, stem);
+            rule.order_only = try fns.applyStemAll(ev.arena, order_only, stem);
+        } else {
+            // GNU Make warns, keeps the target and drops its prerequisites.
+            try warnNoMatch(ev, t);
+        }
+        try b.rules.append(ev.arena, rule);
+    }
+    noteDefaultGoal(b, targets[0]);
+    assert(b.rules.items.len == before + targets.len);
+}
+
+/// The rule for one target of a static pattern rule, without prerequisites.
+/// The stem is the target name until the pattern matches.
+fn staticRule(r: ast.RuleDecl, target: []const []const u8, name: []const u8) ast.Rule {
+    assert(target.len == 1 and target[0].ptr == name.ptr);
+    assert(r.target_pattern != null);
+    return .{
+        .targets = target,
+        .prerequisites = &.{},
+        .order_only = &.{},
+        .recipes = r.recipes,
+        .has_recipe = r.has_recipe,
+        .task = r.task,
+        .is_pattern = false,
+        .source_line = r.line,
+        .file = r.file,
+        .double_colon = r.double_colon,
+        .stem = name,
+    };
+}
+
+fn warnNoMatch(ev: *eval.Evaluator, target: []const u8) Error!void {
+    assert(target.len > 0 and ev.line > 0);
+    const msg = try std.fmt.allocPrint(ev.arena, "{s}:{d}: target '{s}' doesn't match the target pattern\n", .{ ev.filename, ev.line, target });
+    assert(msg.len > target.len);
+    std.Io.File.stderr().writeStreamingAll(ev.io, msg) catch return ev.fail("cannot write to stderr", .{});
 }
 
 fn addSpecial(ev: *eval.Evaluator, b: *Builder, target: []const u8, prereqs: []const []const u8) Error!void {
@@ -549,6 +609,37 @@ test "unsupported forms fail at load" {
     try testing.expect(!suffix.rules[1].is_pattern);
     try testing.expectError(error.Eval, loadTest(a, ".ONESHELL:\n", .legacy, &diag));
     try testing.expectError(error.Eval, loadTest(a, ".PHONY all:\n", .legacy, &diag));
+}
+
+test "static pattern rules give one rule per target" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    const a = arena.allocator();
+    const src = "OBJS = a.o lib/b.o\n$(OBJS): %.o: %.c x.h | %.d\n\tcc -c $<\n";
+    const db = try loadTest(a, src, .legacy, &diag);
+    try testing.expectEqual(@as(usize, 2), db.rules.len);
+    try testing.expectEqualStrings("a.o", db.default_goal.?);
+    const b = db.rules[1];
+    try testing.expectEqualStrings("lib/b.o", b.targets[0]);
+    try testing.expectEqualStrings("lib/b", b.stem.?);
+    try testing.expectEqualStrings("lib/b.c", b.prerequisites[0]);
+    try testing.expectEqualStrings("x.h", b.prerequisites[1]);
+    try testing.expectEqualStrings("lib/b.d", b.order_only[0]);
+    try testing.expect(!b.is_pattern and b.has_recipe);
+}
+
+test "static pattern rule errors" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    const a = arena.allocator();
+    try testing.expectError(error.Eval, loadTest(a, "a.o: foo.o: a.c\n", .legacy, &diag));
+    try testing.expectEqualStrings("Makefile:1: *** target pattern contains no '%'.  Stop.", diag.message());
+    try testing.expectError(error.Eval, loadTest(a, "x:\na.o: %.o %.x: a.c\n", .legacy, &diag));
+    try testing.expectEqualStrings("Makefile:2: *** multiple target patterns.  Stop.", diag.message());
+    try testing.expectError(error.Eval, loadTest(a, "a.o: : a.c\n", .legacy, &diag));
+    try testing.expectEqualStrings("Makefile:1: *** missing target pattern.  Stop.", diag.message());
 }
 
 test "a line that expands to nothing is valid" {

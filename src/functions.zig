@@ -73,6 +73,15 @@ pub fn applyStem(arena: std.mem.Allocator, replacement: []const u8, stem: []cons
     return out;
 }
 
+/// Apply `stem` to each name. A name without `%` stays as it is.
+pub fn applyStemAll(arena: std.mem.Allocator, names: []const []const u8, stem: []const u8) error{OutOfMemory}![]const []const u8 {
+    const out = try arena.alloc([]const u8, names.len);
+    for (names, out) |p, *slot| slot.* = try applyStem(arena, p, stem);
+    assert(out.len == names.len);
+    assert(names.len == 0 or out[0].len + 1 >= names[0].len);
+    return out;
+}
+
 /// `$(patsubst pattern,replacement,text)`.
 pub fn patsubst(arena: std.mem.Allocator, pattern: []const u8, replacement: []const u8, text: []const u8) error{OutOfMemory}![]const u8 {
     var out: std.ArrayList(u8) = .empty;

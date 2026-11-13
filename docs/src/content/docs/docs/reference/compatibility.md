@@ -13,9 +13,9 @@ feature outside this subset. A silent misparse is worse than an error
 |---|---|
 | Assignments | `=`, `:=`, `::=`, `?=`, `+=`, command-line overrides |
 | Built-ins | The built-in variables and implicit rules of GNU Make 4.3, suffix rules, `.SUFFIXES` |
-| Rules | Explicit rules, pattern rules, double-colon rules, order-only prerequisites, inline `; recipe` text |
+| Rules | Explicit rules, pattern rules, static pattern rules, double-colon rules, order-only prerequisites, inline `; recipe` text |
 | Target variables | Target-specific and pattern-specific variables, `override`, `export`, `private` ([Target-Specific Variables](../../guides/target-variables/)) |
-| Automatic variables | `$@`, `$<`, `$^`, `$+`, `$*`, `$?` and their `D` and `F` forms |
+| Automatic variables | `$@`, `$<`, `$^`, `$+`, `$*`, `$?` and their `D` and `F` forms, `$\|` |
 | Functions | All GNU Make functions except `guile` ([Functions](../functions/)), substitution references |
 | Directives | `ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif`, `define`, `override`, `undefine` ([Conditionals](../../guides/conditionals/)), `include`, `-include`, `sinclude` ([Include Files](../../guides/include/)), `export`, `unexport` ([Export](../../guides/export/)), `vpath` ([Directory Search](../../guides/vpath/)) |
 | Variables | `MAKE`, `MAKEFLAGS`, `MAKELEVEL`, `SHELL`, `MAKEFILE_LIST`, `VPATH` |
@@ -50,7 +50,6 @@ These features stop the build with `file:line`:
 | `$(eval ...)` in a recipe | `$(eval ...) in a recipe is not supported` |
 | Double-colon pattern rules (`%.o:: %.c`) | `double-colon pattern rules are not supported` |
 | Shell assignments (`X != cmd`) | Parse error |
-| Static pattern rules (`objs: %.o: %.c`) | `static pattern rules are not supported` |
 
 A directive word followed by `=` or `:` is a variable or a target name, not a
 directive.
@@ -63,6 +62,7 @@ directive.
 - **Eval timing.** An eval takes effect after the statement that calls it, not inside the same expansion ([ADR-0012](../../project/decisions/#adr-0012-a-reader-evaluates-each-statement-while-it-reads)).
 - **Include files.** zmake does not remake an included file, and it does not search include directories ([Include Files](../../guides/include/)).
 - **GPATH.** zmake does not support `GPATH`.
+- **Static pattern variables.** `objs: %.o: NAME = value` stops with `invalid target-specific variable`. GNU Make reads `NAME` as a prerequisite.
 - **`-q` and `-t`.** zmake does not run recipe lines with `+` or `$(MAKE)` under `-q` and `-t`. GNU Make runs them.
 - **Intermediate files.** GNU Make deletes a file that a chain of pattern rules made. zmake keeps it.
 - **Platforms.** zmake builds for Linux, macOS and FreeBSD. CI runs all tests on Linux and the unit tests on macOS. On macOS and FreeBSD, zmake cannot join a pipe jobserver of a parent and uses `-j1`.

@@ -153,8 +153,6 @@ printf 'out:\n    echo partial > $@; exit 3\n' > ZMakefile
 out=$("$ZMAKE" 2>&1)
 expect_has "modern mode deletes a partial target by default" "zmake: *** Deleting file 'out'" "$out"
 rm -f ZMakefile
-printf 'OBJS = a.o b.o\nall: $(OBJS)\n$(OBJS): %%.o: %%.c\n\t@echo $<\n' > Makefile
-expect_eq "a static pattern rule stops with a clear message" "Makefile:3: *** static pattern rules are not supported.  Stop." "$("$ZMAKE" 2>&1)"
 printf 'load ./ext.so\nall:;@:\n' > Makefile
 expect_eq "unsupported directive" "Makefile:1: *** unsupported directive 'load'.  Stop." "$("$ZMAKE" 2>&1)"
 
@@ -566,6 +564,50 @@ if [ "$t" -ge 18 ] && [ "$t" -lt 30 ]; then pass "a recursive zmake shares the -
 unset TMPDIR
 printf 'all:;@:\n' > Makefile
 expect_has "an unknown style stops" "unknown jobserver style 'socket'" "$("$ZMAKE" -j2 --jobserver-style=socket 2>&1)"
+
+scenario "21. Static pattern rules (Phase 20)"
+mkdir -p g z
+cat > probe.sh <<'EOS'
+cd "$1" || exit 2
+mkdir -p src/lib
+for f in main util lib/str; do printf 'int x;\n' > "src/$f.c"; done
+touch config.h
+cat > Makefile <<'EOF'
+SRCS := main.c util.c lib/str.c
+OBJS := $(SRCS:%.c=build/%.o)
+app: $(OBJS)
+	@echo "link $@ from $^"
+	@touch $@
+$(OBJS): build/%.o: src/%.c config.h | build
+	@echo "cc $< -> $@ (stem $*, order-only $|)"
+	@mkdir -p $(@D) && touch $@
+build:
+	@echo "mkdir $@"
+	@mkdir -p $@
+.PHONY: clean
+clean:
+	@rm -rf build app
+EOF
+"$2" -n
+"$2"
+"$2"
+sleep 1; touch src/util.c; "$2"
+"$2" clean; "$2" -j4 | sort
+printf 'all: a.o x.y\na.o x.y: %%.o: %%.c\n\t@echo "$@ [$^] [$*]"\n' > M2; touch a.c; "$2" -f M2
+printf 'a.o b.o:: %%.o: %%.c\n\t@echo "first $@ $*"\nb.o::\n\t@echo "second $@"\n' > M3; touch b.c; "$2" -f M3 a.o b.o
+printf 'all: a.o\n%%.o: %%.c\n\t@echo "pattern recipe $@ [$^]"\na.o: %%.o: %%.c config.h\n' > M4; "$2" -f M4
+printf 'a.o: %%.o: %%.c ; @echo "inline $@ $<"\n' > M5; "$2" -f M5
+printf 'a.o: foo.o: a.c\n' > M6; "$2" -f M6
+printf 'a.o: %%.o %%.x: a.c\n' > M7; "$2" -f M7
+printf 'a.o: : a.c\n' > M8; "$2" -f M8
+EOS
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "static pattern rules match GNU Make" "$(bash probe.sh g "$GNU_MAKE" 2>&1 | sed 's/^z*make:/make:/')" "$(bash probe.sh z "$ZMAKE" 2>&1 | sed 's/^z*make:/make:/')"
+fi
+out=$(bash probe.sh z "$ZMAKE" 2>&1)
+expect_has "a static pattern rule gives the stem" "cc src/lib/str.c -> build/lib/str.o (stem lib/str, order-only build)" "$out"
+expect_has "a target outside the pattern gives a warning" "M2:2: target 'x.y' doesn't match the target pattern" "$out"
+expect_has "a target pattern without % stops" "M6:1: *** target pattern contains no '%'.  Stop." "$out"
 
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

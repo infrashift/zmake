@@ -441,7 +441,7 @@ pub const Executor = struct {
             ex.states[id].rebuilt = true;
             return null;
         }
-        const auto: eval.Auto = .{ .target = node.name, .prerequisites = try ex.pathsOf(node.prerequisites), .stem = node.stem, .newer = try ex.pathsOf(newer) };
+        const auto: eval.Auto = .{ .target = node.name, .prerequisites = try ex.pathsOf(node.prerequisites), .stem = node.stem, .newer = try ex.pathsOf(newer), .order_only = try ex.pathsOf(node.order_only) };
         const env = try ex.jobEnvironment(&auto);
         const job = try ex.arena.create(Job);
         job.* = .{ .node = id, .commands = commands, .before = before, .env = env };
@@ -518,7 +518,7 @@ pub const Executor = struct {
             if (!ex.opts.always_make and !node.kind.isPhony() and before != null and newer.len == 0 and inst.prerequisites.len > 0) continue;
             due += 1;
             if (ex.opts.question or ex.opts.touch) return ex.skipRecipe(id);
-            const auto: eval.Auto = .{ .target = node.name, .prerequisites = try ex.pathsOf(inst.prerequisites), .stem = "", .newer = try ex.pathsOf(newer) };
+            const auto: eval.Auto = .{ .target = node.name, .prerequisites = try ex.pathsOf(inst.prerequisites), .stem = inst.stem, .newer = try ex.pathsOf(newer), .order_only = try ex.pathsOf(inst.order_only) };
             try ex.appendCommands(&commands, inst.recipes, &auto, silent, inst.file);
         }
         if (due == 0) return null;
@@ -555,7 +555,7 @@ pub const Executor = struct {
         const node = ex.graph.nodes[id];
         assert(node.recipes.len > 0);
         assert(ex.states[id].pending == 0);
-        const auto: eval.Auto = .{ .target = node.name, .prerequisites = try ex.pathsOf(node.prerequisites), .stem = node.stem, .newer = try ex.pathsOf(newer) };
+        const auto: eval.Auto = .{ .target = node.name, .prerequisites = try ex.pathsOf(node.prerequisites), .stem = node.stem, .newer = try ex.pathsOf(newer), .order_only = try ex.pathsOf(node.order_only) };
         const silent_target = ex.opts.silent or ex.db.silent_all or ex.db.silent.contains(node.name);
         var commands: std.ArrayList(Command) = .empty;
         try ex.appendCommands(&commands, node.recipes, &auto, silent_target, node.file);

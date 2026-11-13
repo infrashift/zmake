@@ -166,3 +166,11 @@ A GitHub Actions workflow runs `make check` on Linux. On macOS (arm64 and
 x86_64), it runs the unit tests and a smoke test of the fifo jobserver. The
 acceptance suite compares bytes with GNU Make 4.3, which macOS does not have.
 Each download of Zig and okfw has a pinned SHA-256 sum.
+
+### ADR-0022: A static pattern rule gives one explicit rule per target
+
+At read time, `objs: %.o: %.c` becomes one explicit rule for each target. The
+stem replaces `%` in each prerequisite, and `$*` gives the stem. A target that
+the pattern does not match gives the GNU Make warning. `$|` gives the
+order-only prerequisites. See
+[Pattern Rules](../../guides/pattern-rules/#static-pattern-rules).

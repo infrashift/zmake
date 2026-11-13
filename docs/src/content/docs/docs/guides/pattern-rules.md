@@ -33,11 +33,12 @@ zmake defines the built-in variables of GNU Make, such as `CC`, `CXX`, `RM`,
 | `$<` | The first prerequisite |
 | `$^` | All prerequisites, without duplicates |
 | `$+` | All prerequisites, with duplicates |
-| `$*` | The stem of a pattern match |
+| `$*` | The stem of a pattern match or of a static pattern rule |
 | `$?` | The prerequisites that are newer than the target |
+| `$\|` | The order-only prerequisites, without duplicates |
 
-Each variable also has a `D` form (the directory part) and an `F` form (the
-file part), for example `$(@D)` and `$(<F)`.
+Each variable except `$|` also has a `D` form (the directory part) and an `F`
+form (the file part), for example `$(@D)` and `$(<F)`.
 
 ## Functions
 
@@ -91,6 +92,23 @@ A pattern rule can have order-only prerequisites, for example
 make the object out of date. The order-only prerequisites must also exist or
 have a rule. Otherwise the pattern rule does not apply.
 :::
+
+## Static pattern rules
+
+A static pattern rule applies a pattern to a fixed list of targets:
+
+```make
+OBJS := build/main.o build/util.o
+
+$(OBJS): build/%.o: src/%.c config.h | build
+	$(CC) $(CFLAGS) -c $< -o $@
+```
+
+- zmake makes one explicit rule for each target. `build/main.o` gets the prerequisites `src/main.c` and `config.h`.
+- The stem replaces the first `%` in each prerequisite, also in the order-only prerequisites. `$*` gives the stem.
+- The pattern must match the full target name. For other targets, zmake gives a warning, as GNU Make does: `target 'x' doesn't match the target pattern`.
+- A target pattern without `%`, or with more than one word, stops the build.
+- Without a recipe, the rule adds prerequisites, and a pattern rule supplies the recipe.
 
 ## Built-in rules
 
