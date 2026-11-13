@@ -104,3 +104,11 @@ keeps the name of its file for messages. A missing file stops zmake after it
 reads all input, as in GNU Make. zmake does not remake an included file. When a
 rule can make the file, zmake says so and stops. See
 [Include Files](../../guides/include/).
+
+### ADR-0014: Export flags decide the recipe environment
+
+The evaluator keeps an export flag for each name and a switch for `export`
+with no names. For each job, the executor starts from the environment of zmake,
+adds each exported variable expanded for the target, and removes each
+`unexport` name. Command-line variables and changed environment variables go
+by default, as in GNU Make. See [Export and the Environment](../../guides/export/).

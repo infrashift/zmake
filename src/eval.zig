@@ -211,6 +211,10 @@ pub const Evaluator = struct {
     reading: bool = false,
     /// The texts of `$(eval ...)` calls. The reader reads them after the statement.
     eval_queue: std.ArrayList([]const u8) = .empty,
+    /// `export NAME` (true) and `unexport NAME` (false). See `exported`.
+    export_flags: std.StringHashMapUnmanaged(bool) = .empty,
+    /// `export` with no names, or `.EXPORT_ALL_VARIABLES`.
+    export_all: bool = false,
 
     pub fn init(arena: std.mem.Allocator, io: Io, dir: Io.Dir, diag: *Diagnostic) Evaluator {
         assert(diag.len <= Diagnostic.capacity);
@@ -236,6 +240,35 @@ pub const Evaluator = struct {
         if (@backingInt(old.origin) > @backingInt(origin)) return;
         const removed = ev.vars.remove(name);
         assert(removed);
+    }
+
+    pub fn setExport(ev: *Evaluator, name: []const u8, on: bool) Error!void {
+        assert(name.len > 0);
+        try ev.export_flags.put(ev.arena, name, on);
+        assert(ev.export_flags.get(name).? == on);
+    }
+
+    /// True when a recipe gets variable `name` in its environment, as in GNU
+    /// Make: an `export` or `unexport` flag decides first. Without a flag, a
+    /// variable from the command line or the environment goes, also with a
+    /// value that the input file changed. With `export_all`, a file variable
+    /// with a valid shell name also goes. `in_env` tells whether the
+    /// environment of zmake has the name.
+    pub fn exported(ev: *const Evaluator, name: []const u8, v: ast.Variable, in_env: bool) bool {
+        assert(name.len > 0);
+        if (ev.export_flags.get(name)) |on| return on;
+        const managed = [_][]const u8{ "SHELL", "MAKEFLAGS", "MAKELEVEL", "MAKEFILE_LIST" };
+        for (managed) |m| {
+            if (std.mem.eql(u8, m, name)) return false;
+        }
+        switch (v.origin) {
+            .default, .automatic => return false,
+            .command_line => return true,
+            .environment, .file, .override => {},
+        }
+        if (in_env) return true;
+        assert(v.origin != .default);
+        return ev.export_all and isShellName(name);
     }
 
     pub fn lookup(ev: *const Evaluator, name: []const u8) ?ast.Variable {
@@ -700,6 +733,17 @@ pub const Evaluator = struct {
     }
 };
 
+/// `[A-Za-z_][A-Za-z0-9_]*`: a name that `export` with no names can export.
+fn isShellName(name: []const u8) bool {
+    assert(name.len > 0);
+    if (!std.ascii.isAlphabetic(name[0]) and name[0] != '_') return false;
+    for (name) |c| {
+        if (!std.ascii.isAlphanumeric(c) and c != '_') return false;
+    }
+    assert(name.len >= 1);
+    return true;
+}
+
 /// Join words with one space. With `dedupe`, keep the first occurrence only.
 fn joinWords(arena: std.mem.Allocator, words: []const []const u8, dedupe: bool) error{OutOfMemory}![]const u8 {
     var out: std.ArrayList(u8) = .empty;
@@ -890,6 +934,31 @@ test "evaluation errors" {
     try testing.expectEqualStrings("*** unsupported function 'guile'.  Stop.", diag.message());
     try testing.expectError(error.Eval, ev.expand("$(subst a,b)", null));
     try testing.expectError(error.Eval, ev.expand("$(A", null));
+}
+
+test "export decisions follow GNU Make" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    var ev = testEvaluator(arena.allocator(), &diag);
+    const v = struct {
+        fn of(origin: ast.Origin) ast.Variable {
+            return .{ .value = "x", .recursive = false, .origin = origin };
+        }
+    }.of;
+    try testing.expect(ev.exported("CLI", v(.command_line), false));
+    try testing.expect(ev.exported("PATH", v(.file), true));
+    try testing.expect(!ev.exported("LOCAL", v(.file), false));
+    try testing.expect(!ev.exported("SHELL", v(.file), true));
+    try testing.expect(!ev.exported("MAKE", v(.default), false));
+    ev.export_all = true;
+    try testing.expect(ev.exported("LOCAL", v(.file), false));
+    try testing.expect(!ev.exported("B.C", v(.file), false));
+    try testing.expect(!ev.exported("CC", v(.default), false));
+    try ev.setExport("LOCAL", false);
+    try testing.expect(!ev.exported("LOCAL", v(.file), false));
+    try ev.setExport("B.C", true);
+    try testing.expect(ev.exported("B.C", v(.file), false));
 }
 
 test "deep nesting fails at the depth limit" {

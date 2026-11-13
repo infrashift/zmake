@@ -16,15 +16,15 @@ zmake stops at the first feature outside its scope. The message gives the file
 and the line:
 
 ```text
-Makefile:7: *** unsupported directive 'export'.  Stop.
-Makefile:12: *** unsupported directive 'vpath'.  Stop.
+Makefile:7: *** unsupported directive 'vpath'.  Stop.
+Makefile:12: *** unsupported function 'guile'.  Stop.
 ```
 
 ## Common errors
 
 | Error | Cause | Fix |
 |---|---|---|
-| `unsupported directive 'export'` | `export`, `unexport`, `vpath` | Pass the variable on the recipe line, for example `X=$(X) ./run.sh`. |
+| `unsupported directive 'vpath'` | `vpath` | List the prerequisites with their directories. |
 | `$(eval ...) in a recipe is not supported` | `$(eval ...)` in a recipe | Move the eval to a line of its own, outside the recipe. |
 | An empty command | A built-in variable such as `$(CC)` | Set `CC := cc` in the input file. |
 | `zmake does not remake included files` | A rule makes an included file | Make the file in an earlier step, or use `-include`. |

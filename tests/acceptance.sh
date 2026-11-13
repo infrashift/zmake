@@ -354,5 +354,40 @@ expect_has "a file that includes itself stops" "nest more than 64 levels" "$("$Z
 printf 'include gen.mk\ngen.mk:\n\techo X=1 > $@\nall:;@:\n' > Makefile
 expect_has "zmake says that it does not remake included files" "zmake does not remake included files; make 'gen.mk' first" "$("$ZMAKE" 2>&1)"
 
+scenario "13. export and unexport (Phase 12)"
+cat > Makefile <<'EOF'
+FILE_ONLY = file
+export EXP1 = exported-$(FILE_ONLY)
+export EXP2 := simple
+EXP3 = later
+export EXP3
+NAMES = EXP4 EXP5
+EXP4 = four
+EXP5 = five
+export $(NAMES)
+ENV_CHANGED = changed-in-file
+unexport ENV_UNEXPORTED
+export EXP6
+EXP6 = defined-after-export
+export define EXP7
+multi
+endef
+export TARGET = $@
+all:
+	@env | grep -E '^(FILE_ONLY|EXP[0-9]|ENV_[A-Z]+|CLI_VAR|TARGET)=' | sort
+	@echo "shell: $(shell env | grep -E '^(EXP1|ENV_CHANGED)=' | sort | tr '\n' ' ')"
+EOF
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "recipe environment matches GNU Make" \
+    "$(ENV_KEEP=e ENV_CHANGED=e ENV_UNEXPORTED=e "$GNU_MAKE" CLI_VAR=cli 2>&1)" \
+    "$(ENV_KEEP=e ENV_CHANGED=e ENV_UNEXPORTED=e "$ZMAKE" CLI_VAR=cli 2>&1)"
+  printf 'A = 1\nB.C = 2\nlower = 3\nexport\nunexport A\nall:\n\t@env | grep -E "^(A|B\\.C|lower|MAKE|CC)=" | sort\n' > Makefile
+  expect_eq "export with no names matches GNU Make" "$("$GNU_MAKE" 2>&1)" "$("$ZMAKE" 2>&1)"
+  printf '.EXPORT_ALL_VARIABLES:\nX = 1\nall:\n\t@env | grep -E "^X="\n' > Makefile
+  expect_eq ".EXPORT_ALL_VARIABLES matches GNU Make" "$("$GNU_MAKE" 2>&1)" "$("$ZMAKE" 2>&1)"
+  printf 'override export X = 1\nexport override Y = 2\nall:\n\t@env | grep -E "^(X|Y)=" | sort\n' > Makefile
+  expect_eq "override export matches GNU Make" "$("$GNU_MAKE" X=cli Y=cli 2>&1)" "$("$ZMAKE" X=cli Y=cli 2>&1)"
+fi
+
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

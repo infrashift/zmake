@@ -34,6 +34,7 @@ Without `-f`, zmake searches the directory in this order: `ZMakefile`,
 - Each recipe line gets `MAKEFLAGS` with the same forms, and `MAKELEVEL` plus one.
 - A line with `+` or with `$(MAKE)` also runs under `-n`.
 - zmake ignores `SHELL` from the environment. Set `SHELL` in the input file to change the shell.
+- `export` and `unexport` change the environment of each recipe line. See [Export and the Environment](../../guides/export/).
 
 ## Recipe lines
 

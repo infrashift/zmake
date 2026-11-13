@@ -20,13 +20,14 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **9. Functions** | Text, file name, conditional, loop, variable and message functions | Done |
 | **10. Reader** | Conditionals, `define`, `override`, `undefine` and `$(eval ...)` | Done |
 | **11. Include** | `include`, `-include`, `sinclude`, `MAKEFILE_LIST`, file names in messages | Done |
+| **12. Export** | `export`, `unexport`, `.EXPORT_ALL_VARIABLES`, the recipe environment | Done |
 
 ## Follow-ups
 
 These features are outside the current scope. Each one stops the build with an
 error today:
 
-- `export` and `vpath`
+- `vpath`
 - Built-in implicit rules and built-in variables such as `CC`, suffix rules, double-colon rules and target-specific variables
 - The options `-k` (keep going), `-q`, `-t` and `-B`
 - Quoted values with spaces in `MAKEFLAGS` overrides

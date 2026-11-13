@@ -48,6 +48,8 @@ const Command = struct {
 const Job = struct {
     node: dag.NodeId,
     commands: []const Command,
+    /// The environment of each command: the base environment plus the exports.
+    env: *const std.process.Environ.Map,
     /// The modification time before the recipe ran.
     before: ?i96,
     failed: bool = false,
@@ -77,11 +79,15 @@ pub const Executor = struct {
     out_mutex: Io.Mutex = .init,
     completed: [ast.limits.jobs_max]*Job = undefined,
     completed_len: u32 = 0,
+    /// True when a command-line variable exists or the input file changes a
+    /// variable from the environment, so jobs need their own environment.
+    has_exports: bool = false,
 
     /// Build every goal. Return false when a recipe line fails.
     pub fn run(ex: *Executor) Error!bool {
         assert(ex.graph.order.len > 0);
         ex.shell = if (ex.ev.lookup("SHELL")) |v| v.value else "/bin/sh";
+        ex.has_exports = ex.needsExports();
         try ex.setup();
         var budget: usize = ex.graph.order.len * 2 + 2;
         while (ex.finished < ex.graph.order.len and budget > 0) : (budget -= 1) {
@@ -96,6 +102,20 @@ pub const Executor = struct {
         assert(ex.finished == ex.graph.order.len);
         try ex.reportGoals();
         return true;
+    }
+
+    /// True when a variable from the command line exists, or when the input
+    /// file defines a name that the environment also has.
+    fn needsExports(ex: *const Executor) bool {
+        assert(ex.shell.len > 0);
+        var it = ex.ev.vars.iterator();
+        while (it.next()) |entry| {
+            const v = entry.value_ptr.*;
+            if (v.origin == .command_line) return true;
+            if ((v.origin == .file or v.origin == .override) and ex.opts.env.contains(entry.key_ptr.*)) return true;
+        }
+        assert(ex.graph.order.len > 0);
+        return false;
     }
 
     fn fail(ex: *Executor, comptime fmt: []const u8, args: anytype) Error {
@@ -216,7 +236,7 @@ pub const Executor = struct {
         const files: []const Io.File = if (ex.js) |js| js.files else &.{};
         var child = std.process.spawn(ex.io, .{
             .argv = &.{ ex.shell, "-c", cmd.text },
-            .environ_map = ex.opts.env,
+            .environ_map = job.env,
             .inherit_files = files,
         }) catch |err| {
             ex.printf("zmake: {s}: {s}\n", .{ ex.shell, @errorName(err) });
@@ -356,8 +376,10 @@ pub const Executor = struct {
             ex.states[id].rebuilt = true;
             return null;
         }
+        const auto: eval.Auto = .{ .target = node.name, .prerequisites = node.prerequisites, .stem = node.stem, .newer = newer };
+        const env = try ex.jobEnvironment(&auto);
         const job = try ex.arena.create(Job);
-        job.* = .{ .node = id, .commands = commands, .before = before };
+        job.* = .{ .node = id, .commands = commands, .before = before, .env = env };
         assert(job.commands.len > 0);
         return job;
     }
@@ -412,6 +434,33 @@ pub const Executor = struct {
         }
         assert(commands.items.len <= ast.limits.recipe_lines_max);
         return commands.items;
+    }
+
+    /// The base environment plus each exported variable, expanded for this
+    /// target, minus each `unexport` name. See `Evaluator.exported`.
+    fn jobEnvironment(ex: *Executor, auto: *const eval.Auto) Error!*const std.process.Environ.Map {
+        const base = ex.opts.env;
+        if (ex.ev.export_flags.count() == 0 and !ex.ev.export_all and !ex.has_exports) return base;
+        const env = try ex.arena.create(std.process.Environ.Map);
+        env.* = try base.clone(ex.arena);
+        var it = ex.ev.vars.iterator();
+        while (it.next()) |entry| {
+            const name = entry.key_ptr.*;
+            const v = entry.value_ptr.*;
+            if (v.origin == .environment and ex.ev.export_flags.get(name) == null) continue;
+            if (!ex.ev.exported(name, v, base.contains(name))) continue;
+            const value = if (v.recursive) ex.ev.expand(v.value, auto) catch |err| return ex.evalError(err) else v.value;
+            try env.put(name, value);
+        }
+        var flags = ex.ev.export_flags.iterator();
+        while (flags.next()) |f| {
+            if (!f.value_ptr.* and env.contains(f.key_ptr.*)) {
+                const removed = env.swapRemove(f.key_ptr.*);
+                assert(removed);
+            }
+        }
+        assert(env.count() >= 1 or base.count() == 0);
+        return env;
     }
 
     fn evalError(ex: *Executor, err: eval.Error) Error {

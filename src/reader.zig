@@ -47,7 +47,7 @@ const Missing = struct { name: []const u8, file: []const u8, line: u32 };
 const conditional_words = [_][]const u8{ "ifeq", "ifneq", "ifdef", "ifndef", "else", "endif" };
 const if_words = [_][]const u8{ "ifeq", "ifneq", "ifdef", "ifndef" };
 const include_words = [_][]const u8{ "include", "-include", "sinclude" };
-const reader_words = conditional_words ++ include_words ++ [_][]const u8{ "define", "endef", "override", "undefine" };
+const reader_words = conditional_words ++ include_words ++ [_][]const u8{ "define", "endef", "override", "undefine", "export", "unexport" };
 
 pub const Reader = struct {
     arena: std.mem.Allocator,
@@ -211,8 +211,9 @@ fn readLine(r: *Reader, ll: lexer.LogicalLine) Error!void {
 fn skipLine(r: *Reader, ll: lexer.LogicalLine, word: ?[]const u8) Error!void {
     assert(!r.active());
     const w = word orelse return;
+    const prefixed = std.mem.eql(u8, w, "override") or std.mem.eql(u8, w, "export");
     const is_define = std.mem.eql(u8, w, "define") or
-        (std.mem.eql(u8, w, "override") and parser.leadingDirective(rest(ll.text, w), &.{"define"}) != null);
+        (prefixed and parser.leadingDirective(rest(ll.text, w), &.{"define"}) != null);
     if (!is_define) return;
     const skipped = try defineBody(r, ll.line);
     assert(skipped.len <= ast.limits.input_file_bytes_max);
@@ -264,23 +265,83 @@ fn directive(r: *Reader, word: []const u8, ll: lexer.LogicalLine) Error!void {
     const eql = std.mem.eql;
     const tail = rest(ll.text, word);
     if (isAny(word, &include_words)) return include(r, tail, ll.line, word[0] != 'i');
-    if (eql(u8, word, "define")) return define(r, tail, ll.line, false);
+    if (eql(u8, word, "define")) {
+        const name = try define(r, tail, ll.line, false);
+        assert(name.len > 0);
+        return;
+    }
     if (eql(u8, word, "undefine")) return undefine(r, tail, ll.line, false);
     if (eql(u8, word, "endef")) return r.fail(ll.line, "extraneous 'endef'", .{});
+    if (eql(u8, word, "export")) return exportLine(r, tail, ll.line, false);
+    if (eql(u8, word, "unexport")) return unexportLine(r, tail, ll.line);
     assert(eql(u8, word, "override"));
-    if (parser.leadingDirective(tail, &.{"define"})) |w| return define(r, rest(tail, w), ll.line, true);
-    if (parser.leadingDirective(tail, &.{"undefine"})) |w| return undefine(r, rest(tail, w), ll.line, true);
-    try r.p.feed(.{ .kind = .normal, .text = tail, .line = ll.line });
-    const items = r.p.statements.items;
-    if (items.len == r.applied or items[items.len - 1] != .assignment) {
-        return r.fail(ll.line, "'override' needs a variable assignment", .{});
+    if (parser.leadingDirective(tail, &.{"define"})) |w| {
+        const name = try define(r, rest(tail, w), ll.line, true);
+        assert(name.len > 0);
+        return;
     }
-    items[items.len - 1].assignment.override = true;
-    try applyNew(r);
+    if (parser.leadingDirective(tail, &.{"undefine"})) |w| return undefine(r, rest(tail, w), ll.line, true);
+    if (parser.leadingDirective(tail, &.{"export"})) |w| return exportLine(r, rest(tail, w), ll.line, true);
+    const name = try assignment(r, tail, ll.line, true);
+    assert(name.len > 0);
 }
 
-/// `define NAME [=|:=|::=|?=|+=]` ... `endef`.
-fn define(r: *Reader, head: []const u8, line: u32, override: bool) Error!void {
+/// Read `text` as one variable assignment and apply it. Return the expanded name.
+fn assignment(r: *Reader, text: []const u8, line: u32, override: bool) Error![]const u8 {
+    assert(line > 0);
+    try r.p.feed(.{ .kind = .normal, .text = text, .line = line });
+    const items = r.p.statements.items;
+    if (items.len == r.applied or items[items.len - 1] != .assignment) {
+        return r.fail(line, "'override' and 'export' need a variable assignment", .{});
+    }
+    const a = &items[items.len - 1].assignment;
+    a.override = override;
+    r.ev.line = line;
+    const name = std.mem.trim(u8, try r.ev.expand(a.name, null), ws);
+    try applyNew(r);
+    assert(r.applied == r.p.statements.items.len);
+    return name;
+}
+
+/// `export`, `export NAMES`, `export NAME = value`, `export define NAME` and
+/// `export override NAME = value`.
+fn exportLine(r: *Reader, text: []const u8, line: u32, override: bool) Error!void {
+    assert(line > 0);
+    if (text.len == 0) {
+        r.ev.export_all = true;
+        return;
+    }
+    if (parser.leadingDirective(text, &.{"define"})) |w| {
+        const raw = try define(r, rest(text, w), line, override);
+        return r.ev.setExport(std.mem.trim(u8, try r.ev.expand(raw, null), ws), true);
+    }
+    if (parser.leadingDirective(text, &.{"override"})) |w| {
+        return r.ev.setExport(try assignment(r, rest(text, w), line, true), true);
+    }
+    if (parser.findTopLevel(text, "=") != null) {
+        return r.ev.setExport(try assignment(r, text, line, override), true);
+    }
+    r.ev.line = line;
+    const names = try fns.splitWords(r.arena, try r.ev.expand(text, null));
+    for (names) |name| try r.ev.setExport(name, true);
+    assert(r.ev.export_flags.count() >= @min(names.len, 1));
+}
+
+/// `unexport NAMES`, or `unexport` alone, which ends `export` with no names.
+fn unexportLine(r: *Reader, text: []const u8, line: u32) Error!void {
+    assert(line > 0);
+    if (text.len == 0) {
+        r.ev.export_all = false;
+        return;
+    }
+    r.ev.line = line;
+    const names = try fns.splitWords(r.arena, try r.ev.expand(text, null));
+    for (names) |name| try r.ev.setExport(name, false);
+    assert(names.len == 0 or r.ev.export_flags.contains(names[0]));
+}
+
+/// `define NAME [=|:=|::=|?=|+=]` ... `endef`. Return the unexpanded name.
+fn define(r: *Reader, head: []const u8, line: u32, override: bool) Error![]const u8 {
     assert(line > 0);
     const ops = [_]struct { []const u8, ast.VariableFlavor }{
         .{ "::=", .simple }, .{ ":=", .simple }, .{ "?=", .conditional }, .{ "+=", .append }, .{ "=", .recursive },
@@ -298,6 +359,7 @@ fn define(r: *Reader, head: []const u8, line: u32, override: bool) Error!void {
     const body = try defineBody(r, line);
     try r.b.apply(r.ev, .{ .assignment = .{ .name = name, .flavor = flavor, .value = body, .line = line, .override = override } });
     assert(name.len > 0);
+    return name;
 }
 
 /// Read the raw lines up to the matching `endef`. Nested `define` blocks count.
@@ -313,7 +375,10 @@ fn defineBody(r: *Reader, line: u32) Error![]const u8 {
         if (startsWord(t, "endef")) {
             if (depth == 0) return out.items;
             depth -= 1;
-        } else if (startsWord(t, "define") or (startsWord(t, "override") and startsWord(rest(t, "override"), "define"))) {
+        } else if (startsWord(t, "define") or
+            (startsWord(t, "override") and startsWord(rest(t, "override"), "define")) or
+            (startsWord(t, "export") and startsWord(rest(t, "export"), "define")))
+        {
             depth += 1;
         }
         if (n > 0) try out.append(r.arena, '\n');

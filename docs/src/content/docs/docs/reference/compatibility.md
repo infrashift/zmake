@@ -15,7 +15,7 @@ feature outside this subset. A silent misparse is worse than an error
 | Rules | Explicit rules, pattern rules, order-only prerequisites, inline `; recipe` text |
 | Automatic variables | `$@`, `$<`, `$^`, `$+`, `$*`, `$?` and their `D` and `F` forms |
 | Functions | All GNU Make functions except `guile` ([Functions](../functions/)), substitution references |
-| Directives | `ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif`, `define`, `override`, `undefine` ([Conditionals](../../guides/conditionals/)), `include`, `-include`, `sinclude` ([Include Files](../../guides/include/)) |
+| Directives | `ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif`, `define`, `override`, `undefine` ([Conditionals](../../guides/conditionals/)), `include`, `-include`, `sinclude` ([Include Files](../../guides/include/)), `export`, `unexport` ([Export](../../guides/export/)) |
 | Variables | `MAKE`, `MAKEFLAGS`, `MAKELEVEL`, `SHELL`, `MAKEFILE_LIST` |
 | Recipe prefixes | `@`, `-`, `+` |
 | Options | `-f`, `-C`, `-j`, `-n` |
@@ -30,6 +30,7 @@ feature outside this subset. A silent misparse is worse than an error
 | `.PRECIOUS`, `.SECONDARY` | zmake keeps these targets after a failed recipe line. |
 | `.SILENT` | zmake does not echo the recipe lines of the prerequisites, or of all targets when the list is empty. |
 | `.NOTPARALLEL` | zmake runs one job at a time. |
+| `.EXPORT_ALL_VARIABLES` | Each variable with a valid shell name goes to the recipe environment. |
 | `.DELETE_ON_ERROR` | Legacy mode deletes a partial file target after a failed recipe line. |
 | `.SUFFIXES`, `.INTERMEDIATE`, `.NOTINTERMEDIATE`, `.POSIX`, `.LOW_RESOLUTION_TIME` | No effect. zmake accepts them. |
 
@@ -42,7 +43,7 @@ These features stop the build with `file:line`:
 
 | Feature | Error |
 |---|---|
-| `export`, `unexport`, `vpath`, `load` | `unsupported directive` |
+| `vpath`, `load` | `unsupported directive` |
 | `$(guile ...)` | `unsupported function` |
 | `$(eval ...)` in a recipe | `$(eval ...) in a recipe is not supported` |
 | Double-colon rules (`a:: b`) | Parse error |

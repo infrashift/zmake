@@ -95,8 +95,8 @@ Tracking: [ISSUE-011](.okfw/issues/issue-011-include-and-makefile-list--01a1d34e
 
 ## Phase 12 — export and unexport
 Tracking: [ISSUE-012](.okfw/issues/issue-012-export-and-unexport--01a1d34ecd36.md)
-- [ ] `export`, `unexport`, `.EXPORT_ALL_VARIABLES`
-- [ ] The recipe environment gets the exported values
+- [x] `export`, `unexport`, `.EXPORT_ALL_VARIABLES`
+- [x] The recipe environment gets the exported values
 
 ## Phase 13 — vpath and VPATH
 Tracking: [ISSUE-013](.okfw/issues/issue-013-vpath-and-vpath--01a1d34ecd3c.md)

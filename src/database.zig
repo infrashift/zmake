@@ -176,6 +176,8 @@ fn addSpecial(ev: *eval.Evaluator, b: *Builder, target: []const u8, prereqs: []c
         b.db.not_parallel = true;
     } else if (eql(u8, target, ".DELETE_ON_ERROR")) {
         b.db.delete_on_error = true;
+    } else if (eql(u8, target, ".EXPORT_ALL_VARIABLES")) {
+        ev.export_all = true;
     } else if (isIgnoredSpecial(target)) {
         // These targets change nothing in zmake. See the CLI contract spec.
     } else {

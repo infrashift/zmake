@@ -35,6 +35,7 @@ An argument with `=` sets a variable. A command-line variable overrides the inpu
 - Each recipe line gets `MAKEFLAGS` with the same forms, and `MAKELEVEL` plus one.
 - A line with `+` or with `$(MAKE)` also runs under `-n`. The sub-make gets `n` in `MAKEFLAGS`, so it prints only.
 - zmake ignores `SHELL` from the environment. Set `SHELL` in the input file to change the shell.
+- Each recipe line also gets the exported variables. These are the `export` names, the command-line variables and the changed environment variables. With `export` alone, each file variable with a valid shell name also goes. `unexport` names stay out ([ADR-0014](/decisions/adr-0014-export-flags-decide-the-recipe-environment--01a1d37290f3.md)).
 
 ## Failed recipe lines
 - A failed line stops the build. With `-j`, zmake prints `zmake: *** Waiting for unfinished jobs....` and waits for the running jobs.
