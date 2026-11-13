@@ -29,8 +29,8 @@ Makefile:12: *** unsupported function 'guile'.  Stop.
 | An empty command | A built-in variable such as `$(CC)` | Set `CC := cc` in the input file. |
 | `zmake does not remake included files` | A rule makes an included file | Make the file in an earlier step, or use `-include`. |
 
-zmake also rejects double-colon rules (`a:: b`), target-specific variables
-(`a: CC = x`) and shell assignments (`X != cmd`).
+zmake also rejects double-colon rules (`a:: b`) and shell assignments
+(`X != cmd`).
 
 ## Step 2: move to modern mode
 

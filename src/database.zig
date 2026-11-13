@@ -12,6 +12,15 @@ const eval = @import("eval.zig");
 pub const Error = eval.Error;
 pub const StringSet = std.StringHashMapUnmanaged(void);
 
+/// One target-specific or pattern-specific assignment, in file order.
+pub const TargetAssign = struct {
+    assignment: ast.Assignment,
+    exported: bool,
+    private: bool,
+};
+
+pub const PatternAssign = struct { pattern: []const u8, assign: TargetAssign };
+
 /// `vpath PATTERN DIRS`: search DIRS for a missing file that matches PATTERN.
 pub const Vpath = struct { pattern: []const u8, dirs: []const []const u8 };
 
@@ -23,6 +32,10 @@ pub const Database = struct {
     vpaths: []const Vpath = &.{},
     /// The directories of the `VPATH` variable, searched after `vpaths`.
     vpath_dirs: []const []const u8 = &.{},
+    /// Target-specific assignments per target name, in file order.
+    target_vars: std.StringHashMapUnmanaged(std.ArrayList(TargetAssign)) = .empty,
+    /// Pattern-specific assignments, in file order.
+    pattern_vars: []const PatternAssign = &.{},
     phony: StringSet = .empty,
     precious: StringSet = .empty,
     silent: StringSet = .empty,
@@ -46,6 +59,7 @@ pub const Builder = struct {
     db: Database,
     rules: std.ArrayList(ast.Rule) = .empty,
     vpaths: std.ArrayList(Vpath) = .empty,
+    pattern_vars: std.ArrayList(PatternAssign) = .empty,
 
     pub fn init(mode: ast.SyntaxMode, filename: []const u8) Builder {
         assert(filename.len > 0);
@@ -73,8 +87,33 @@ pub const Builder = struct {
                 const value = try ev.expand(e.text, null);
                 if (std.mem.trim(u8, value, fns.whitespace).len > 0) return ev.fail("missing separator", .{});
             },
+            .target_var => |tv| {
+                ev.line = tv.assignment.line;
+                try b.targetVariable(ev, tv);
+            },
         }
         assert(b.rules.items.len >= before);
+    }
+
+    /// Store a target-specific assignment for each target. The name expands
+    /// now; the value expands when the executor builds the target context.
+    fn targetVariable(b: *Builder, ev: *eval.Evaluator, tv: ast.TargetVar) Error!void {
+        assert(tv.targets.len > 0);
+        const targets = try fns.splitWords(ev.arena, try ev.expand(tv.targets, null));
+        var a = tv.assignment;
+        a.name = std.mem.trim(u8, try ev.expand(a.name, null), fns.whitespace);
+        if (a.name.len == 0) return ev.fail("empty variable name", .{});
+        const entry: TargetAssign = .{ .assignment = a, .exported = tv.exported, .private = tv.private };
+        for (targets) |t| {
+            if (ast.isPattern(t)) {
+                try b.pattern_vars.append(ev.arena, .{ .pattern = t, .assign = entry });
+                continue;
+            }
+            const gop = try b.db.target_vars.getOrPut(ev.arena, t);
+            if (!gop.found_existing) gop.value_ptr.* = .empty;
+            try gop.value_ptr.append(ev.arena, entry);
+        }
+        assert(a.name.len > 0);
     }
 
     /// `vpath PATTERN DIRS` adds a search entry. `vpath PATTERN` (no dirs)
@@ -100,6 +139,7 @@ pub const Builder = struct {
     pub fn finish(b: *Builder, ev: *eval.Evaluator) Error!Database {
         b.db.rules = b.rules.items;
         b.db.vpaths = b.vpaths.items;
+        b.db.pattern_vars = b.pattern_vars.items;
         ev.line = 0;
         if (ev.lookup("VPATH")) |v| {
             const value = if (v.recursive) try ev.expand(v.value, null) else v.value;

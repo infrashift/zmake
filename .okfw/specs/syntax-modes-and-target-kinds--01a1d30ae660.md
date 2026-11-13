@@ -49,7 +49,7 @@ description: "How zmake selects legacy or modern mode, which recipe indentation 
 2. **Rule B.** A name with `/` or `.`, a pattern rule, or a recipe that refers to `$@` gives `file`.
 3. **Rule C.** Any other target that has a rule is `inferred_phony`.
 
-A name with no rule (a prerequisite only) is always `file`. The `$@` scan reads the unexpanded recipe. It matches `$@`, `$(@)`, `${@}`, `$(@D)`, `$(@F)`, `${@D}` and `${@F}`.
+A name with no rule (a prerequisite only) is always `file`. A target-specific variable (`app: X = 1`) is not a rule, so it does not change the kind ([ADR-0016](/decisions/adr-0016-target-contexts-are-layers-that-a-pre-pass-builds--01a1d37ca0dc.md)). The `$@` scan reads the unexpanded recipe. It matches `$@`, `$(@)`, `${@}`, `$(@D)`, `$(@F)`, `${@D}` and `${@F}`.
 
 ## Special targets
 | Target | Effect |

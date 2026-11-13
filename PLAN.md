@@ -105,8 +105,8 @@ Tracking: [ISSUE-013](.okfw/issues/issue-013-vpath-and-vpath--01a1d34ecd3c.md)
 
 ## Phase 14 — Target-specific and pattern-specific variables
 Tracking: [ISSUE-014](.okfw/issues/issue-014-target-specific-and-pattern-specific-variables--01a1d34ecd43.md)
-- [ ] `target: VAR = value` with all operators, `override`, `export`, `private`
-- [ ] Pattern-specific variables; inheritance by prerequisites
+- [x] `target: VAR = value` with all operators, `override`, `export`, `private`
+- [x] Pattern-specific variables; inheritance by prerequisites
 
 ## Phase 15 — Double-colon rules
 Tracking: [ISSUE-015](.okfw/issues/issue-015-double-colon-rules--01a1d34ecd4a.md)

@@ -125,6 +125,9 @@ pub const Parser = struct {
     fn openRule(p: *Parser, lhs: []const u8, rhs: []const u8, line: u32) Error!void {
         assert(p.open_rule == null and p.recipes.items.len == 0);
         const head = try p.ruleTargets(lhs, line);
+        if (findTopLevel(rhs, ";=")) |i| {
+            if (rhs[i] == '=') return p.targetVariable(head.targets, rhs, line);
+        }
         var prereq_text = rhs;
         var has_recipe = false;
         if (findTopLevel(rhs, ";")) |semi| {
@@ -132,9 +135,6 @@ pub const Parser = struct {
             has_recipe = true;
             const inline_recipe = std.mem.trimStart(u8, rhs[semi + 1 ..], " \t");
             if (inline_recipe.len > 0) try p.recipes.append(p.arena, recipeLine(inline_recipe, line));
-        }
-        if (findTopLevel(prereq_text, "=") != null) {
-            return p.fail(line, "target-specific variables are not supported", .{});
         }
         var normal = prereq_text;
         var order_only: []const u8 = "";
@@ -153,6 +153,32 @@ pub const Parser = struct {
             .file = p.filename,
         };
         assert(p.open_rule.?.targets.len > 0);
+    }
+
+    /// `targets: [override] [export] [private] NAME op value`.
+    fn targetVariable(p: *Parser, targets: []const u8, rhs: []const u8, line: u32) Error!void {
+        assert(targets.len > 0);
+        var text = std.mem.trimStart(u8, rhs, " \t");
+        var tv: ast.TargetVar = .{ .targets = targets, .assignment = undefined, .exported = false, .private = false };
+        var override = false;
+        var budget: u8 = 4;
+        while (budget > 0) : (budget -= 1) {
+            const word = leadingDirective(text, &.{ "override", "export", "private" }) orelse break;
+            if (word[0] == 'o') override = true else if (word[0] == 'e') tv.exported = true else tv.private = true;
+            text = std.mem.trimStart(u8, text[word.len..], " \t");
+        }
+        const sep = findSeparator(text) orelse return p.fail(line, "missing separator", .{});
+        const flavor = switch (sep.kind) {
+            .assign => |f| f,
+            .shell_assign => return p.fail(line, "'!=' assignments are not supported", .{}),
+            else => return p.fail(line, "invalid target-specific variable", .{}),
+        };
+        const name = std.mem.trim(u8, text[0..sep.start], " \t");
+        if (name.len == 0) return p.fail(line, "empty variable name", .{});
+        const value = std.mem.trimStart(u8, text[sep.end..], " \t");
+        tv.assignment = .{ .name = name, .flavor = flavor, .value = value, .line = line, .override = override };
+        try p.statements.append(p.arena, .{ .target_var = tv });
+        assert(p.open_rule == null);
     }
 
     const RuleHead = struct { targets: []const u8, task: bool };
@@ -347,8 +373,20 @@ test "errors carry file and line" {
     try testing.expectError(error.Syntax, parse(a, "hello\n", "Makefile", .legacy, &diag));
     try testing.expectEqualStrings("Makefile:1: *** missing separator.  Stop.", diag.message());
     try testing.expectError(error.Syntax, parse(a, "a:: b\n", "Makefile", .legacy, &diag));
-    try testing.expectError(error.Syntax, parse(a, "a: CC = x\n", "Makefile", .legacy, &diag));
     try testing.expectError(error.Syntax, parse(a, "X != ls\n", "Makefile", .legacy, &diag));
+}
+
+test "target-specific variables" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    const mk = try parseTest(arena.allocator(), "app lib: override export CFLAGS += -g\n%.o: private X := 1\na: b ; echo x=1\n", .legacy);
+    const tv = mk.statements[0].target_var;
+    try testing.expectEqualStrings("app lib", tv.targets);
+    try testing.expectEqualStrings("CFLAGS", tv.assignment.name);
+    try testing.expectEqual(ast.VariableFlavor.append, tv.assignment.flavor);
+    try testing.expect(tv.assignment.override and tv.exported and !tv.private);
+    try testing.expect(mk.statements[1].target_var.private);
+    try testing.expectEqualStrings("echo x=1", mk.statements[2].rule.recipes[0].text);
 }
 
 test "directive words used as names" {

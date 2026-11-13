@@ -34,6 +34,10 @@ pub const Auto = struct {
 
 pub const VarTable = std.StringHashMapUnmanaged(ast.Variable);
 
+/// The target-specific variables of one target. `Evaluator.layers` holds the
+/// layers of the target that a recipe builds, innermost last.
+pub const Layer = VarTable;
+
 /// The built-in functions, plus `ref` (a variable reference) and `subst_ref`
 /// (a substitution reference such as `$(SRC:.c=.o)`).
 pub const Func = enum {
@@ -215,6 +219,9 @@ pub const Evaluator = struct {
     export_flags: std.StringHashMapUnmanaged(bool) = .empty,
     /// `export` with no names, or `.EXPORT_ALL_VARIABLES`.
     export_all: bool = false,
+    /// The target-specific layers in effect, innermost last. `lookup` reads
+    /// them before the global variables.
+    layers: []const *const Layer = &.{},
 
     pub fn init(arena: std.mem.Allocator, io: Io, dir: Io.Dir, diag: *Diagnostic) Evaluator {
         assert(diag.len <= Diagnostic.capacity);
@@ -273,6 +280,12 @@ pub const Evaluator = struct {
 
     pub fn lookup(ev: *const Evaluator, name: []const u8) ?ast.Variable {
         assert(name.len > 0);
+        var i = ev.layers.len;
+        while (i > 0) {
+            i -= 1;
+            if (ev.layers[i].get(name)) |v| return v;
+        }
+        assert(i == 0);
         return ev.vars.get(name);
     }
 

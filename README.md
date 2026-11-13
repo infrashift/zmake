@@ -56,6 +56,7 @@ zmake supports these GNU Make features:
 
 - The assignments `=`, `:=`, `::=`, `?=` and `+=`, and command-line overrides
 - Explicit rules, pattern rules, order-only prerequisites and inline `; recipe` text
+- Target-specific and pattern-specific variables, with `override`, `export` and `private`
 - The automatic variables `$@`, `$<`, `$^`, `$+`, `$*`, `$?` and their `D` and `F` forms
 - The GNU Make functions, for example `foreach`, `call`, `if`, `filter` and `file`, and substitution references
 - `.PHONY`, `.DEFAULT_GOAL`, `.PRECIOUS`, `.SILENT`, `.NOTPARALLEL`, `.DELETE_ON_ERROR` and `.EXPORT_ALL_VARIABLES`

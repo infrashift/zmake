@@ -412,5 +412,58 @@ if [ -n "$GNU_MAKE" ]; then
   expect_eq "directory search matches GNU Make" "$(bash probe.sh g "$GNU_MAKE")" "$(bash probe.sh z "$ZMAKE")"
 fi
 
+scenario "15. Target-specific and pattern-specific variables (Phase 14)"
+mkdir -p g z
+cat > probe.sh <<'EOS'
+cd "$1" || exit 2
+cat > Makefile <<'EOF'
+CFLAGS = -O2 $(OPT)
+OPT = -fopt
+MODE = global
+.PHONY: all app lib.o util.o test shared private-parent private-child cli export-t cond
+all: app test
+app: CFLAGS += -g
+app: MODE = app-mode
+app: SIMPLE := $(MODE)-at-read
+app: lib.o util.o
+	@echo "app: CFLAGS=$(CFLAGS) MODE=$(MODE) SIMPLE=$(SIMPLE)"
+lib.o:
+	@echo "lib.o: CFLAGS=$(CFLAGS) MODE=$(MODE)"
+util.o: MODE = util-own
+util.o:
+	@echo "util.o: MODE=$(MODE)"
+%.o: PAT = pattern-$*
+%.o: CFLAGS += -fpattern
+test: shared
+	@echo "test: MODE=$(MODE)"
+shared:
+	@echo "shared: MODE=$(MODE) PAT=[$(PAT)]"
+private-parent: private PRIV = secret
+private-parent: MODE = parent
+private-parent: private-child
+	@echo "private-parent: PRIV=$(PRIV)"
+private-child:
+	@echo "private-child: PRIV=[$(PRIV)] MODE=$(MODE)"
+cli: CLIV = file-value
+cli: override OVR = file-value
+cli:
+	@echo "cli: CLIV=$(CLIV) OVR=$(OVR)"
+export-t: export EXPV = exported
+export-t:
+	@echo "env: $$EXPV"
+cond: MODE ?= cond-value
+cond: NEWV ?= new-value
+cond:
+	@echo "cond: MODE=$(MODE) NEWV=$(NEWV) origin=$(origin MODE) $(origin NEWV)"
+EOF
+"$2" all; "$2" private-parent; "$2" cli CLIV=cmd OVR=cmd; "$2" export-t; "$2" cond; "$2" lib.o
+printf 'all: a.o\n%%.o: X = short\nlib/%%.o: X = long\na.o lib/a.o:\n\t@echo $@ X=$(X)\nall2: lib/a.o\n' > M2; "$2" -f M2 all all2
+EOS
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "values, inheritance and order match GNU Make" "$(bash probe.sh g "$GNU_MAKE" 2>&1)" "$(bash probe.sh z "$ZMAKE" 2>&1)"
+fi
+printf '.PHONY: all a b c d\nall: a d\na: b c\n\t@echo a\nb:\n\t@echo b\nc:\n\t@echo c\nd:\n\t@echo d\n' > Makefile
+expect_eq "a serial build runs in depth-first post-order" "b|c|a|d" "$("$ZMAKE" 2>&1 | paste -sd'|')"
+
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

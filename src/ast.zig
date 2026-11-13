@@ -92,6 +92,10 @@ pub const Variable = struct {
     /// True for `=` and `?=` variables: expand at each use.
     recursive: bool,
     origin: Origin,
+    /// A target-specific `private` variable: prerequisites do not inherit it.
+    private: bool = false,
+    /// A target-specific `export` variable: the recipe environment gets it.
+    exported: bool = false,
 };
 
 pub const RecipeLine = struct {
@@ -138,10 +142,20 @@ pub const Expression = struct {
     line: u32,
 };
 
+/// `targets: [override] [export] [private] NAME op value`. The value is in
+/// effect for the recipes of the targets and of the prerequisites they build.
+pub const TargetVar = struct {
+    targets: []const u8,
+    assignment: Assignment,
+    exported: bool,
+    private: bool,
+};
+
 pub const Statement = union(enum) {
     assignment: Assignment,
     rule: RuleDecl,
     expression: Expression,
+    target_var: TargetVar,
 };
 
 /// The parsed input file.

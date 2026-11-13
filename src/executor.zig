@@ -13,6 +13,7 @@ const dag = @import("dag.zig");
 const database = @import("database.zig");
 const eval = @import("eval.zig");
 const parser = @import("parser.zig");
+const context = @import("context.zig");
 const Jobserver = @import("jobserver.zig").Jobserver;
 const Diagnostic = @import("diag.zig").Diagnostic;
 
@@ -38,6 +39,14 @@ const NodeState = struct {
     /// rebuild in the working directory.
     path: []const u8 = "",
 };
+
+fn positionOrder(_: void, a: u32, b: u32) std.math.Order {
+    assert(a < ast.limits.graph_nodes_max);
+    assert(b < ast.limits.graph_nodes_max);
+    return std.math.order(a, b);
+}
+
+const ReadyQueue = std.PriorityQueue(u32, void, positionOrder);
 
 const Command = struct {
     text: []const u8,
@@ -70,8 +79,12 @@ pub const Executor = struct {
     shell: []const u8,
     states: []NodeState = &.{},
     dependents: [][]dag.NodeId = &.{},
-    ready: std.ArrayList(dag.NodeId) = .empty,
-    ready_head: usize = 0,
+    /// The positions in `graph.order` of the nodes that can start. The
+    /// smallest position starts first, so a serial build runs in the
+    /// depth-first post-order of GNU Make.
+    ready: ReadyQueue = .initContext({}),
+    /// The position of each node in `graph.order`.
+    position: []u32 = &.{},
     finished: usize = 0,
     running: u32 = 0,
     tokens: u32 = 0,
@@ -85,6 +98,9 @@ pub const Executor = struct {
     /// True when a command-line variable exists or the input file changes a
     /// variable from the environment, so jobs need their own environment.
     has_exports: bool = false,
+    /// The target-specific layers of each node, or empty when the input file
+    /// has no target-specific variables.
+    contexts: []const []const *const eval.Layer = &.{},
 
     /// Build every goal. Return false when a recipe line fails.
     pub fn run(ex: *Executor) Error!bool {
@@ -92,6 +108,8 @@ pub const Executor = struct {
         ex.shell = if (ex.ev.lookup("SHELL")) |v| v.value else "/bin/sh";
         ex.has_exports = ex.needsExports();
         try ex.setup();
+        ex.contexts = context.build(ex.arena, ex.ev, ex.graph, ex.db) catch |err| return ex.evalError(err);
+        if (ex.contexts.len > 0) ex.has_exports = true;
         var budget: usize = ex.graph.order.len * 2 + 2;
         while (ex.finished < ex.graph.order.len and budget > 0) : (budget -= 1) {
             try ex.startReady();
@@ -135,17 +153,19 @@ pub const Executor = struct {
         @memset(ex.states, .{});
         var rev = try ex.arena.alloc(std.ArrayList(dag.NodeId), n);
         @memset(rev, .empty);
-        for (ex.graph.order) |id| {
+        ex.position = try ex.arena.alloc(u32, n);
+        for (ex.graph.order, 0..) |id, pos| {
             const node = ex.graph.nodes[id];
+            ex.position[id] = @intCast(pos);
             ex.states[id].pending = @intCast(node.deps.len);
             ex.states[id].path = node.filePath();
             for (node.deps) |dep| try rev[dep].append(ex.arena, id);
-            if (node.deps.len == 0) try ex.ready.append(ex.arena, id);
+            if (node.deps.len == 0) try ex.ready.push(ex.arena, @intCast(pos));
         }
         ex.dependents = try ex.arena.alloc([]dag.NodeId, n);
         for (rev, ex.dependents) |list, *slot| slot.* = list.items;
         assert(ex.states.len == n and ex.dependents.len == n);
-        assert(ex.ready.items.len > 0);
+        assert(ex.ready.count() > 0);
     }
 
     fn slots(ex: *const Executor) u32 {
@@ -158,7 +178,7 @@ pub const Executor = struct {
     /// Start ready nodes while a job slot is free.
     fn startReady(ex: *Executor) Error!void {
         var budget: usize = ex.graph.order.len + 1;
-        while (budget > 0 and !ex.failed and ex.ready_head < ex.ready.items.len) : (budget -= 1) {
+        while (budget > 0 and !ex.failed and ex.ready.count() > 0) : (budget -= 1) {
             assert(ex.running <= ex.slots());
             if (ex.running > 0) {
                 if (ex.running >= ex.slots()) return;
@@ -167,8 +187,7 @@ pub const Executor = struct {
                     ex.tokens += 1;
                 }
             }
-            const id = ex.ready.items[ex.ready_head];
-            ex.ready_head += 1;
+            const id = ex.graph.order[ex.ready.pop().?];
             const job = try ex.prepare(id) orelse {
                 try ex.balanceTokens();
                 try ex.complete(id);
@@ -176,7 +195,7 @@ pub const Executor = struct {
             };
             try ex.dispatch(job);
         }
-        assert(ex.ready_head <= ex.ready.items.len);
+        assert(ex.ready.count() <= ex.graph.order.len);
     }
 
     /// Keep one token for each running job after the first. The first job uses
@@ -346,7 +365,7 @@ pub const Executor = struct {
         for (ex.dependents[id]) |dep| {
             assert(ex.states[dep].pending > 0);
             ex.states[dep].pending -= 1;
-            if (ex.states[dep].pending == 0) try ex.ready.append(ex.arena, dep);
+            if (ex.states[dep].pending == 0) try ex.ready.push(ex.arena, ex.position[dep]);
         }
     }
 
@@ -381,6 +400,8 @@ pub const Executor = struct {
             ex.states[id].rebuilt = true;
             return null;
         }
+        if (ex.contexts.len > 0) ex.ev.layers = ex.contexts[id];
+        defer ex.ev.layers = &.{};
         const commands = try ex.expandRecipe(id, newer);
         if (commands.len == 0) {
             ex.states[id].rebuilt = true;
@@ -474,6 +495,7 @@ pub const Executor = struct {
             const value = if (v.recursive) ex.ev.expand(v.value, auto) catch |err| return ex.evalError(err) else v.value;
             try env.put(name, value);
         }
+        try ex.layerExports(env, auto);
         var flags = ex.ev.export_flags.iterator();
         while (flags.next()) |f| {
             if (!f.value_ptr.* and env.contains(f.key_ptr.*)) {
@@ -483,6 +505,23 @@ pub const Executor = struct {
         }
         assert(env.count() >= 1 or base.count() == 0);
         return env;
+    }
+
+    /// Target-specific variables: a name that the global rules export, or a
+    /// variable with the `export` modifier, gets the value of the target.
+    fn layerExports(ex: *Executor, env: *std.process.Environ.Map, auto: *const eval.Auto) Error!void {
+        assert(env.count() >= ex.opts.env.count() or ex.ev.export_flags.count() > 0);
+        for (ex.ev.layers) |layer| {
+            var it = layer.iterator();
+            while (it.next()) |entry| {
+                const name = entry.key_ptr.*;
+                const v = ex.ev.lookup(name).?;
+                if (!v.exported and !ex.ev.exported(name, v, ex.opts.env.contains(name))) continue;
+                const value = if (v.recursive) ex.ev.expand(v.value, auto) catch |err| return ex.evalError(err) else v.value;
+                try env.put(name, value);
+            }
+        }
+        assert(ex.ev.layers.len <= ex.graph.nodes.len);
     }
 
     fn evalError(ex: *Executor, err: eval.Error) Error {

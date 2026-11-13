@@ -119,3 +119,12 @@ A graph node keeps the path where `vpath` or `VPATH` found its file. The
 automatic variables give the found paths. A target that is out of date gets its
 own name back and rebuilds in the working directory, as in GNU Make. See
 [Directory Search](../../guides/vpath/).
+
+### ADR-0016: Target contexts are layers that a pre-pass builds
+
+Each graph node gets the variable layers of the node that first needs it,
+without the `private` variables, plus one layer of its own assignments. A pass
+over the graph from the goals down builds the layers before the first job. The
+evaluator reads the layers before the global variables. The same phase made a
+serial build run in the depth-first order of GNU Make. See
+[Target-Specific Variables](../../guides/target-variables/).

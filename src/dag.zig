@@ -30,6 +30,9 @@ pub const Node = struct {
     /// The path where directory search found the file, or empty when the
     /// file is in the working directory or missing. See `filePath`.
     path: []const u8 = "",
+    /// The node that first needs this node in the search. Its target-specific
+    /// variables are in effect here too. Null for a goal.
+    parent: ?NodeId = null,
 
     /// The path of the file on disk: the search result, else the name.
     pub fn filePath(node: *const Node) []const u8 {
@@ -81,6 +84,7 @@ const Builder = struct {
     nodes: std.ArrayList(Node) = .empty,
     colors: std.ArrayList(Color) = .empty,
     warnings: std.ArrayList([]const u8) = .empty,
+    goal_ids: std.ArrayList(NodeId) = .empty,
 
     fn fail(b: *Builder, comptime fmt: []const u8, args: anytype) Error {
         comptime assert(fmt.len > 0);
@@ -110,6 +114,7 @@ pub fn build(
         assert(name.len > 0);
         const id = try nodeFor(&b, name, null);
         try goals.append(arena, id);
+        try b.goal_ids.append(arena, id);
         try search(&b, id, &order);
     }
     assert(order.items.len == countBlack(&b));
@@ -412,12 +417,20 @@ fn search(b: *Builder, root: NodeId, order: *std.ArrayList(NodeId)) Error!void {
                 if (stack.items.len >= ast.limits.graph_depth_max) {
                     return b.fail("*** prerequisites nest more than {d} levels.  Stop.", .{ast.limits.graph_depth_max});
                 }
+                if (b.nodes.items[child].parent == null and !isGoal(b, child)) b.nodes.items[child].parent = top.id;
                 b.colors.items[child] = .gray;
                 try stack.append(b.arena, .{ .id = child, .next = 0 });
             },
         }
     }
     assert(stack.items.len == 0);
+}
+
+fn isGoal(b: *const Builder, id: NodeId) bool {
+    assert(id < b.nodes.items.len);
+    const goal = std.mem.indexOfScalar(NodeId, b.goal_ids.items, id) != null;
+    assert(!goal or b.goal_ids.items.len > 0);
+    return goal;
 }
 
 /// Record the deduplicated prerequisite nodes of a finished node.
