@@ -1,0 +1,127 @@
+name: CI
+
+# Linux runs every gate: `make check` (lint, unit tests, the acceptance suite
+# against GNU Make 4.3, the macOS and FreeBSD cross builds, the wiki and the
+# documentation style). macOS runs the unit tests and a smoke test of the fifo
+# jobserver, because the acceptance suite compares output with GNU Make 4.3 and
+# macOS has make 3.81 (ADR-0021).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ZIG_VERSION: 0.17.1
+
+jobs:
+  check:
+    name: make check (Linux)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install Zig
+        env:
+          ZIG_SHA256: 3581863e3cbcfd0fce0efc682ce7e9e93da96668a977791d356a26d2a7e9b17a
+        run: |
+          curl -fsSL -o zig.tar.xz "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz"
+          echo "${ZIG_SHA256}  zig.tar.xz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/zig"
+          tar -xJf zig.tar.xz -C "$RUNNER_TEMP/zig" --strip-components=1
+          rm zig.tar.xz
+          echo "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
+
+      # okfw validates the wiki in .okfw/ (`make wiki`).
+      - name: Install okfw
+        env:
+          OKFW_VERSION: v2026.10.2
+          OKFW_SHA256: 55f29183b5264e47c7a41861f6189b4d8b644ed14ba55be56fa20d98f4f64c4f
+        run: |
+          name="okfw-${OKFW_VERSION}-linux-amd64"
+          curl -fsSL -o okfw.tar.gz "https://github.com/infrashift/okf-wiki/releases/download/${OKFW_VERSION}/${name}.tar.gz"
+          echo "${OKFW_SHA256}  okfw.tar.gz" | sha256sum -c -
+          tar -xzf okfw.tar.gz -C "$RUNNER_TEMP"
+          rm okfw.tar.gz
+          echo "$RUNNER_TEMP/${name}" >> "$GITHUB_PATH"
+
+      - name: Tool versions
+        run: |
+          zig version
+          make --version | head -1
+          okfw --version
+          python3 --version
+
+      - name: make check
+        run: make check
+
+  macos:
+    name: tests (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+            zig: aarch64-macos
+            sha256: 75f1bc7a1e9852f17ec9a0c1895f767c4ec56d46bc8a834920eece1d0359dd8d
+          - runner: macos-15-intel
+            zig: x86_64-macos
+            sha256: 9af07b20319fbd0c92ee46ad23e81d6a782b1aaea2cfb8dcbff35f1d2c7ddbb7
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install Zig
+        env:
+          ZIG_TARGET: ${{ matrix.zig }}
+          ZIG_SHA256: ${{ matrix.sha256 }}
+        run: |
+          curl -fsSL -o zig.tar.xz "https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_TARGET}-${ZIG_VERSION}.tar.xz"
+          echo "${ZIG_SHA256}  zig.tar.xz" | shasum -a 256 -c -
+          mkdir -p "$RUNNER_TEMP/zig"
+          tar -xJf zig.tar.xz -C "$RUNNER_TEMP/zig" --strip-components=1
+          rm zig.tar.xz
+          echo "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
+
+      - name: Unit tests
+        run: make test
+
+      - name: Build
+        run: zig build --release
+
+      # zmake reads its own ZMakefile, then runs four one-second jobs with -j4
+      # through the default fifo jobserver and a recursive zmake that joins it.
+      - name: Smoke test of the fifo jobserver
+        run: |
+          set -euo pipefail
+          zm="$PWD/zig-out/bin/zmake"
+          "$zm" -n check > /dev/null
+          work=$(mktemp -d)
+          cd "$work"
+          export TMPDIR="$work"
+          printf '.PHONY: all a b c d\nall: a b c d\na b c d:\n\t@sleep 1\n' > Makefile
+          start=$(date +%s)
+          "$zm" -j4
+          end=$(date +%s)
+          echo "-j4: $((end - start)) s"
+          test $((end - start)) -le 2
+          mkdir sub
+          printf 'all:\n\t@printf "%%s\\n" "$$MAKEFLAGS"\n' > sub/Makefile
+          printf 'all:\n\t+@$(MAKE) -s -C sub\n' > Makefile
+          out=$("$zm" -j2)
+          echo "$out"
+          grep -q -- '--jobserver-auth=fifo:' <<< "$out"
+          test -z "$(ls zmake-jobserver-* 2> /dev/null || true)"

@@ -39,3 +39,5 @@ GNU Make 4.4 uses a named fifo by default (`--jobserver-auth=fifo:PATH`). Each p
 - **`poll` and then `read` on the shared pipe.** Rejected: another process can take the token between the two calls, and the scheduler then blocks.
 - **A thread that blocks on `read` and hands tokens over.** Rejected: the thread cannot stop at the end, and a token that it reads after the last job is lost to the parent.
 - **`O_NONBLOCK` on the shared pipe for one `read`.** Rejected: a child that reads at the same time gets `EAGAIN`, and old makes treat it as a fatal error.
+
+**Update:** CI runs the unit tests and a fifo jobserver smoke test on macOS ([ADR-0021](/decisions/adr-0021-ci-runs-every-gate-on-linux-and-the-unit-tests-on-macos--01a1d3a9a48c.md)).

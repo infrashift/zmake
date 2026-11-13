@@ -308,6 +308,7 @@ fn splitEscaped(arena: std.mem.Allocator, text: []const u8) Error![]const []cons
 const testing = std.testing;
 
 test "server pool hands out jobs - 1 tokens" {
+    if (!is_linux) return error.SkipZigTest; // The pipe style needs /proc (ADR-0020).
     var arena: std.heap.ArenaAllocator = .init(testing.allocator);
     defer arena.deinit();
     var js = try Jobserver.initServer(arena.allocator(), 3, .pipe, "/tmp");
@@ -340,7 +341,16 @@ test "fifo server: the portable style" {
     try testing.expect(js.fifo_path == null);
 }
 
+test "pipe style off Linux is unsupported" {
+    if (is_linux) return error.SkipZigTest;
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    try testing.expectError(error.Unsupported, Jobserver.initServer(arena.allocator(), 2, .pipe, "/tmp"));
+    try testing.expectEqual(cli.JobserverStyle.fifo, default_style);
+}
+
 test "client joins a pool through R,W" {
+    if (!is_linux) return error.SkipZigTest; // The pipe style needs /proc (ADR-0020).
     var arena: std.heap.ArenaAllocator = .init(testing.allocator);
     defer arena.deinit();
     const server = try Jobserver.initServer(arena.allocator(), 2, .pipe, "/tmp");

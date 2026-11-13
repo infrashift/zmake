@@ -159,3 +159,10 @@ fifo, as in GNU Make 4.4. Each process can open a fifo with its own
 non-blocking descriptor. `--jobserver-style` selects the style. A client off
 Linux cannot share a pipe pool and uses `-j1`. `make cross` builds for macOS and
 FreeBSD. See [Parallel Builds](../../guides/parallel-builds/#pipe-and-fifo).
+
+### ADR-0021: CI runs every gate on Linux and the unit tests on macOS
+
+A GitHub Actions workflow runs `make check` on Linux. On macOS (arm64 and
+x86_64), it runs the unit tests and a smoke test of the fifo jobserver. The
+acceptance suite compares bytes with GNU Make 4.3, which macOS does not have.
+Each download of Zig and okfw has a pinned SHA-256 sum.

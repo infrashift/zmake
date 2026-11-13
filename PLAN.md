@@ -139,7 +139,7 @@ Tracking: [ISSUE-019](.okfw/issues/issue-019-jobserver-on-macos-and-the-bsds--01
 ## Follow-ups
 Phases 8 to 19 cover the earlier follow-ups. Open:
 - [ISSUE-020](.okfw/issues/issue-020-static-pattern-rules--01a1d399e029.md): static pattern rules (`objs: %.o: %.c`)
-- Test runs on macOS and FreeBSD (today `make cross` only builds for them)
+- Test runs on FreeBSD, and the acceptance suite on macOS (CI runs the unit tests on macOS since [ADR-0021](.okfw/decisions/adr-0021-ci-runs-every-gate-on-linux-and-the-unit-tests-on-macos--01a1d3a9a48c.md))
 
 Outside the scope:
 - `$(guile ...)`, `.ONESHELL`, `.SECONDEXPANSION`, `--output-sync`, and remaking of included makefiles

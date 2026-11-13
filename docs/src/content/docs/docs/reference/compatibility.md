@@ -65,7 +65,7 @@ directive.
 - **GPATH.** zmake does not support `GPATH`.
 - **`-q` and `-t`.** zmake does not run recipe lines with `+` or `$(MAKE)` under `-q` and `-t`. GNU Make runs them.
 - **Intermediate files.** GNU Make deletes a file that a chain of pattern rules made. zmake keeps it.
-- **Platforms.** zmake builds for Linux, macOS and FreeBSD. The tests run on Linux. On macOS and FreeBSD, zmake cannot join a pipe jobserver of a parent and uses `-j1`.
+- **Platforms.** zmake builds for Linux, macOS and FreeBSD. CI runs all tests on Linux and the unit tests on macOS. On macOS and FreeBSD, zmake cannot join a pipe jobserver of a parent and uses `-j1`.
 
 ## Hard limits
 

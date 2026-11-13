@@ -26,6 +26,9 @@ zmake works one phase at a time. `PLAN.md` holds the phases.
 
 See [Make Targets](../../reference/make-targets/) for each gate.
 
+CI runs `make check` on Linux for each push and pull request. On macOS (arm64
+and x86_64), it runs the unit tests and a smoke test of the fifo jobserver.
+
 ## Power of 10
 
 The code follows the NASA/JPL Power of 10 rules, adapted to Zig

@@ -36,5 +36,5 @@ These features are outside the current scope:
 - `$(guile ...)`, `load`, `.ONESHELL` and `.SECONDEXPANSION` stop the build with an error.
 - zmake does not remake included files, search include directories, or delete intermediate files.
 - Static pattern rules (`objs: %.o: %.c`) and `GPATH`.
-- Test runs on macOS and FreeBSD. Today, `make cross` only builds for them.
+- Test runs on FreeBSD, and the acceptance suite on macOS. Today, CI runs the unit tests on macOS, and `make cross` builds for FreeBSD.
 
