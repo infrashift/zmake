@@ -56,9 +56,11 @@ pub const VariableFlavor = enum {
 
 /// Where a variable definition comes from. A higher value wins.
 pub const Origin = enum(u8) {
-    environment = 0,
-    file = 1,
-    command_line = 2,
+    /// Built-in values such as `MAKE` and `SHELL`.
+    default = 0,
+    environment = 1,
+    file = 2,
+    command_line = 3,
 };
 
 pub const Variable = struct {

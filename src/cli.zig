@@ -184,6 +184,7 @@ fn eqlAny(arg: []const u8, names: []const []const u8) bool {
 }
 
 fn usageError(diag: *Diagnostic, comptime fmt: []const u8, args: anytype) ParseError {
+    comptime assert(fmt.len > 0);
     diag.set(fmt, args);
     assert(diag.len > 0);
     return error.Usage;

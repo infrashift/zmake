@@ -44,6 +44,7 @@ pub const Lexer = struct {
         assert(in_rule or lx.block_indent == null);
         var budget: u32 = ast.limits.input_lines_max;
         while (budget > 0) : (budget -= 1) {
+            assert(lx.pos <= lx.source.len);
             const start_line = lx.line + 1;
             const phys = lx.readPhysical() orelse return null;
             if (in_rule) {

@@ -25,6 +25,8 @@ The parser rejects each directive from the list with this error. A directive wor
 
 `Makefile:7: *** unsupported directive 'ifeq'.  Stop.`
 
+The evaluator also rejects GNU functions other than `subst`, `patsubst`, `wildcard` and `shell`, for example `$(foreach ...)`. Without this check, `$(foreach a,b,c)` expands to an empty variable.
+
 The parser also rejects three forms outside the scope: double-colon rules (`a:: b`), target-specific variables (`a: CC = x`) and shell assignments (`X != cmd`).
 
 ## Consequences

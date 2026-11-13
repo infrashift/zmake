@@ -50,6 +50,18 @@ description: "How zmake selects legacy or modern mode, which recipe indentation 
 
 A name with no rule (a prerequisite only) is always `file`. The `$@` scan reads the unexpanded recipe. It matches `$@`, `$(@)`, `${@}`, `$(@D)`, `$(@F)`, `${@D}` and `${@F}`.
 
+## Special targets
+| Target | Effect |
+|---|---|
+| `.PHONY` | Each prerequisite is `explicit_phony`. |
+| `.DEFAULT_GOAL` | The first prerequisite is the default goal. The variable form `.DEFAULT_GOAL := x` also works. |
+| `.PRECIOUS`, `.SECONDARY` | zmake keeps these targets after a failed recipe line. |
+| `.SILENT` | zmake does not echo the recipe lines of the prerequisites, or of all targets when the list is empty. |
+| `.NOTPARALLEL` | zmake runs one job at a time. |
+| `.SUFFIXES`, `.DELETE_ON_ERROR`, `.INTERMEDIATE`, `.NOTINTERMEDIATE`, `.POSIX`, `.LOW_RESOLUTION_TIME` | No effect. zmake accepts them. |
+
+Any other special target is an error. An old-style suffix rule such as `.c.o:` is an error.
+
 ## Collision guard
 When an `inferred_phony` target has the same name as a file or directory, zmake runs the recipe. It also prints this warning:
 

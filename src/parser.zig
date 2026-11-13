@@ -31,6 +31,7 @@ pub fn parse(
     var p: Parser = .{ .arena = arena, .filename = filename, .mode = mode, .diag = diag };
     var lx: lexer.Lexer = .init(arena, source, mode, filename);
     while (try lx.next(p.open_rule != null, diag)) |ll| {
+        assert(ll.line > 0 and ll.line <= lx.line);
         switch (ll.kind) {
             .recipe => try p.addRecipe(ll),
             .normal => {

@@ -46,6 +46,33 @@ fn runChecked(init: std.process.Init) Reported!void {
     }
     const mk = try load(arena, io, opts, &diag);
     assert(mk.filename.len > 0);
+    var ev = zmake.eval.Evaluator.init(arena, io, Io.Dir.cwd(), &diag);
+    const db = try evaluate(&ev, init, opts, mk);
+    assert(db.rules.len <= mk.statements.len * zmake.ast.limits.names_per_line_max);
+}
+
+/// Define the variables in origin order, then replay the input file.
+fn evaluate(ev: *zmake.eval.Evaluator, init: std.process.Init, opts: zmake.cli.Options, mk: zmake.ast.Makefile) Reported!zmake.database.Database {
+    const io = init.io;
+    const make_path = std.process.executablePathAlloc(io, init.arena.allocator()) catch return report(io, "cannot find the zmake executable path");
+    assert(make_path.len > 0);
+    ev.defineDefaults(make_path) catch return report(io, "out of memory");
+    ev.importEnvironment(init.environ_map) catch return report(io, "out of memory");
+    for (opts.overrides) |o| {
+        const value = if (o.simple) ev.expand(o.value, null) catch |err| return evalError(io, ev, err) else o.value;
+        ev.define(o.name, value, !o.simple, .command_line) catch return report(io, "out of memory");
+    }
+    const db = zmake.database.load(ev, mk) catch |err| return evalError(io, ev, err);
+    assert(db.mode == mk.mode);
+    return db;
+}
+
+fn evalError(io: Io, ev: *zmake.eval.Evaluator, err: zmake.eval.Error) Reported {
+    assert(ev.diag.len > 0 or err == error.OutOfMemory);
+    return switch (err) {
+        error.Eval => report(io, ev.diag.message()),
+        error.OutOfMemory => report(io, "out of memory"),
+    };
 }
 
 /// Find, read and parse the input file.

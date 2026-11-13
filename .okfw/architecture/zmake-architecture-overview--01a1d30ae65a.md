@@ -30,7 +30,9 @@ input file → lexer → parser → AST → evaluator → DAG → executor → /
 | `src/ast.zig` | Holds the data types: `SyntaxMode`, `TargetKind`, `VariableFlavor`, `Variable`, `RecipeLine`, `Rule`, `Makefile`. |
 | `src/lexer.zig` | Splits the input file into logical lines. Joins continuations, strips comments and marks recipe lines. |
 | `src/parser.zig` | Turns logical lines into rules, assignments and special targets. Applies the mode-specific syntax. |
-| `src/eval.zig` | Keeps the variable table. Expands variables, automatic variables and functions. Classifies each target. |
+| `src/eval.zig` | Keeps the variable table. Expands variables, automatic variables and functions on a frame stack ([ADR-0006](/decisions/adr-0006-expansion-uses-an-explicit-frame-stack--01a1d31ab339.md)). |
+| `src/functions.zig` | Implements `subst`, `patsubst`, `wildcard`, `shell`, substitution references and glob matching. |
+| `src/database.zig` | Replays the statements through the evaluator. Collects the expanded rules and the special targets. Classifies each target. |
 | `src/dag.zig` | Resolves each goal through explicit rules, pattern rules and existing files. Detects cycles. Sorts the graph. |
 | `src/executor.zig` | Decides which targets are out of date. Runs recipe lines through `/bin/sh -c`. Schedules jobs. |
 | `src/jobserver.zig` | Holds the GNU-compatible token pool for `-j`. |

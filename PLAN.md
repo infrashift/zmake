@@ -36,10 +36,10 @@ Tracking: [ISSUE-002](.okfw/issues/issue-002-context-sensitive-lexer-and-dual-mo
 
 ## Phase 3 — Two-phase variable evaluator
 Tracking: [ISSUE-003](.okfw/issues/issue-003-two-phase-variable-evaluator-and-target-classification--01a1d30ae69a.md)
-- [ ] `src/eval.zig`: immediate and deferred expansion with an explicit stack
-- [ ] Automatic variables `$@`, `$<`, `$^`, `$*`, `$?`, `$(@D)`, `$(@F)`
-- [ ] Functions `wildcard`, `shell`, `patsubst`, `subst`; substitution references; `$(MAKE)`
-- [ ] Target classifier for both modes ([ADR-0004](.okfw/decisions/adr-0004-modern-mode-declares-tasks-and-infers-phony-targets--01a1d30ae682.md))
+- [x] `src/eval.zig`: immediate and deferred expansion with an explicit stack
+- [x] Automatic variables `$@`, `$<`, `$^`, `$*`, `$?`, `$(@D)`, `$(@F)`
+- [x] Functions `wildcard`, `shell`, `patsubst`, `subst`; substitution references; `$(MAKE)`
+- [x] Target classifier for both modes ([ADR-0004](.okfw/decisions/adr-0004-modern-mode-declares-tasks-and-infers-phony-targets--01a1d30ae682.md))
 
 ## Phase 4 — Dependency graph and cycle detection
 Tracking: [ISSUE-004](.okfw/issues/issue-004-dependency-graph-pattern-rules-and-cycle-detection--01a1d30ae6a0.md)
