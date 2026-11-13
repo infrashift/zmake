@@ -70,3 +70,6 @@ Run `make check` (or `zmake check`). The gates are:
 - `make docs-style`: an ASD-STE100 check of the documentation
 
 The wiki in `.okfw/` holds the architecture, the specs and the design decisions. Start with the *zmake architecture overview*.
+
+## License
+Apache License 2.0. See [LICENSE](LICENSE).
