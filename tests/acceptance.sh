@@ -531,5 +531,19 @@ if [ -n "$GNU_MAKE" ]; then
   expect_eq "options match GNU Make" "$(bash probe.sh g "$GNU_MAKE" 2>&1 | sed 's/^z*make:/make:/')" "$(bash probe.sh z "$ZMAKE" 2>&1 | sed 's/^z*make:/make:/')"
 fi
 
+scenario "19. Quoted values in MAKEFLAGS (Phase 18)"
+mkdir -p g z
+cat > probe.sh <<'EOS'
+cd "$1" || exit 2
+mkdir -p sub
+printf 'all:\n\t@printf %s "top: [$$MAKEFLAGS]"; echo\n\t@$(MAKE) -s -C sub\n' "'%s'" > Makefile
+printf 'all:\n\t@printf %s "X=[$(X)] Y=[$(Y)] Z=[$(Z)] W=[$(W)]"; echo\n\t@printf %s "sub: [$$MAKEFLAGS]"; echo\n' "'%s'" "'%s'" > sub/Makefile
+"$2" -s 'X=a b' 'Y=c\d' 'Z=tab	here' 'W=x\ y' 2>&1 | grep -v 'Entering\|Leaving'
+EOS
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "MAKEFLAGS bytes and sub-make values match GNU Make" "$(bash probe.sh g "$GNU_MAKE")" "$(bash probe.sh z "$ZMAKE")"
+fi
+expect_has "a value with a space reaches the sub-make" "X=[a b]" "$(bash probe.sh z "$ZMAKE")"
+
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

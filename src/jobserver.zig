@@ -142,14 +142,18 @@ pub const Makeflags = struct {
 pub fn parseMakeflags(arena: std.mem.Allocator, text: []const u8) Error!Makeflags {
     var mf: Makeflags = .{};
     var overrides: std.ArrayList(cli.Override) = .empty;
-    var it = std.mem.tokenizeScalar(u8, text, ' ');
+    const words = try splitEscaped(arena, text);
     var first = true;
     var after_dashes = false;
-    while (it.next()) |word| : (first = false) {
+    for (words) |word| {
+        defer first = false;
         assert(word.len > 0);
         if (after_dashes) {
             const eq = std.mem.indexOfScalar(u8, word, '=') orelse continue;
-            if (eq > 0) try overrides.append(arena, .{ .name = word[0..eq], .value = word[eq + 1 ..], .simple = false });
+            if (eq == 0) continue;
+            const simple = word[eq - 1] == ':';
+            const name = word[0 .. eq - @intFromBool(simple)];
+            if (name.len > 0) try overrides.append(arena, .{ .name = name, .value = word[eq + 1 ..], .simple = simple });
         } else if (std.mem.eql(u8, word, "--")) {
             after_dashes = true;
         } else if (first and word[0] != '-' and std.mem.indexOfScalar(u8, word, '=') == null) {
@@ -178,10 +182,54 @@ pub fn composeMakeflags(arena: std.mem.Allocator, flags: cli.Flags, jobs: u32, a
     }
     if (overrides.len > 0) {
         try out.appendSlice(arena, " --");
-        for (overrides) |o| try out.print(arena, " {s}={s}", .{ o.name, o.value });
+        // GNU Make writes the overrides in the reverse order of its input.
+        var i = overrides.len;
+        while (i > 0) {
+            i -= 1;
+            const o = overrides[i];
+            try out.append(arena, ' ');
+            try appendEscaped(arena, &out, o.name);
+            try out.appendSlice(arena, if (o.simple) ":=" else "=");
+            try appendEscaped(arena, &out, o.value);
+        }
     }
     assert(out.items.len >= @intFromBool(flags.dry_run));
     return out.items;
+}
+
+/// Write `s` with a backslash before each space, tab and backslash, as GNU
+/// Make does in `MAKEFLAGS`.
+fn appendEscaped(arena: std.mem.Allocator, out: *std.ArrayList(u8), s: []const u8) Error!void {
+    const before = out.items.len;
+    for (s) |c| {
+        if (c == ' ' or c == '\t' or c == '\\') try out.append(arena, '\\');
+        try out.append(arena, c);
+    }
+    assert(out.items.len >= before + s.len);
+    assert(out.items.len <= before + 2 * s.len);
+}
+
+/// Split `MAKEFLAGS` at white space that no backslash escapes. A backslash
+/// makes the next character literal.
+fn splitEscaped(arena: std.mem.Allocator, text: []const u8) Error![]const []const u8 {
+    var words: std.ArrayList([]const u8) = .empty;
+    var word: std.ArrayList(u8) = .empty;
+    var i: usize = 0;
+    while (i < text.len) : (i += 1) {
+        const c = text[i];
+        if (c == '\\' and i + 1 < text.len) {
+            i += 1;
+            try word.append(arena, text[i]);
+        } else if (c == ' ' or c == '\t') {
+            if (word.items.len > 0) try words.append(arena, try word.toOwnedSlice(arena));
+        } else {
+            try word.append(arena, c);
+        }
+    }
+    if (word.items.len > 0) try words.append(arena, try word.toOwnedSlice(arena));
+    assert(i == text.len);
+    assert(words.items.len <= text.len);
+    return words.items;
 }
 
 const testing = std.testing;
@@ -219,6 +267,16 @@ test "parse MAKEFLAGS" {
     try testing.expectEqualStrings("3,4", mf.auth.?);
     try testing.expectEqual(@as(usize, 2), mf.overrides.len);
     try testing.expectEqualStrings("clang", mf.overrides[0].value);
+    const quoted = try parseMakeflags(arena.allocator(), "s -- W=x\\\\\\ y Z=tab\\\there Y=c\\\\d X=a\\ b S:=1");
+    try testing.expect(quoted.flags.silent);
+    try testing.expectEqual(@as(usize, 5), quoted.overrides.len);
+    try testing.expectEqualStrings("x\\ y", quoted.overrides[0].value);
+    try testing.expectEqualStrings("tab\there", quoted.overrides[1].value);
+    try testing.expectEqualStrings("c\\d", quoted.overrides[2].value);
+    try testing.expectEqualStrings("a b", quoted.overrides[3].value);
+    try testing.expect(quoted.overrides[4].simple);
+    const back = try composeMakeflags(arena.allocator(), .{ .silent = true }, 1, null, quoted.overrides);
+    try testing.expectEqualStrings("s -- S:=1 X=a\\ b Y=c\\\\d Z=tab\\\there W=x\\\\\\ y", back);
     const plain = try parseMakeflags(arena.allocator(), " --jobserver-auth=fifo:/tmp/GMfifo1 -j");
     try testing.expect(!plain.flags.dry_run);
     try testing.expectEqualStrings("fifo:/tmp/GMfifo1", plain.auth.?);

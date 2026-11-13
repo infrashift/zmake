@@ -41,6 +41,7 @@ Without `-f`, zmake searches the directory in this order: `ZMakefile`,
 
 - zmake reads `MAKEFLAGS` from a parent make: the `B`, `k`, `n`, `q`, `r`, `R`, `s` and `t` flags, `-jN`, `--jobserver-auth`, `--jobserver-fds` and `-- VAR=value` overrides.
 - Each recipe line gets `MAKEFLAGS` with the same forms, and `MAKELEVEL` plus one.
+- In the `-- VAR=value` part, a backslash comes before each space, tab and backslash, as in GNU Make. So `zmake 'X=a b'` gives a sub-make `X=a b`, also through GNU Make.
 - A line with `+` or with `$(MAKE)` also runs under `-n`.
 - zmake ignores `SHELL` from the environment. Set `SHELL` in the input file to change the shell.
 - `export` and `unexport` change the environment of each recipe line. See [Export and the Environment](../../guides/export/).

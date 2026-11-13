@@ -125,7 +125,7 @@ Tracking: [ISSUE-017](.okfw/issues/issue-017-the-options-k-q-t-and-b--01a1d34ecd
 
 ## Phase 18 — Quoted values in MAKEFLAGS
 Tracking: [ISSUE-018](.okfw/issues/issue-018-quoted-values-in-makeflags--01a1d34ecd5f.md)
-- [ ] Escape and unescape white space in `MAKEFLAGS` overrides
+- [x] Escape and unescape white space in `MAKEFLAGS` overrides
 
 ## Phase 19 — Jobserver on macOS and the BSDs
 Tracking: [ISSUE-019](.okfw/issues/issue-019-jobserver-on-macos-and-the-bsds--01a1d34ecd67.md)

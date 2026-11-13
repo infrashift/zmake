@@ -26,12 +26,12 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **15. Double-colon rules** | Independent `::` rules per target | Done |
 | **16. Built-ins** | Built-in variables and implicit rules, suffix rules, `-r`, `-R` | Done |
 | **17. Options** | `-k`, `-q`, `-t`, `-B`, `-s` and option clusters | Done |
+| **18. MAKEFLAGS quoting** | Values with spaces and backslashes reach sub-makes | Done |
 
 ## Follow-ups
 
 These features are outside the current scope. Each one stops the build with an
 error today:
 
-- Quoted values with spaces in `MAKEFLAGS` overrides
 - macOS and BSD support for the jobserver
 
