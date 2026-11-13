@@ -120,8 +120,8 @@ Tracking: [ISSUE-016](.okfw/issues/issue-016-built-in-variables-implicit-rules-a
 
 ## Phase 17 — The options -k, -q, -t and -B
 Tracking: [ISSUE-017](.okfw/issues/issue-017-the-options-k-q-t-and-b--01a1d34ecd58.md)
-- [ ] `-k`, `-q`, `-t`, `-B` and combined short options
-- [ ] The flags pass to sub-makes through `MAKEFLAGS`
+- [x] `-k`, `-q`, `-t`, `-B` and combined short options
+- [x] The flags pass to sub-makes through `MAKEFLAGS`
 
 ## Phase 18 — Quoted values in MAKEFLAGS
 Tracking: [ISSUE-018](.okfw/issues/issue-018-quoted-values-in-makeflags--01a1d34ecd5f.md)

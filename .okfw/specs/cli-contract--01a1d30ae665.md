@@ -26,6 +26,11 @@ description: "The zmake command line: options, input file discovery, variable ov
 | `-n` | Print the recipe lines. Do not run them. |
 | `-r` | Add no built-in implicit rules ([ADR-0018](/decisions/adr-0018-built-in-rules-come-from-gnu-make-and-follow-the-suffix-list--01a1d38a371f.md)). |
 | `-R` | Define no built-in variables. Implies `-r`. |
+| `-k` | Keep going after a failure ([ADR-0019](/decisions/adr-0019-letter-flags-share-one-table-for-options-and-makeflags--01a1d390363b.md)). |
+| `-q` | Run nothing. Exit 1 when a goal is out of date. |
+| `-t` | Touch the out-of-date file targets. |
+| `-B` | Treat every target as out of date. |
+| `-s` | Do not echo the recipe lines. |
 | `--modern` | Use modern mode for any input file. |
 | `--legacy` | Use legacy mode for any input file. |
 | `-h`, `--help` | Print the usage and exit. |
@@ -59,4 +64,5 @@ zmake uses the GNU Make message forms:
 | Code | Meaning |
 |---|---|
 | 0 | Success. |
+| 1 | Under `-q`: a goal is not up to date. |
 | 2 | A usage error, a parse error, a missing rule, a cycle or a failed recipe line. |

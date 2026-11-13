@@ -8,16 +8,18 @@ const zmake = @import("zmake");
 
 pub fn main(init: std.process.Init) void {
     const code = run(init);
-    assert(code == 0 or code == 2);
+    assert(code <= 2);
     std.process.exit(code);
 }
 
-/// The error message is already on stderr. The exit code is 2.
-const Reported = error{Reported};
+/// `Reported`: the error message is already on stderr; the exit code is 2.
+/// `Outdated`: under `-q`, a goal is not up to date; the exit code is 1.
+const Reported = error{ Reported, Outdated };
 
 fn run(init: std.process.Init) u8 {
     const code: u8 = if (runChecked(init)) 0 else |err| switch (err) {
         error.Reported => 2,
+        error.Outdated => 1,
     };
     assert(code <= 2);
     return code;
@@ -84,16 +86,29 @@ fn execute(
         .graph = graph,
         .db = db,
         .ev = ev,
-        .opts = .{ .jobs = jobs, .dry_run = opts.flags.dry_run, .env = env },
+        .opts = .{
+            .jobs = jobs,
+            .dry_run = opts.flags.dry_run,
+            .env = env,
+            .keep_going = opts.flags.keep_going,
+            .question = opts.flags.question,
+            .touch = opts.flags.touch,
+            .always_make = opts.flags.always_make,
+            .silent = opts.flags.silent,
+        },
         .js = js,
         .diag = diag,
         .shell = "/bin/sh",
     };
-    const ok = ex.run() catch |err| switch (err) {
+    const outcome = ex.run() catch |err| switch (err) {
         error.Exec => return report(io, diag.message()),
         error.OutOfMemory => return report(io, "out of memory"),
     };
-    if (!ok) return error.Reported;
+    switch (outcome) {
+        .success => {},
+        .failed => return error.Reported,
+        .outdated => return error.Outdated,
+    }
 }
 
 /// `-jN` with N > 1 creates a pool. Without `-j`, zmake joins the pool of a parent make.

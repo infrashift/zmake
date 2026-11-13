@@ -20,7 +20,7 @@ feature outside this subset. A silent misparse is worse than an error
 | Directives | `ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif`, `define`, `override`, `undefine` ([Conditionals](../../guides/conditionals/)), `include`, `-include`, `sinclude` ([Include Files](../../guides/include/)), `export`, `unexport` ([Export](../../guides/export/)), `vpath` ([Directory Search](../../guides/vpath/)) |
 | Variables | `MAKE`, `MAKEFLAGS`, `MAKELEVEL`, `SHELL`, `MAKEFILE_LIST`, `VPATH` |
 | Recipe prefixes | `@`, `-`, `+` |
-| Options | `-f`, `-C`, `-j`, `-n`, `-r`, `-R` |
+| Options | `-f`, `-C`, `-j`, `-n`, `-r`, `-R`, `-k`, `-q`, `-t`, `-B`, `-s`, and clusters such as `-kj4` |
 | Jobserver | `--jobserver-auth=R,W`, `--jobserver-fds=R,W`, `--jobserver-auth=fifo:PATH` |
 
 ## Special targets
@@ -62,6 +62,7 @@ directive.
 - **Eval timing.** An eval takes effect after the statement that calls it, not inside the same expansion ([ADR-0012](../../project/decisions/#adr-0012-a-reader-evaluates-each-statement-while-it-reads)).
 - **Include files.** zmake does not remake an included file, and it does not search include directories ([Include Files](../../guides/include/)).
 - **GPATH.** zmake does not support `GPATH`.
+- **`-q` and `-t`.** zmake does not run recipe lines with `+` or `$(MAKE)` under `-q` and `-t`. GNU Make runs them.
 - **Intermediate files.** GNU Make deletes a file that a chain of pattern rules made. zmake keeps it.
 - **Platforms.** zmake supports Linux. The jobserver needs `/proc`.
 

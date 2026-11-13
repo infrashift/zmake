@@ -17,9 +17,16 @@ zmake [options] [VAR=value ...] [target ...]
 | `-n` | Print the recipe lines. Do not run them. |
 | `-r` | Do not use the built-in implicit rules. |
 | `-R` | Do not define the built-in variables. Implies `-r`. |
+| `-k`, `--keep-going` | After a failure, build the other targets that do not need the failed one. |
+| `-q`, `--question` | Run nothing. The exit code is 0 when the goals are up to date, else 1. |
+| `-t`, `--touch` | Set the time of each out-of-date file target to now. Run no recipe. |
+| `-B`, `--always-make` | Treat every target as out of date. |
+| `-s`, `--silent` | Do not echo the recipe lines. |
 | `--modern` | Use modern mode for any input file. |
 | `--legacy` | Use legacy mode for any input file. |
 | `-h`, `--help` | Print the usage and exit. |
+
+Short options can share one argument, for example `-kj4` or `-sB`.
 
 An argument with `=` sets a variable. A command-line variable overrides the
 input file and the environment.
@@ -32,7 +39,7 @@ Without `-f`, zmake searches the directory in this order: `ZMakefile`,
 
 ## Environment
 
-- zmake reads `MAKEFLAGS` from a parent make: the `n`, `r` and `R` flags, `-jN`, `--jobserver-auth`, `--jobserver-fds` and `-- VAR=value` overrides.
+- zmake reads `MAKEFLAGS` from a parent make: the `B`, `k`, `n`, `q`, `r`, `R`, `s` and `t` flags, `-jN`, `--jobserver-auth`, `--jobserver-fds` and `-- VAR=value` overrides.
 - Each recipe line gets `MAKEFLAGS` with the same forms, and `MAKELEVEL` plus one.
 - A line with `+` or with `$(MAKE)` also runs under `-n`.
 - zmake ignores `SHELL` from the environment. Set `SHELL` in the input file to change the shell.
@@ -71,6 +78,7 @@ zmake: Nothing to be done for 'all'.
 zmake: *** No rule to make target 'x', needed by 'y'.  Stop.
 zmake: *** [Makefile:12: app] Error 1
 zmake: *** Deleting file 'out'
+zmake: Target 'all' not remade because of errors.
 Makefile:2: *** missing separator.  Stop.
 ```
 
@@ -81,4 +89,5 @@ A message that starts with `file:line:` has no program name.
 | Code | Meaning |
 |---|---|
 | 0 | Success. |
+| 1 | Under `-q`: a goal is not up to date. |
 | 2 | A usage error, a parse error, a missing rule, a cycle or a failed recipe line. |

@@ -25,13 +25,13 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **14. Target variables** | Target-specific and pattern-specific variables; GNU serial order | Done |
 | **15. Double-colon rules** | Independent `::` rules per target | Done |
 | **16. Built-ins** | Built-in variables and implicit rules, suffix rules, `-r`, `-R` | Done |
+| **17. Options** | `-k`, `-q`, `-t`, `-B`, `-s` and option clusters | Done |
 
 ## Follow-ups
 
 These features are outside the current scope. Each one stops the build with an
 error today:
 
-- The options `-k` (keep going), `-q`, `-t` and `-B`
 - Quoted values with spaces in `MAKEFLAGS` overrides
 - macOS and BSD support for the jobserver
 

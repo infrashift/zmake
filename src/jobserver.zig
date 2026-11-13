@@ -169,7 +169,7 @@ pub fn parseMakeflags(arena: std.mem.Allocator, text: []const u8) Error!Makeflag
 pub fn composeMakeflags(arena: std.mem.Allocator, flags: cli.Flags, jobs: u32, auth: ?[]const u8, overrides: []const cli.Override) Error![]const u8 {
     assert(jobs >= 1);
     var out: std.ArrayList(u8) = .empty;
-    var buf: [8]u8 = undefined;
+    var buf: [16]u8 = undefined;
     try out.appendSlice(arena, flags.letters(&buf));
     if (jobs > 1) try out.print(arena, " -j{d}", .{jobs});
     if (auth) |a| {

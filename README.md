@@ -47,6 +47,11 @@ zmake [options] [VAR=value ...] [target ...]
   -n          Print the recipe lines. Do not run them.
   -r          Do not use the built-in implicit rules.
   -R          Do not define the built-in variables. Implies -r.
+  -k          Keep going: build the other targets after a failure.
+  -q          Run nothing. Exit 0 when the goals are up to date, else 1.
+  -t          Touch the out-of-date targets. Do not run their recipes.
+  -B          Treat every target as out of date.
+  -s          Do not echo the recipe lines.
   --modern    Use modern mode for any input file.
   --legacy    Use legacy mode for any input file.
 ```

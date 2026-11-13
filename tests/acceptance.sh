@@ -508,5 +508,28 @@ out=$("$ZMAKE" 2>&1); code=$?
 expect_eq "a C program builds with no rules in the input file" "0" "$code"
 expect_eq "the program runs" "0" "$(./tool; echo $?)"
 
+scenario "18. The options -k, -q, -t, -B and -s (Phase 17)"
+mkdir -p g z
+cat > probe.sh <<'EOS'
+cd "$1" || exit 2
+printf 'all: good bad other\n\t@echo all\ngood:\n\t@echo good\nbad: dep\n\t@echo never\ndep:\n\t@echo dep-fails; exit 3\nother:\n\t@echo other\n.PHONY: all good bad dep other\n' > Mk
+"$2" -k -f Mk; echo "exit=$?"
+"$2" -f Mk; echo "exit=$?"
+printf 'out: in\n\tcp in out\n' > Mq; touch in; sleep 1
+rm -f out; "$2" -q -f Mq; echo "exit=$?"
+"$2" -t -f Mq; echo "exit=$?"; ls out
+"$2" -q -f Mq; echo "exit=$?"
+"$2" -B -f Mq; echo "exit=$?"
+"$2" -s -B -f Mq; echo "exit=$?"
+"$2" -sB -f Mq; echo "exit=$?"
+"$2" -kj2 -f Mk 2>&1 | sed 's/^z*make:/make:/' | sort; echo "exit=${PIPESTATUS[0]}"
+printf '.PHONY: p\np:\n\techo p\n' > Mt; "$2" -t -f Mt; echo "exit=$?"
+"$2" -q -f Mt; echo "exit=$?"
+printf 'all:\n\t@echo "[$$MAKEFLAGS]"\n' > Mf; "$2" -ksB -f Mf; "$2" -f Mf
+EOS
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "options match GNU Make" "$(bash probe.sh g "$GNU_MAKE" 2>&1 | sed 's/^z*make:/make:/')" "$(bash probe.sh z "$ZMAKE" 2>&1 | sed 's/^z*make:/make:/')"
+fi
+
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -143,3 +143,11 @@ A script generates the built-in variables and rules from `make -p` of GNU Make
 in `.SUFFIXES`. The pattern search tries rules without a chain first. A rule
 with the target `%` alone does not make a file of a specific type. See
 [Pattern Rules](../../guides/pattern-rules/#built-in-rules).
+
+### ADR-0019: Letter flags share one table for options and MAKEFLAGS
+
+One table maps the letters `B`, `k`, `n`, `q`, `r`, `R`, `s` and `t` to their
+flags, for the command line and for `MAKEFLAGS`. Under `-k`, a failed node fails
+the nodes that need it, and the other nodes go on. Under `-q`, zmake runs
+nothing and exits with 1 when a goal is out of date. Under `-t`, it sets the
+time of each out-of-date file. See [CLI](../../reference/cli/).

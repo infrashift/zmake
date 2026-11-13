@@ -23,7 +23,15 @@ pub const Options = struct {
     jobs: u32,
     dry_run: bool,
     env: *const std.process.Environ.Map,
+    keep_going: bool = false,
+    question: bool = false,
+    touch: bool = false,
+    always_make: bool = false,
+    silent: bool = false,
 };
+
+/// The result of a run. `outdated`: under `-q`, a goal is not up to date.
+pub const Outcome = enum { success, failed, outdated };
 
 const NodeState = struct {
     pending: u32 = 0,
@@ -35,6 +43,8 @@ const NodeState = struct {
     ran: bool = false,
     /// The modification time after the node is done; null when missing.
     mtime: ?i96 = null,
+    /// Under `-k`: the recipe of this node, or of a prerequisite, failed.
+    failed: bool = false,
     /// The file on disk: the directory search result, or the name after a
     /// rebuild in the working directory.
     path: []const u8 = "",
@@ -103,9 +113,13 @@ pub const Executor = struct {
     /// The target-specific layers of each node, or empty when the input file
     /// has no target-specific variables.
     contexts: []const []const *const eval.Layer = &.{},
+    /// Under `-k`: a recipe failed.
+    any_failed: bool = false,
+    /// Under `-q`: a target is out of date.
+    outdated: bool = false,
 
-    /// Build every goal. Return false when a recipe line fails.
-    pub fn run(ex: *Executor) Error!bool {
+    /// Build every goal.
+    pub fn run(ex: *Executor) Error!Outcome {
         assert(ex.graph.order.len > 0);
         ex.shell = if (ex.ev.lookup("SHELL")) |v| v.value else "/bin/sh";
         ex.has_exports = ex.needsExports();
@@ -121,9 +135,10 @@ pub const Executor = struct {
         ex.group.await(ex.io) catch return ex.fail("interrupted", .{});
         assert(ex.running == 0);
         if (ex.js) |js| js.releaseAll() catch return ex.fail("jobserver write failed", .{});
-        if (ex.failed) return false;
+        if (ex.failed) return .failed;
         assert(ex.finished == ex.graph.order.len);
-        return true;
+        if (ex.any_failed) return .failed;
+        return if (ex.outdated) .outdated else .success;
     }
 
     /// True when a variable from the command line exists, or when the input
@@ -331,9 +346,15 @@ pub const Executor = struct {
         ex.running -= 1;
         try ex.balanceTokens();
         if (job.failed) {
+            try ex.removeFailedTarget(job);
+            if (ex.opts.keep_going) {
+                // `-k`: the targets that need this one fail too; the others go on.
+                ex.states[job.node].failed = true;
+                ex.any_failed = true;
+                return ex.complete(job.node);
+            }
             if (!ex.failed and ex.running > 0) ex.printf("zmake: *** Waiting for unfinished jobs....\n", .{});
             ex.failed = true;
-            try ex.removeFailedTarget(job);
             return;
         }
         const st = &ex.states[job.node];
@@ -390,14 +411,19 @@ pub const Executor = struct {
         const node = ex.graph.nodes[id];
         assert(ex.states[id].pending == 0);
         assert(!ex.states[id].started and !ex.states[id].done);
+        if (ex.opts.keep_going and ex.depFailed(id)) {
+            ex.states[id].failed = true;
+            return null;
+        }
         var before = if (node.kind == .file) try ex.mtimeOf(ex.states[id].path) else null;
         if (node.kind == .inferred_phony and try ex.mtimeOf(node.name) != null) {
             ex.printf("zmake: warning: target '{s}' shadows existing path './{s}'; prefix with '@{s}:' to silence\n", .{ node.name, node.name, node.name });
         }
         if (node.instances.len > 0) return ex.prepareDoubleColon(id, before);
         const newer = try ex.newerOf(node.prerequisites, before);
-        const out_of_date = node.kind.isPhony() or before == null or newer.len > 0;
+        const out_of_date = ex.opts.always_make or node.kind.isPhony() or before == null or newer.len > 0;
         if (!out_of_date) return null;
+        if (ex.opts.question or ex.opts.touch) return ex.skipRecipe(id);
         if (node.kind == .file and ex.states[id].path.ptr != node.name.ptr) {
             // GNU Make rebuilds a target that directory search found in the
             // working directory, under its own name.
@@ -423,6 +449,47 @@ pub const Executor = struct {
         return job;
     }
 
+    /// `-q` and `-t` run no recipe for an out-of-date node. `-q` notes that a
+    /// goal is not up to date. `-t` sets the time of a file target to now and
+    /// prints `touch NAME`, as GNU Make does.
+    fn skipRecipe(ex: *Executor, id: dag.NodeId) Error!?*Job {
+        assert(ex.opts.question or ex.opts.touch);
+        const node = ex.graph.nodes[id];
+        ex.states[id].rebuilt = true;
+        if (ex.opts.question) {
+            ex.outdated = true;
+            return null;
+        }
+        if (node.kind != .file) return null;
+        if (!ex.opts.silent) ex.echo(try std.fmt.allocPrint(ex.arena, "touch {s}", .{node.name}));
+        if (!ex.opts.dry_run) try ex.touchFile(node.name);
+        ex.states[id].ran = true;
+        assert(ex.states[id].rebuilt);
+        return null;
+    }
+
+    fn touchFile(ex: *Executor, name: []const u8) Error!void {
+        assert(name.len > 0);
+        const dir = Io.Dir.cwd();
+        if (try ex.mtimeOf(name) == null) {
+            const file = dir.createFile(ex.io, name, .{ .truncate = false }) catch |e| return ex.fail("touch {s}: {s}", .{ name, @errorName(e) });
+            file.close(ex.io);
+            return;
+        }
+        dir.setTimestampsNow(ex.io, name, .{}) catch |err| return ex.fail("touch {s}: {s}", .{ name, @errorName(err) });
+        assert(ex.opts.touch);
+    }
+
+    /// True when a prerequisite of node `id` failed under `-k`.
+    fn depFailed(ex: *const Executor, id: dag.NodeId) bool {
+        assert(ex.opts.keep_going);
+        for (ex.graph.nodes[id].deps) |d| {
+            if (ex.states[d].failed) return true;
+        }
+        assert(ex.states[id].pending == 0);
+        return false;
+    }
+
     /// The paths on disk of prerequisite names, for `$<`, `$^`, `$+` and `$?`.
     fn pathsOf(ex: *Executor, names: []const []const u8) Error![]const []const u8 {
         const paths = try ex.arena.alloc([]const u8, names.len);
@@ -443,13 +510,14 @@ pub const Executor = struct {
         assert(node.instances.len > 0 and node.recipes.len == 0);
         if (ex.contexts.len > 0) ex.ev.layers = ex.contexts[id];
         defer ex.ev.layers = &.{};
-        const silent = ex.db.silent_all or ex.db.silent.contains(node.name);
+        const silent = ex.opts.silent or ex.db.silent_all or ex.db.silent.contains(node.name);
         var commands: std.ArrayList(Command) = .empty;
         var due: usize = 0;
         for (node.instances) |inst| {
             const newer = try ex.newerOf(inst.prerequisites, before);
-            if (!node.kind.isPhony() and before != null and newer.len == 0 and inst.prerequisites.len > 0) continue;
+            if (!ex.opts.always_make and !node.kind.isPhony() and before != null and newer.len == 0 and inst.prerequisites.len > 0) continue;
             due += 1;
+            if (ex.opts.question or ex.opts.touch) return ex.skipRecipe(id);
             const auto: eval.Auto = .{ .target = node.name, .prerequisites = try ex.pathsOf(inst.prerequisites), .stem = "", .newer = try ex.pathsOf(newer) };
             try ex.appendCommands(&commands, inst.recipes, &auto, silent, inst.file);
         }
@@ -471,7 +539,7 @@ pub const Executor = struct {
             const dep = ex.graph.index.get(name).?;
             const ds = ex.states[dep];
             assert(ds.done);
-            const is_newer = if (target_mtime) |t|
+            const is_newer = ex.opts.always_make or if (target_mtime) |t|
                 ex.graph.nodes[dep].kind.isPhony() or ds.mtime == null or ds.mtime.? > t or (ex.opts.dry_run and ds.rebuilt)
             else
                 true;
@@ -488,7 +556,7 @@ pub const Executor = struct {
         assert(node.recipes.len > 0);
         assert(ex.states[id].pending == 0);
         const auto: eval.Auto = .{ .target = node.name, .prerequisites = try ex.pathsOf(node.prerequisites), .stem = node.stem, .newer = try ex.pathsOf(newer) };
-        const silent_target = ex.db.silent_all or ex.db.silent.contains(node.name);
+        const silent_target = ex.opts.silent or ex.db.silent_all or ex.db.silent.contains(node.name);
         var commands: std.ArrayList(Command) = .empty;
         try ex.appendCommands(&commands, node.recipes, &auto, silent_target, node.file);
         assert(commands.items.len <= ast.limits.recipe_lines_max);
@@ -587,6 +655,11 @@ pub const Executor = struct {
     fn reportGoal(ex: *Executor, id: dag.NodeId) Error!void {
         assert(ex.states[id].done);
         if (std.mem.indexOfScalar(dag.NodeId, ex.graph.goals, id) == null) return;
+        if (ex.opts.question) return;
+        if (ex.states[id].failed) {
+            ex.printf("zmake: Target '{s}' not remade because of errors.\n", .{ex.graph.nodes[id].name});
+            return;
+        }
         if (try ex.subtreeRan(id)) return;
         const node = ex.graph.nodes[id];
         if ((node.recipes.len > 0 or node.instances.len > 0) and node.kind == .file) {

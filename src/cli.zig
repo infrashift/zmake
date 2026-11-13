@@ -16,16 +16,42 @@ pub const Override = struct {
 /// The flags that pass to a sub-make as letters in the first word of
 /// `MAKEFLAGS`, as in GNU Make.
 pub const Flags = struct {
+    /// `-B`: treat every target as out of date.
+    always_make: bool = false,
+    /// `-k`: after a failure, go on with the targets that do not need the failed one.
+    keep_going: bool = false,
     /// `-n`: print the recipe lines, do not run them.
     dry_run: bool = false,
+    /// `-q`: run nothing; the exit code tells whether the goals are up to date.
+    question: bool = false,
     /// `-r`: no built-in implicit rules.
     no_builtin_rules: bool = false,
     /// `-R`: no built-in variables. It implies `-r`.
     no_builtin_variables: bool = false,
+    /// `-s`: do not echo the recipe lines.
+    silent: bool = false,
+    /// `-t`: touch the out-of-date file targets instead of running their recipes.
+    touch: bool = false,
 
+    /// The letters in the order of GNU Make, which writes them in this order.
     const table = [_]struct { u8, []const u8 }{
-        .{ 'n', "dry_run" }, .{ 'r', "no_builtin_rules" }, .{ 'R', "no_builtin_variables" },
+        .{ 'B', "always_make" }, .{ 'k', "keep_going" },       .{ 'n', "dry_run" },
+        .{ 'q', "question" },    .{ 'r', "no_builtin_rules" }, .{ 'R', "no_builtin_variables" },
+        .{ 's', "silent" },      .{ 't', "touch" },
     };
+
+    /// Set the flag of one letter. Return false for an unknown letter.
+    pub fn setLetter(f: *Flags, c: u8) bool {
+        inline for (table) |entry| {
+            if (entry[0] == c) {
+                @field(f, entry[1]) = true;
+                if (c == 'R') f.no_builtin_rules = true;
+                return true;
+            }
+        }
+        assert(std.mem.indexOfScalar(u8, "BknqrRst", c) == null);
+        return false;
+    }
 
     /// Read the letters of a `MAKEFLAGS` word such as `nrR`.
     pub fn fromLetters(word: []const u8) Flags {
@@ -39,6 +65,7 @@ pub const Flags = struct {
     }
 
     /// Write the letters of the set flags into `buf`. Return the used part.
+    /// `buf` needs room for every letter.
     pub fn letters(f: Flags, buf: []u8) []const u8 {
         assert(buf.len >= table.len);
         var n: usize = 0;
@@ -87,6 +114,11 @@ pub const usage =
     \\  -n            Print the recipe lines. Do not run them.
     \\  -r            Do not use the built-in implicit rules.
     \\  -R            Do not define the built-in variables. Implies -r.
+    \\  -k            Keep going: build the other targets after a failure.
+    \\  -q            Run nothing. Exit 0 when the goals are up to date, else 1.
+    \\  -t            Touch the out-of-date targets. Do not run their recipes.
+    \\  -B            Treat every target as out of date.
+    \\  -s            Do not echo the recipe lines.
     \\  --modern      Use modern mode (ZMakefile syntax) for any input file.
     \\  --legacy      Use legacy mode (strict Make syntax) for any input file.
     \\  -h, --help    Print this help.
@@ -147,33 +179,64 @@ fn parseOption(opts: *Options, rest: []const []const u8, diag: *Diagnostic) Pars
     assert(rest.len >= 1);
     const arg = rest[0];
     assert(arg.len > 1 and arg[0] == '-');
-    if (eqlAny(arg, &.{ "-h", "--help" })) {
+    if (arg[1] != '-') return parseShort(opts, rest, diag);
+    const long_flags = [_]struct { []const u8, u8 }{
+        .{ "--dry-run", 'n' },              .{ "--just-print", 'n' },  .{ "--no-builtin-rules", 'r' },
+        .{ "--no-builtin-variables", 'R' }, .{ "--keep-going", 'k' },  .{ "--question", 'q' },
+        .{ "--touch", 't' },                .{ "--always-make", 'B' }, .{ "--silent", 's' },
+        .{ "--quiet", 's' },
+    };
+    for (long_flags) |lf| {
+        if (std.mem.eql(u8, arg, lf[0])) {
+            const known = opts.flags.setLetter(lf[1]);
+            assert(known);
+            return 1;
+        }
+    }
+    if (std.mem.eql(u8, arg, "--help")) {
         opts.help = true;
-    } else if (eqlAny(arg, &.{ "-n", "--dry-run", "--just-print" })) {
-        opts.flags.dry_run = true;
-    } else if (eqlAny(arg, &.{ "-r", "--no-builtin-rules" })) {
-        opts.flags.no_builtin_rules = true;
-    } else if (eqlAny(arg, &.{ "-R", "--no-builtin-variables" })) {
-        opts.flags.no_builtin_variables = true;
-        opts.flags.no_builtin_rules = true;
     } else if (std.mem.eql(u8, arg, "--modern")) {
         opts.mode = .modern;
     } else if (std.mem.eql(u8, arg, "--legacy")) {
         opts.mode = .legacy;
-    } else if (valueOption(arg, "-f", "--file")) |inline_value| {
+    } else if (longOption(arg, "--file")) |inline_value| {
         const v = try optionValue(rest, inline_value, diag);
         opts.file = v.value;
         return v.used;
-    } else if (valueOption(arg, "-C", "--directory")) |inline_value| {
+    } else if (longOption(arg, "--directory")) |inline_value| {
         const v = try optionValue(rest, inline_value, diag);
         opts.directory = v.value;
         return v.used;
-    } else if (valueOption(arg, "-j", "--jobs")) |inline_value| {
+    } else if (longOption(arg, "--jobs")) |inline_value| {
         return parseJobs(opts, rest, inline_value, diag);
     } else {
         return usageError(diag, "unknown option '{s}'", .{arg});
     }
     assert(opts.jobs >= 1);
+    return 1;
+}
+
+/// A short option or a cluster such as `-kj4` or `-sB`. A letter that takes a
+/// value (`f`, `C`, `j`) takes the rest of the word, or the next argument.
+fn parseShort(opts: *Options, rest: []const []const u8, diag: *Diagnostic) ParseError!usize {
+    const arg = rest[0];
+    assert(arg.len >= 2 and arg[0] == '-' and arg[1] != '-');
+    var i: usize = 1;
+    while (i < arg.len) : (i += 1) {
+        const c = arg[i];
+        const tail = arg[i + 1 ..];
+        switch (c) {
+            'h' => opts.help = true,
+            'f', 'C' => {
+                const v = try optionValue(rest, if (tail.len > 0) tail else null, diag);
+                if (c == 'f') opts.file = v.value else opts.directory = v.value;
+                return v.used;
+            },
+            'j' => return parseJobs(opts, rest, if (tail.len > 0) tail else null, diag),
+            else => if (!opts.flags.setLetter(c)) return usageError(diag, "unknown option '-{c}'", .{c}),
+        }
+    }
+    assert(i == arg.len);
     return 1;
 }
 
@@ -218,18 +281,15 @@ fn optionValue(rest: []const []const u8, inline_value: ?[]const u8, diag: *Diagn
     return .{ .value = rest[1], .used = 2 };
 }
 
-/// Match `-xVALUE`, `-x`, `--long=VALUE` and `--long`. Return the inline value, or
-/// an empty-optional (null payload) when the value is the next argument.
-fn valueOption(arg: []const u8, short: []const u8, long: []const u8) ??[]const u8 {
-    assert(short.len == 2 and short[0] == '-');
+/// Match `--long=VALUE` and `--long`. Return the inline value, or an
+/// empty-optional (null payload) when the value is the next argument.
+fn longOption(arg: []const u8, long: []const u8) ??[]const u8 {
     assert(long.len > 2 and long[0] == '-' and long[1] == '-');
-    if (std.mem.eql(u8, arg, short) or std.mem.eql(u8, arg, long)) return @as(?[]const u8, null);
+    if (std.mem.eql(u8, arg, long)) return @as(?[]const u8, null);
     if (std.mem.startsWith(u8, arg, long) and arg.len > long.len and arg[long.len] == '=') {
         return @as(?[]const u8, arg[long.len + 1 ..]);
     }
-    if (std.mem.startsWith(u8, arg, short) and !std.mem.startsWith(u8, arg, "--")) {
-        return @as(?[]const u8, arg[short.len..]);
-    }
+    assert(arg.len >= 2);
     return null;
 }
 
@@ -346,6 +406,26 @@ test "parse overrides and goals" {
     try testing.expect(o.overrides[1].simple);
     try testing.expectEqual(@as(usize, 2), o.goals.len);
     try testing.expectEqualStrings("-weird", o.goals[1]);
+}
+
+test "short option clusters and the MAKEFLAGS letters" {
+    const o = try parseTest(&.{ "-kj4", "-sBf", "build.mk", "--question", "-C", "sub", "--touch", "all" });
+    try testing.expect(o.flags.keep_going and o.flags.silent and o.flags.always_make);
+    try testing.expect(o.flags.question and o.flags.touch);
+    try testing.expectEqual(@as(u32, 4), o.jobs);
+    try testing.expectEqualStrings("build.mk", o.file.?);
+    try testing.expectEqualStrings("sub", o.directory.?);
+    var buf: [16]u8 = undefined;
+    try testing.expectEqualStrings("Bkqst", o.flags.letters(&buf));
+    const back = Flags.fromLetters("Bks");
+    try testing.expect(back.always_make and back.keep_going and back.silent and !back.question);
+    var diag: Diagnostic = .{};
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    const with_goal = try parseArgs(arena.allocator(), &.{ "--touch", "-C", "sub", "all" }, &diag);
+    try testing.expectEqualStrings("all", with_goal.goals[0]);
+    try testing.expectError(error.Usage, parseArgs(arena.allocator(), &.{"-kx"}, &diag));
+    try testing.expectEqualStrings("unknown option '-x'", diag.message());
 }
 
 test "parse errors" {
