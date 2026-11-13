@@ -19,7 +19,7 @@ description: "The GNU Make compatible token protocol that zmake serves and joins
 Each zmake process holds one implicit token. A job needs a token before it starts. The process returns the token to the pool when the job ends.
 
 ## Server
-With `-jN` and N > 1, and no jobserver in `MAKEFLAGS`, zmake creates the pool:
+With `-jN` and N > 1, and no jobserver in `MAKEFLAGS`, zmake creates the pool. On Linux the default is a pipe. On macOS and the BSDs it is a named fifo, and `--jobserver-style` can select either ([ADR-0020](/decisions/adr-0020-a-named-fifo-shares-the-jobserver-off-linux--01a1d399e000.md)). For a pipe:
 1. Create a pipe.
 2. Write N − 1 token bytes (`+`) into the pipe.
 3. Pass both ends of the pipe to each child process.

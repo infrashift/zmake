@@ -52,11 +52,13 @@ zmake [options] [VAR=value ...] [target ...]
   -t          Touch the out-of-date targets. Do not run their recipes.
   -B          Treat every target as out of date.
   -s          Do not echo the recipe lines.
+  --jobserver-style=fifo|pipe
+              The style of a new jobserver. Default: pipe on Linux, fifo elsewhere.
   --modern    Use modern mode for any input file.
   --legacy    Use legacy mode for any input file.
 ```
 
-zmake serves and joins the GNU Make jobserver. A recursive `$(MAKE)` and a parent GNU Make share one pool of jobs.
+zmake serves and joins the GNU Make jobserver. A recursive `$(MAKE)` and a parent GNU Make share one pool of jobs. zmake builds for Linux, macOS and FreeBSD.
 
 ## Compatibility
 zmake supports these GNU Make features:
@@ -78,6 +80,7 @@ Run `make check` or `zmake check`. GNU Make reads the `Makefile`. zmake reads th
 - `make lint`: `zig fmt --check` and `scripts/nasa-lint.py`, which checks the NASA Power of 10 rules
 - `make test`: the unit tests and the mode tests
 - `make acceptance`: the end-to-end scenarios, with a comparison against GNU Make
+- `make cross`: builds for macOS and FreeBSD on arm64 and x86_64
 - `make wiki`: validation of the OKF wiki in `.okfw/`
 - `make docs-style`: an ASD-STE100 check of the documentation
 

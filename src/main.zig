@@ -100,6 +100,7 @@ fn execute(
         .diag = diag,
         .shell = "/bin/sh",
     };
+    defer if (js) |j| j.remove();
     const outcome = ex.run() catch |err| switch (err) {
         error.Exec => return report(io, diag.message()),
         error.OutOfMemory => return report(io, "out of memory"),
@@ -119,11 +120,22 @@ fn setupJobserver(init: std.process.Init, opts: zmake.cli.Options, mf: zmake.job
     const js = arena.create(zmake.jobserver.Jobserver) catch return report(io, "out of memory");
     if (opts.jobs_given) {
         if (opts.jobs <= 1) return null;
-        js.* = zmake.jobserver.Jobserver.initServer(arena, opts.jobs) catch return report(io, "cannot create the jobserver pipe");
+        const style = opts.jobserver_style orelse zmake.jobserver.default_style;
+        const tmp_dir = init.environ_map.get("TMPDIR") orelse "/tmp";
+        js.* = zmake.jobserver.Jobserver.initServer(arena, opts.jobs, style, if (tmp_dir.len > 0) tmp_dir else "/tmp") catch |err| switch (err) {
+            error.Unsupported => return report(io, "--jobserver-style=pipe needs Linux; use --jobserver-style=fifo"),
+            else => return report(io, "cannot create the jobserver"),
+        };
         return js;
     }
     const auth = mf.auth orelse return null;
-    const client = zmake.jobserver.Jobserver.initClient(arena, auth) catch return report(io, "invalid jobserver in MAKEFLAGS");
+    const client = zmake.jobserver.Jobserver.initClient(arena, auth) catch |err| switch (err) {
+        error.Unsupported => {
+            warn(io, "zmake: warning: cannot share the pipe jobserver of the parent on this system: using -j1.");
+            return null;
+        },
+        else => return report(io, "invalid jobserver in MAKEFLAGS"),
+    };
     js.* = client orelse {
         warn(io, "zmake: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.");
         return null;

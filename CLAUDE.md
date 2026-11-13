@@ -9,7 +9,7 @@ zmake is a Make-compatible build tool in Zig. It ships as one static binary. It 
 ## Tech Stack (WHAT)
 - **Language:** Zig 0.17.1, pinned in `build.zig.zon` as `minimum_zig_version`. The toolchain lives in `~/.local/zig/`.
 - **Dependencies:** the Zig standard library only. Write an ADR before you add a dependency.
-- **Platform:** Linux first. The jobserver uses raw Linux system calls through `std.posix.system`.
+- **Platform:** Linux, macOS and FreeBSD. The tests run on Linux; `make cross` builds the other systems. The jobserver uses a pipe on Linux and a named fifo elsewhere ([ADR-0020](.okfw/decisions/adr-0020-a-named-fifo-shares-the-jobserver-off-linux--01a1d399e000.md)).
 - **Wiki:** okfw (`.okfw/`). See the okfw block below.
 - **Docs:** Astro Starlight in `docs/` (bun 1.3.9), deployed to GitHub Pages ([ADR-0009](.okfw/decisions/adr-0009-document-zmake-with-astro-starlight-on-github-pages--01a1d33eea33.md)).
 
@@ -30,6 +30,7 @@ Run these targets after every change:
 - `make test` → `zig build test`
 - `make build` → `zig build`
 - `make acceptance` → `zig build acceptance` (end-to-end scenarios against the binary)
+- `make cross` → build for macOS and FreeBSD on arm64 and x86_64
 - `make wiki` → `okfw validate --all && okfw validate --okf`
 - `make docs-style` → `scripts/ste-check.py`
 - `make check` → all of the gates above

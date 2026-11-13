@@ -35,3 +35,5 @@ A jobserver client must take a token without blocking. The scheduler waits for j
 ## Alternatives considered
 - **`O_NONBLOCK` on the shared descriptor.** Rejected: it breaks GNU Make children.
 - **A reader thread that blocks on the pipe.** Rejected: more threads and a harder shutdown, for no gain.
+
+**Update (Phase 19):** this design stays the Linux default. Off Linux, a new pool is a named fifo, and a client cannot share a pipe pool ([ADR-0020](/decisions/adr-0020-a-named-fifo-shares-the-jobserver-off-linux--01a1d399e000.md)).

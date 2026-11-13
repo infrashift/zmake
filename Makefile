@@ -4,7 +4,7 @@ ZIG ?= zig
 PYTHON ?= python3
 ZIG_SOURCES := build.zig src tests
 
-.PHONY: all build test lint fmt acceptance wiki docs-style docs-demo docs-dev docs-build check
+.PHONY: all build test lint fmt acceptance cross wiki docs-style docs-demo docs-dev docs-build check
 
 all: check
 
@@ -28,6 +28,13 @@ fmt:
 ## acceptance: run the end-to-end scenarios against the built binary
 acceptance:
 	$(ZIG) build acceptance
+
+## cross: build for macOS and FreeBSD on arm64 and x86_64 (ADR-0020)
+cross:
+	$(ZIG) build -Dtarget=aarch64-macos --prefix zig-out/cross/aarch64-macos
+	$(ZIG) build -Dtarget=x86_64-macos --prefix zig-out/cross/x86_64-macos
+	$(ZIG) build -Dtarget=aarch64-freebsd --prefix zig-out/cross/aarch64-freebsd
+	$(ZIG) build -Dtarget=x86_64-freebsd --prefix zig-out/cross/x86_64-freebsd
 
 ## wiki: validate the OKF wiki
 wiki:
@@ -54,4 +61,4 @@ docs-build:
 	cd docs && bun install --frozen-lockfile && bun --bun run build
 
 ## check: run every gate
-check: lint test acceptance wiki docs-style
+check: lint test acceptance cross wiki docs-style

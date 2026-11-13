@@ -30,6 +30,7 @@ target that is missing from one file fails `make acceptance`.
 | `make lint` | `zig fmt --check` and `scripts/nasa-lint.py` (Power of 10) |
 | `make fmt` | `zig fmt` on the Zig sources |
 | `make acceptance` | `zig build acceptance`: end-to-end scenarios against the binary and GNU Make |
+| `make cross` | Builds for macOS and FreeBSD on arm64 and x86_64 |
 | `make wiki` | `okfw validate --all && okfw validate --okf` on the project wiki |
 | `make docs-style` | `scripts/ste-check.py`: checks the documentation against ASD-STE100 rules |
 | `make check` | All of the gates above |

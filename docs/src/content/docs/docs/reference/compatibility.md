@@ -50,6 +50,7 @@ These features stop the build with `file:line`:
 | `$(eval ...)` in a recipe | `$(eval ...) in a recipe is not supported` |
 | Double-colon pattern rules (`%.o:: %.c`) | `double-colon pattern rules are not supported` |
 | Shell assignments (`X != cmd`) | Parse error |
+| Static pattern rules (`objs: %.o: %.c`) | `static pattern rules are not supported` |
 
 A directive word followed by `=` or `:` is a variable or a target name, not a
 directive.
@@ -64,7 +65,7 @@ directive.
 - **GPATH.** zmake does not support `GPATH`.
 - **`-q` and `-t`.** zmake does not run recipe lines with `+` or `$(MAKE)` under `-q` and `-t`. GNU Make runs them.
 - **Intermediate files.** GNU Make deletes a file that a chain of pattern rules made. zmake keeps it.
-- **Platforms.** zmake supports Linux. The jobserver needs `/proc`.
+- **Platforms.** zmake builds for Linux, macOS and FreeBSD. The tests run on Linux. On macOS and FreeBSD, zmake cannot join a pipe jobserver of a parent and uses `-j1`.
 
 ## Hard limits
 

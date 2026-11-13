@@ -32,3 +32,5 @@ The original plan named Zig `0.13.0` and `0.14.0-dev`. Later releases replaced t
 ## Alternatives considered
 - **Zig 0.13.0 as written.** Rejected: three releases old, with an I/O API that later releases removed.
 - **Link libc for the jobserver.** Rejected: a static binary without libc is simpler to ship.
+
+**Update (Phase 19):** zmake also builds for macOS and FreeBSD. On those systems Zig links the C library, and the jobserver uses a named fifo ([ADR-0020](/decisions/adr-0020-a-named-fifo-shares-the-jobserver-off-linux--01a1d399e000.md)). The tests still run on Linux only.

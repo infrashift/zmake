@@ -89,6 +89,9 @@ pub const Flags = struct {
     }
 };
 
+/// `--jobserver-style`: how a new pool shares its tokens, as in GNU Make 4.4.
+pub const JobserverStyle = enum { pipe, fifo };
+
 pub const Options = struct {
     file: ?[]const u8 = null,
     directory: ?[]const u8 = null,
@@ -97,6 +100,8 @@ pub const Options = struct {
     jobs_given: bool = false,
     flags: Flags = .{},
     mode: ?ast.SyntaxMode = null,
+    /// Null: the default of the system (`jobserver.default_style`).
+    jobserver_style: ?JobserverStyle = null,
     help: bool = false,
     overrides: []const Override = &.{},
     goals: []const []const u8 = &.{},
@@ -192,6 +197,13 @@ fn parseOption(opts: *Options, rest: []const []const u8, diag: *Diagnostic) Pars
             assert(known);
             return 1;
         }
+    }
+    if (std.mem.startsWith(u8, arg, "--jobserver-style=")) {
+        const value = arg["--jobserver-style=".len..];
+        opts.jobserver_style = std.meta.stringToEnum(JobserverStyle, value) orelse {
+            return usageError(diag, "unknown jobserver style '{s}'", .{value});
+        };
+        return 1;
     }
     if (std.mem.eql(u8, arg, "--help")) {
         opts.help = true;

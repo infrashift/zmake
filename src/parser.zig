@@ -136,6 +136,12 @@ pub const Parser = struct {
             const inline_recipe = std.mem.trimStart(u8, rhs[semi + 1 ..], " \t");
             if (inline_recipe.len > 0) try p.recipes.append(p.arena, recipeLine(inline_recipe, line));
         }
+        if (findTopLevel(prereq_text, ":") != null) {
+            // `objs: %.o: %.c` is a static pattern rule. Read as plain
+            // prerequisites, it gives a wrong rule, so stop (ADR-0005).
+            p.recipes.clearRetainingCapacity();
+            return p.fail(line, "static pattern rules are not supported", .{});
+        }
         var normal = prereq_text;
         var order_only: []const u8 = "";
         if (findTopLevel(prereq_text, "|")) |bar| {
@@ -375,6 +381,8 @@ test "errors carry file and line" {
     try testing.expectError(error.Syntax, parse(a, "hello\n", "Makefile", .legacy, &diag));
     try testing.expectEqualStrings("Makefile:1: *** missing separator.  Stop.", diag.message());
     try testing.expectError(error.Syntax, parse(a, "X != ls\n", "Makefile", .legacy, &diag));
+    try testing.expectError(error.Syntax, parse(a, "a.o b.o: %.o: %.c\n", "Makefile", .legacy, &diag));
+    try testing.expectEqualStrings("Makefile:1: *** static pattern rules are not supported.  Stop.", diag.message());
 }
 
 test "target-specific variables" {

@@ -27,11 +27,14 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **16. Built-ins** | Built-in variables and implicit rules, suffix rules, `-r`, `-R` | Done |
 | **17. Options** | `-k`, `-q`, `-t`, `-B`, `-s` and option clusters | Done |
 | **18. MAKEFLAGS quoting** | Values with spaces and backslashes reach sub-makes | Done |
+| **19. macOS and BSD** | A fifo jobserver off Linux, `--jobserver-style`, cross builds | Done |
 
 ## Follow-ups
 
-These features are outside the current scope. Each one stops the build with an
-error today:
+These features are outside the current scope:
 
-- macOS and BSD support for the jobserver
+- `$(guile ...)`, `load`, `.ONESHELL` and `.SECONDEXPANSION` stop the build with an error.
+- zmake does not remake included files, search include directories, or delete intermediate files.
+- Static pattern rules (`objs: %.o: %.c`) and `GPATH`.
+- Test runs on macOS and FreeBSD. Today, `make cross` only builds for them.
 

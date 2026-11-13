@@ -23,4 +23,5 @@
 * [ISSUE-017: The options -k, -q, -t and -B](issue-017-the-options-k-q-t-and-b--01a1d34ecd58.md) - Phase 17: keep going, question, touch and always-make, and combined short options.
 * [ISSUE-018: Quoted values in MAKEFLAGS](issue-018-quoted-values-in-makeflags--01a1d34ecd5f.md) - Phase 18: command-line variables with spaces survive the trip through MAKEFLAGS.
 * [ISSUE-019: Jobserver on macOS and the BSDs](issue-019-jobserver-on-macos-and-the-bsds--01a1d34ecd67.md) - Phase 19: the jobserver and the build without Linux-only system calls.
+* [ISSUE-020: Static pattern rules](issue-020-static-pattern-rules--01a1d399e029.md) - Static pattern rules (objs: %.o: %.c) give one explicit rule per target; today zmake stops with a clear error.
 

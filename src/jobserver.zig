@@ -3,16 +3,31 @@
 //!
 //! zmake takes tokens through a private non-blocking descriptor. For a pipe it
 //! opens `/proc/self/fd/R` again, so the pipe stays blocking for child makes,
-//! which share the open file description of the original descriptor. Linux only
-//! (ADR-0002).
+//! which share the open file description of the original descriptor. That
+//! needs Linux (ADR-0008). For a named fifo, zmake opens the path with
+//! `O_NONBLOCK`, which works on each POSIX system. On macOS and the BSDs, a
+//! server uses a fifo, as GNU Make 4.4 does (ADR-0020).
 
 const std = @import("std");
+const builtin = @import("builtin");
 const assert = std.debug.assert;
 const posix = std.posix;
 const ast = @import("ast.zig");
 const cli = @import("cli.zig");
 
-pub const Error = error{ Jobserver, OutOfMemory };
+/// `Unsupported`: this system cannot share the pipe jobserver of a parent.
+pub const Error = error{ Jobserver, Unsupported, OutOfMemory };
+
+const is_linux = builtin.os.tag == .linux;
+
+/// The style of a new pool: a pipe on Linux, a named fifo elsewhere.
+pub const default_style: cli.JobserverStyle = if (is_linux) .pipe else .fifo;
+
+/// `mkfifo` of the C library. zmake links the C library on each system except
+/// Linux, so this is the system call, not a new dependency (ADR-0002).
+const libc_fifo = struct {
+    extern "c" fn mkfifo(path: [*:0]const u8, mode: std.c.mode_t) c_int;
+};
 
 pub const Jobserver = struct {
     /// The private non-blocking descriptor that zmake reads tokens from.
@@ -26,10 +41,45 @@ pub const Jobserver = struct {
     /// The token bytes that zmake holds. zmake writes the same bytes back.
     held: [ast.limits.jobs_max]u8 = undefined,
     held_len: u32 = 0,
+    /// The fifo that this server made. `remove` deletes it at the end.
+    fifo_path: ?[:0]const u8 = null,
 
     /// Create a pool with `jobs - 1` tokens. zmake holds the implicit token.
-    pub fn initServer(arena: std.mem.Allocator, jobs: u32) Error!Jobserver {
+    /// `tmp_dir` holds the fifo of the fifo style.
+    pub fn initServer(arena: std.mem.Allocator, jobs: u32, style: cli.JobserverStyle, tmp_dir: []const u8) Error!Jobserver {
         assert(jobs > 1 and jobs <= ast.limits.jobs_max);
+        assert(tmp_dir.len > 0);
+        return switch (style) {
+            .pipe => if (is_linux) initPipeServer(arena, jobs) else error.Unsupported,
+            .fifo => initFifoServer(arena, jobs, tmp_dir),
+        };
+    }
+
+    /// A named fifo in `tmp_dir`. zmake opens it read-write with `O_NONBLOCK`,
+    /// so the fifo always has a writer and a read never blocks.
+    fn initFifoServer(arena: std.mem.Allocator, jobs: u32, tmp_dir: []const u8) Error!Jobserver {
+        assert(jobs > 1);
+        const path = try std.fmt.allocPrintSentinel(arena, "{s}/zmake-jobserver-{d}", .{ tmp_dir, processId() }, 0);
+        try makeFifo(path);
+        const fd = posix.openat(posix.AT.FDCWD, path, .{ .ACCMODE = .RDWR, .NONBLOCK = true, .CLOEXEC = true }, 0) catch return error.Jobserver;
+        var i: u32 = 0;
+        while (i + 1 < jobs) : (i += 1) try writeByte(fd, '+');
+        const auth = try std.mem.concat(arena, u8, &.{ "fifo:", path });
+        assert(fd >= 0);
+        return .{ .take_fd = fd, .give_fd = fd, .files = &.{}, .auth = auth, .fifo_path = path };
+    }
+
+    /// Delete the fifo of a fifo server at the end of the run.
+    pub fn remove(js: *Jobserver) void {
+        assert(js.held_len <= js.held.len);
+        const path = js.fifo_path orelse return;
+        if (posix.errno(posix.system.unlinkat(posix.AT.FDCWD, path, 0)) != .SUCCESS) return;
+        js.fifo_path = null;
+        assert(js.fifo_path == null);
+    }
+
+    fn initPipeServer(arena: std.mem.Allocator, jobs: u32) Error!Jobserver {
+        assert(is_linux);
         var fds: [2]posix.fd_t = undefined;
         if (posix.errno(posix.system.pipe2(&fds, .{ .CLOEXEC = true })) != .SUCCESS) return error.Jobserver;
         var i: u32 = 0;
@@ -56,7 +106,12 @@ pub const Jobserver = struct {
         const w = std.fmt.parseInt(posix.fd_t, auth[comma + 1 ..], 10) catch return error.Jobserver;
         if (r < 0 or w < 0) return null;
         if (!isOpen(r) or !isOpen(w)) return null;
-        const take = try reopenNonblocking(arena, r);
+        // A private non-blocking descriptor for a pipe needs /proc (ADR-0008).
+        if (!is_linux) return error.Unsupported;
+        const take = reopenNonblocking(arena, r) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            else => return error.Unsupported,
+        };
         assert(take >= 0);
         return .{ .take_fd = take, .give_fd = w, .files = try inheritFiles(arena, .{ r, w }), .auth = auth };
     }
@@ -120,6 +175,24 @@ fn isOpen(fd: posix.fd_t) bool {
     return posix.errno(posix.system.fcntl(fd, posix.F.GETFD, @as(usize, 0))) == .SUCCESS;
 }
 
+fn processId() i64 {
+    const pid: i64 = if (is_linux) std.os.linux.getpid() else std.c.getpid();
+    assert(pid > 0);
+    assert(pid <= std.math.maxInt(i32));
+    return pid;
+}
+
+/// Make a named fifo that only this user can read and write.
+fn makeFifo(path: [:0]const u8) Error!void {
+    assert(path.len > 0);
+    const ok = if (is_linux)
+        posix.errno(std.os.linux.mknodat(posix.AT.FDCWD, path, std.os.linux.S.IFIFO | 0o600, 0)) == .SUCCESS
+    else
+        libc_fifo.mkfifo(path, 0o600) == 0;
+    if (!ok) return error.Jobserver;
+    assert(ok);
+}
+
 /// Open the pipe end again through /proc, with O_NONBLOCK on the new descriptor only.
 fn reopenNonblocking(arena: std.mem.Allocator, fd: posix.fd_t) Error!posix.fd_t {
     assert(fd >= 0);
@@ -170,7 +243,7 @@ pub fn parseMakeflags(arena: std.mem.Allocator, text: []const u8) Error!Makeflag
 }
 
 /// Build the `MAKEFLAGS` value for child processes.
-pub fn composeMakeflags(arena: std.mem.Allocator, flags: cli.Flags, jobs: u32, auth: ?[]const u8, overrides: []const cli.Override) Error![]const u8 {
+pub fn composeMakeflags(arena: std.mem.Allocator, flags: cli.Flags, jobs: u32, auth: ?[]const u8, overrides: []const cli.Override) error{OutOfMemory}![]const u8 {
     assert(jobs >= 1);
     var out: std.ArrayList(u8) = .empty;
     var buf: [16]u8 = undefined;
@@ -199,7 +272,7 @@ pub fn composeMakeflags(arena: std.mem.Allocator, flags: cli.Flags, jobs: u32, a
 
 /// Write `s` with a backslash before each space, tab and backslash, as GNU
 /// Make does in `MAKEFLAGS`.
-fn appendEscaped(arena: std.mem.Allocator, out: *std.ArrayList(u8), s: []const u8) Error!void {
+fn appendEscaped(arena: std.mem.Allocator, out: *std.ArrayList(u8), s: []const u8) error{OutOfMemory}!void {
     const before = out.items.len;
     for (s) |c| {
         if (c == ' ' or c == '\t' or c == '\\') try out.append(arena, '\\');
@@ -237,7 +310,7 @@ const testing = std.testing;
 test "server pool hands out jobs - 1 tokens" {
     var arena: std.heap.ArenaAllocator = .init(testing.allocator);
     defer arena.deinit();
-    var js = try Jobserver.initServer(arena.allocator(), 3);
+    var js = try Jobserver.initServer(arena.allocator(), 3, .pipe, "/tmp");
     try testing.expect(try js.tryAcquire());
     try testing.expect(try js.tryAcquire());
     try testing.expect(!try js.tryAcquire());
@@ -247,10 +320,30 @@ test "server pool hands out jobs - 1 tokens" {
     try testing.expectEqual(@as(u32, 0), js.held_len);
 }
 
+test "fifo server: the portable style" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+    const dir = try tmp.dir.realPathFileAlloc(testing.io, ".", arena.allocator());
+    var js = try Jobserver.initServer(arena.allocator(), 3, .fifo, dir);
+    try testing.expect(std.mem.startsWith(u8, js.auth, "fifo:"));
+    try testing.expectEqual(@as(usize, 0), js.files.len);
+    try testing.expect(try js.tryAcquire());
+    var client = (try Jobserver.initClient(arena.allocator(), js.auth)).?;
+    try testing.expect(try client.tryAcquire());
+    try testing.expect(!(try js.tryAcquire()));
+    try client.releaseAll();
+    try testing.expect(try js.tryAcquire());
+    try js.releaseAll();
+    js.remove();
+    try testing.expect(js.fifo_path == null);
+}
+
 test "client joins a pool through R,W" {
     var arena: std.heap.ArenaAllocator = .init(testing.allocator);
     defer arena.deinit();
-    const server = try Jobserver.initServer(arena.allocator(), 2);
+    const server = try Jobserver.initServer(arena.allocator(), 2, .pipe, "/tmp");
     var client = (try Jobserver.initClient(arena.allocator(), server.auth)).?;
     try testing.expect(try client.tryAcquire());
     try testing.expect(!try client.tryAcquire());

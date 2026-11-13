@@ -30,6 +30,13 @@ ZIG_SOURCES := build.zig src tests
 @acceptance:
     $(ZIG) build acceptance
 
+## cross: build for macOS and FreeBSD on arm64 and x86_64 (ADR-0020)
+@cross:
+    $(ZIG) build -Dtarget=aarch64-macos --prefix zig-out/cross/aarch64-macos
+    $(ZIG) build -Dtarget=x86_64-macos --prefix zig-out/cross/x86_64-macos
+    $(ZIG) build -Dtarget=aarch64-freebsd --prefix zig-out/cross/aarch64-freebsd
+    $(ZIG) build -Dtarget=x86_64-freebsd --prefix zig-out/cross/x86_64-freebsd
+
 ## wiki: validate the OKF wiki
 @wiki:
     okfw validate --all
@@ -55,4 +62,4 @@ ZIG_SOURCES := build.zig src tests
     cd docs && bun install --frozen-lockfile && bun --bun run build
 
 ## check: run every gate
-@check: lint test acceptance wiki docs-style
+@check: lint test acceptance cross wiki docs-style

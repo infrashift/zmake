@@ -3,8 +3,8 @@ title: Getting Started
 description: Build zmake from source with Zig 0.17.1, then run a ZMakefile and an existing Makefile.
 ---
 
-zmake has no binary release yet. Build it from source. zmake supports Linux
-first, because the jobserver uses Linux system calls.
+zmake has no binary release yet. Build it from source. zmake builds for Linux,
+macOS and FreeBSD. The tests run on Linux.
 
 ## Build from source
 

@@ -153,6 +153,8 @@ printf 'out:\n    echo partial > $@; exit 3\n' > ZMakefile
 out=$("$ZMAKE" 2>&1)
 expect_has "modern mode deletes a partial target by default" "zmake: *** Deleting file 'out'" "$out"
 rm -f ZMakefile
+printf 'OBJS = a.o b.o\nall: $(OBJS)\n$(OBJS): %%.o: %%.c\n\t@echo $<\n' > Makefile
+expect_eq "a static pattern rule stops with a clear message" "Makefile:3: *** static pattern rules are not supported.  Stop." "$("$ZMAKE" 2>&1)"
 printf 'load ./ext.so\nall:;@:\n' > Makefile
 expect_eq "unsupported directive" "Makefile:1: *** unsupported directive 'load'.  Stop." "$("$ZMAKE" 2>&1)"
 
@@ -544,6 +546,26 @@ if [ -n "$GNU_MAKE" ]; then
   expect_eq "MAKEFLAGS bytes and sub-make values match GNU Make" "$(bash probe.sh g "$GNU_MAKE")" "$(bash probe.sh z "$ZMAKE")"
 fi
 expect_has "a value with a space reaches the sub-make" "X=[a b]" "$(bash probe.sh z "$ZMAKE")"
+
+scenario "20. The fifo jobserver of macOS and the BSDs, on Linux (Phase 19)"
+export TMPDIR="$PWD"
+printf 'all: a b c d\na b c d:\n\t@sleep 1\n' > Makefile
+t=$(elapsed "$ZMAKE" -j4 --jobserver-style=fifo)
+if [ "$t" -lt 20 ]; then pass "-j4 with a fifo runs 4 one-second jobs in under 2 s ($t/10 s)"; else fail "-j4 with a fifo too slow: $t/10 s"; fi
+mkdir -p sub
+printf 'all:\n\t@$(MAKE) -s -C sub\n' > Makefile
+printf 'all:\n\t@printf "%%s\\n" "$$MAKEFLAGS"\n' > sub/Makefile
+out=$("$ZMAKE" -j2 --jobserver-style=fifo 2>&1)
+expect_has "a sub-make sees the fifo in MAKEFLAGS" "--jobserver-auth=fifo:$PWD/zmake-jobserver-" "$out"
+expect_not "a fifo pool passes no descriptors" "--jobserver-fds" "$out"
+expect_eq "the server removes its fifo" "" "$(ls zmake-jobserver-* 2>/dev/null)"
+printf 'all: a b c d\na b c d:\n\t@sleep 1\n' > sub/Makefile
+printf 'all:\n\t+@$(MAKE) -s -C sub\n' > Makefile
+t=$(elapsed "$ZMAKE" -j2 --jobserver-style=fifo)
+if [ "$t" -ge 18 ] && [ "$t" -lt 30 ]; then pass "a recursive zmake shares the -j2 fifo pool ($t/10 s)"; else fail "fifo pool sharing: $t/10 s"; fi
+unset TMPDIR
+printf 'all:;@:\n' > Makefile
+expect_has "an unknown style stops" "unknown jobserver style 'socket'" "$("$ZMAKE" -j2 --jobserver-style=socket 2>&1)"
 
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

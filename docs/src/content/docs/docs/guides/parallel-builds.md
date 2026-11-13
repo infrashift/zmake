@@ -72,10 +72,20 @@ uses `-j1`:
 zmake: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
 ```
 
-## Design
+## Pipe and fifo
 
-zmake takes tokens through a private non-blocking descriptor. It opens
-`/proc/self/fd/R` again with `O_NONBLOCK`. The children keep the original
-blocking descriptor, which GNU Make children expect. This design needs `/proc`,
-so the jobserver works on Linux only. See
-[ADR-0008](../../project/decisions/#adr-0008-take-jobserver-tokens-through-a-private-non-blocking-descriptor).
+| System | A new pool | zmake joins a parent pool |
+|---|---|---|
+| Linux | A pipe (`R,W`), which GNU Make 4.3 children understand | Pipe and fifo |
+| macOS, FreeBSD | A named fifo (`fifo:PATH`), as in GNU Make 4.4 | Fifo. A pipe pool gives `-j1` and a warning |
+
+`--jobserver-style=fifo` or `--jobserver-style=pipe` selects the style of a new
+pool. The fifo lives in `$TMPDIR` (else `/tmp`), and zmake deletes it at the
+end. GNU Make 4.3 cannot read a fifo pool, so use `pipe` on Linux when a recipe
+calls an old GNU Make.
+
+zmake takes tokens through a private non-blocking descriptor, so it never
+changes the pipe that children share. On Linux, it opens `/proc/self/fd/R`
+again. For a fifo, it opens the path. See
+[ADR-0008](../../project/decisions/#adr-0008-take-jobserver-tokens-through-a-private-non-blocking-descriptor)
+and [ADR-0020](../../project/decisions/#adr-0020-a-named-fifo-shares-the-jobserver-off-linux).

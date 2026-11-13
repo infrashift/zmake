@@ -22,6 +22,7 @@ zmake [options] [VAR=value ...] [target ...]
 | `-t`, `--touch` | Set the time of each out-of-date file target to now. Run no recipe. |
 | `-B`, `--always-make` | Treat every target as out of date. |
 | `-s`, `--silent` | Do not echo the recipe lines. |
+| `--jobserver-style=fifo\|pipe` | The style of a new jobserver. Default: `pipe` on Linux, `fifo` elsewhere. |
 | `--modern` | Use modern mode for any input file. |
 | `--legacy` | Use legacy mode for any input file. |
 | `-h`, `--help` | Print the usage and exit. |

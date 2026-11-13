@@ -151,3 +151,11 @@ flags, for the command line and for `MAKEFLAGS`. Under `-k`, a failed node fails
 the nodes that need it, and the other nodes go on. Under `-q`, zmake runs
 nothing and exits with 1 when a goal is out of date. Under `-t`, it sets the
 time of each out-of-date file. See [CLI](../../reference/cli/).
+
+### ADR-0020: A named fifo shares the jobserver off Linux
+
+On Linux, a new jobserver stays a pipe. On macOS and the BSDs, it is a named
+fifo, as in GNU Make 4.4. Each process can open a fifo with its own
+non-blocking descriptor. `--jobserver-style` selects the style. A client off
+Linux cannot share a pipe pool and uses `-j1`. `make cross` builds for macOS and
+FreeBSD. See [Parallel Builds](../../guides/parallel-builds/#pipe-and-fifo).

@@ -129,7 +129,7 @@ Tracking: [ISSUE-018](.okfw/issues/issue-018-quoted-values-in-makeflags--01a1d34
 
 ## Phase 19 — Jobserver on macOS and the BSDs
 Tracking: [ISSUE-019](.okfw/issues/issue-019-jobserver-on-macos-and-the-bsds--01a1d34ecd67.md)
-- [ ] Portable token reads and pipe creation; cross-compile checks
+- [x] Portable token reads and pipe creation; cross-compile checks
 
 ## Acceptance scenarios
 1. **The `build/` directory (modern mode).** Create `./build` and a `ZMakefile` with a `build:` rule. `zmake build` runs the recipe.
@@ -137,5 +137,9 @@ Tracking: [ISSUE-019](.okfw/issues/issue-019-jobserver-on-macos-and-the-bsds--01
 3. **Strict legacy compatibility.** A `Makefile` with `.PHONY: clean`, `CC := gcc`, `%.o: %.c`, `$@` and `$<` compiles only dirty objects.
 
 ## Follow-ups
-Phases 8 to 19 cover the earlier follow-ups. Outside the scope:
+Phases 8 to 19 cover the earlier follow-ups. Open:
+- [ISSUE-020](.okfw/issues/issue-020-static-pattern-rules--01a1d399e029.md): static pattern rules (`objs: %.o: %.c`)
+- Test runs on macOS and FreeBSD (today `make cross` only builds for them)
+
+Outside the scope:
 - `$(guile ...)`, `.ONESHELL`, `.SECONDEXPANSION`, `--output-sync`, and remaking of included makefiles
