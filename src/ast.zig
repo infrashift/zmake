@@ -127,6 +127,8 @@ pub const RuleDecl = struct {
     /// Modern mode: declared with `@name:` or `task name:`.
     task: bool,
     line: u32,
+    /// The input file of the rule, for messages. Included files have their own.
+    file: []const u8 = "",
 };
 
 /// A line with no separator, for example `$(info text)`. The loader expands it.
@@ -159,6 +161,7 @@ pub const Rule = struct {
     task: bool,
     is_pattern: bool,
     source_line: u32,
+    file: []const u8 = "",
 };
 
 /// True when `name` contains a `%` stem marker.

@@ -322,5 +322,37 @@ fi
 printf 'all:\n\t@echo $(eval Z := 1)z\n' > Makefile
 expect_eq "eval in a recipe stops" "Makefile:2: *** \$(eval ...) in a recipe is not supported.  Stop." "$("$ZMAKE" 2>&1)"
 
+scenario "12. include and MAKEFILE_LIST (Phase 11)"
+mkdir -p mk
+printf 'A_FILE := $(lastword $(MAKEFILE_LIST))\nX += from-a\ninclude mk/b.mk\n' > mk/a.mk
+printf 'X += from-b\nb-target:\n\t@echo in b\n\t@false\n' > mk/b.mk
+printf 'ifeq (a,a)\n' > open.mk
+printf 'X := 1\n$(error in-included)\n' > err.mk
+cat > Makefile <<'EOF'
+X = main
+FILES = mk/a.mk
+include $(FILES)
+-include nope.mk missing.mk
+sinclude nope2.mk
+$(info X=$(X) list=[$(MAKEFILE_LIST)] a=$(A_FILE))
+all: b-target
+EOF
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "output and recipe error match GNU Make" "$("$GNU_MAKE" 2>&1 | sed 's/^make:/zmake:/')" "$("$ZMAKE" 2>&1)"
+  for src in 'include nope.mk\nall:;@:\n' 'include open.mk\nendif\nall:;@echo ok\n' 'include err.mk\nall:;@:\n'; do
+    printf "$src" > Makefile
+    expect_eq "message for '$(printf "$src" | head -1)' matches GNU Make" "$("$GNU_MAKE" 2>&1 | sed 's/^make:/zmake:/')" "$("$ZMAKE" 2>&1)"
+  done
+fi
+mkdir -p rules && printf 'R1 := 1\n' > rules/a.mk && printf 'R2 := 2\nHERE := $(dir $(lastword $(MAKEFILE_LIST)))\n' > rules/b.mk
+printf 'include rules/*.mk\n$(info $(MAKEFILE_LIST) $(HERE) $(R1)$(R2))\nall:;@:\n' > Makefile
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "include expands globs as GNU Make does" "$("$GNU_MAKE" 2>&1)" "$("$ZMAKE" 2>&1)"
+fi
+printf 'include Makefile\nall:;@:\n' > Makefile
+expect_has "a file that includes itself stops" "nest more than 64 levels" "$("$ZMAKE" 2>&1)"
+printf 'include gen.mk\ngen.mk:\n\techo X=1 > $@\nall:;@:\n' > Makefile
+expect_has "zmake says that it does not remake included files" "zmake does not remake included files; make 'gen.mk' first" "$("$ZMAKE" 2>&1)"
+
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

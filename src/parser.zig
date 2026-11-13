@@ -150,6 +150,7 @@ pub const Parser = struct {
             .has_recipe = has_recipe,
             .task = head.task,
             .line = line,
+            .file = p.filename,
         };
         assert(p.open_rule.?.targets.len > 0);
     }

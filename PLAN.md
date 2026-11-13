@@ -90,8 +90,8 @@ Tracking: [ISSUE-010](.okfw/issues/issue-010-conditionals-define-override-undefi
 
 ## Phase 11 — include and MAKEFILE_LIST
 Tracking: [ISSUE-011](.okfw/issues/issue-011-include-and-makefile-list--01a1d34ecd30.md)
-- [ ] `include`, `-include`, `sinclude` on an explicit include stack
-- [ ] Per-file names in messages and recipe errors; `MAKEFILE_LIST`
+- [x] `include`, `-include`, `sinclude` on an explicit include stack
+- [x] Per-file names in messages and recipe errors; `MAKEFILE_LIST`
 
 ## Phase 12 — export and unexport
 Tracking: [ISSUE-012](.okfw/issues/issue-012-export-and-unexport--01a1d34ecd36.md)

@@ -96,3 +96,11 @@ open conditionals and the open sources. `$(eval ...)` queues its text, and the
 reader reads the text after the statement. An eval therefore takes effect one
 statement later than in GNU Make, and a recipe cannot call `eval`. See
 [Conditionals and define](../../guides/conditionals/).
+
+### ADR-0013: Include files share the source stack and are not remade
+
+`include` reads each file into a new source on the stack of ADR-0012. Each rule
+keeps the name of its file for messages. A missing file stops zmake after it
+reads all input, as in GNU Make. zmake does not remake an included file. When a
+rule can make the file, zmake says so and stops. See
+[Include Files](../../guides/include/).

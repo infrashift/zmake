@@ -1,10 +1,10 @@
 //! The reader. It reads the input file line by line and applies each statement
 //! at once, so a conditional sees the variables defined above it. It handles
 //! the conditionals (`ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif`),
-//! `define`, `override`, `undefine` and the texts of `$(eval ...)`.
+//! `define`, `override`, `undefine`, `include` and the texts of `$(eval ...)`.
 //!
-//! An explicit stack holds the open sources (the input file and the eval
-//! texts), and another holds the open conditionals. Nothing here calls itself
+//! An explicit stack holds the open sources (the input file, the included
+//! files and the eval texts), and another holds the open conditionals. Nothing here calls itself
 //! (ADR-0003, rule R1). See ADR-0012.
 
 const std = @import("std");
@@ -30,21 +30,31 @@ const Cond = struct { state: CondState, seen_else: bool };
 
 const Source = struct {
     lx: lexer.Lexer,
+    /// The input file of the source. An eval text has the file of its caller.
+    filename: []const u8,
     /// The number of open conditionals when the source started.
     cond_base: usize,
     /// A line to read again after the eval texts that it waits for.
     held: ?lexer.LogicalLine = null,
+    /// False until the name of an input file is in `MAKEFILE_LIST`.
+    listed: bool,
 };
+
+/// The first `include` file that does not exist. GNU Make reports it after it
+/// reads all input.
+const Missing = struct { name: []const u8, file: []const u8, line: u32 };
 
 const conditional_words = [_][]const u8{ "ifeq", "ifneq", "ifdef", "ifndef", "else", "endif" };
 const if_words = [_][]const u8{ "ifeq", "ifneq", "ifdef", "ifndef" };
-const reader_words = conditional_words ++ [_][]const u8{ "define", "endef", "override", "undefine" };
+const include_words = [_][]const u8{ "include", "-include", "sinclude" };
+const reader_words = conditional_words ++ include_words ++ [_][]const u8{ "define", "endef", "override", "undefine" };
 
 pub const Reader = struct {
     arena: std.mem.Allocator,
     ev: *eval.Evaluator,
     diag: *Diagnostic,
     mode: ast.SyntaxMode,
+    /// The file of the top source, for messages.
     filename: []const u8,
     p: parser.Parser,
     b: database.Builder,
@@ -52,6 +62,7 @@ pub const Reader = struct {
     applied: usize = 0,
     conds: std.ArrayList(Cond) = .empty,
     sources: std.ArrayList(Source) = .empty,
+    missing: ?Missing = null,
 
     fn fail(r: *Reader, line: u32, comptime fmt: []const u8, args: anytype) Error {
         assert(line > 0);
@@ -100,22 +111,39 @@ pub fn read(ev: *eval.Evaluator, source: []const u8, filename: []const u8, mode:
     };
     ev.filename = filename;
     ev.reading = true;
-    try pushSource(&r, source, 0);
+    try pushSource(&r, source, 0, filename, false);
     try run(&r);
     ev.reading = false;
     assert(r.conds.items.len == 0 and r.sources.items.len == 0);
+    if (r.missing) |m| return missingInclude(&r, m);
     return r.b.finish(ev);
 }
 
-fn pushSource(r: *Reader, text: []const u8, fixed_line: u32) Error!void {
+fn pushSource(r: *Reader, text: []const u8, fixed_line: u32, filename: []const u8, listed: bool) Error!void {
+    assert(filename.len > 0);
     if (r.sources.items.len >= ast.limits.source_depth_max) {
-        return r.fail(@max(fixed_line, 1), "$(eval ...) nests more than {d} levels", .{ast.limits.source_depth_max});
+        return r.fail(@max(fixed_line, 1), "include files and eval texts nest more than {d} levels", .{ast.limits.source_depth_max});
     }
-    var lx: lexer.Lexer = .init(r.arena, text, r.mode, r.filename);
+    var lx: lexer.Lexer = .init(r.arena, text, r.mode, filename);
     lx.fixed_line = fixed_line;
-    try r.sources.append(r.arena, .{ .lx = lx, .cond_base = r.conds.items.len });
+    try r.sources.append(r.arena, .{ .lx = lx, .filename = filename, .cond_base = r.conds.items.len, .listed = listed });
     assert(r.sources.items.len >= 1);
     assert(r.sources.items[r.sources.items.len - 1].lx.pos == 0);
+}
+
+/// Point the messages of the parser and the evaluator at the file of `src`.
+/// Add an input file to `MAKEFILE_LIST` when zmake starts to read it.
+fn enter(r: *Reader, src: *Source) Error!void {
+    r.filename = src.filename;
+    r.p.filename = src.filename;
+    r.ev.filename = src.filename;
+    if (src.listed) return;
+    src.listed = true;
+    const old = if (r.ev.lookup("MAKEFILE_LIST")) |v| v.value else "";
+    const value = if (old.len == 0) src.filename else try std.mem.concat(r.arena, u8, &.{ old, " ", src.filename });
+    try r.ev.define("MAKEFILE_LIST", value, false, .file);
+    assert(src.listed);
+    assert(r.ev.filename.len > 0);
 }
 
 fn run(r: *Reader) Error!void {
@@ -123,6 +151,7 @@ fn run(r: *Reader) Error!void {
     var budget: u32 = ast.limits.read_lines_max;
     while (r.sources.items.len > 0 and budget > 0) : (budget -= 1) {
         const src = &r.sources.items[r.sources.items.len - 1];
+        try enter(r, src);
         const held = src.held;
         src.held = null;
         const ll = held orelse try src.lx.next(r.p.open_rule != null, r.diag) orelse {
@@ -137,7 +166,8 @@ fn run(r: *Reader) Error!void {
 
 /// The source ends. Each conditional of the source must be closed.
 fn endSource(r: *Reader) Error!void {
-    const src = r.sources.pop().?;
+    var src = r.sources.pop().?;
+    try enter(r, &src);
     assert(r.conds.items.len >= src.cond_base);
     if (r.conds.items.len > src.cond_base) return r.fail(src.lx.lastLine(), "missing 'endif'", .{});
     try r.p.closeRule();
@@ -224,7 +254,7 @@ fn pushEvals(r: *Reader) Error!void {
     var i = texts.len;
     while (i > 0) {
         i -= 1;
-        try pushSource(r, texts[i], @max(r.ev.line, 1));
+        try pushSource(r, texts[i], @max(r.ev.line, 1), r.filename, true);
     }
     assert(r.ev.eval_queue.items.len == 0);
 }
@@ -233,6 +263,7 @@ fn directive(r: *Reader, word: []const u8, ll: lexer.LogicalLine) Error!void {
     assert(r.active() and r.p.open_rule == null);
     const eql = std.mem.eql;
     const tail = rest(ll.text, word);
+    if (isAny(word, &include_words)) return include(r, tail, ll.line, word[0] != 'i');
     if (eql(u8, word, "define")) return define(r, tail, ll.line, false);
     if (eql(u8, word, "undefine")) return undefine(r, tail, ll.line, false);
     if (eql(u8, word, "endef")) return r.fail(ll.line, "extraneous 'endef'", .{});
@@ -290,6 +321,74 @@ fn defineBody(r: *Reader, line: u32) Error![]const u8 {
     }
     assert(n == ast.limits.input_lines_max);
     return r.fail(line, "missing 'endef', unterminated 'define'", .{});
+}
+
+/// `include FILES`. The files are read in order, each as a new source on the
+/// stack. `-include` and `sinclude` skip a file that does not exist.
+fn include(r: *Reader, text: []const u8, line: u32, optional: bool) Error!void {
+    assert(line > 0);
+    r.ev.line = line;
+    const names = try includeNames(r, try r.ev.expand(text, null));
+    var found: std.ArrayList([2][]const u8) = .empty;
+    for (names) |name| {
+        const limit: Io.Limit = .limited(ast.limits.input_file_bytes_max);
+        const data = r.ev.dir.readFileAlloc(r.ev.io, name, r.arena, limit) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            error.FileNotFound => {
+                if (!optional and r.missing == null) r.missing = .{ .name = name, .file = r.filename, .line = line };
+                continue;
+            },
+            error.StreamTooLong => return r.fail(line, "{s}: larger than {d} bytes", .{ name, ast.limits.input_file_bytes_max }),
+            else => return r.fail(line, "{s}: {s}", .{ name, @errorName(err) }),
+        };
+        try found.append(r.arena, .{ name, data });
+    }
+    var i = found.items.len;
+    while (i > 0) {
+        i -= 1;
+        try pushSource(r, found.items[i][1], 0, found.items[i][0], false);
+    }
+    assert(found.items.len <= names.len);
+}
+
+/// Split the expanded names. A name with `*`, `?` or `[` is a glob, as in GNU
+/// Make: it gives the matching files, or itself when nothing matches.
+fn includeNames(r: *Reader, text: []const u8) Error![]const []const u8 {
+    var out: std.ArrayList([]const u8) = .empty;
+    var words: usize = 0;
+    var it = std.mem.tokenizeAny(u8, text, ws);
+    while (it.next()) |name| : (words += 1) {
+        assert(name.len > 0);
+        if (std.mem.indexOfAny(u8, name, "*?[") == null) {
+            try out.append(r.arena, name);
+            continue;
+        }
+        const matches = fns.wildcard(r.arena, r.ev.io, r.ev.dir, name) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            else => return r.fail(r.ev.line, "{s}: {s}", .{ name, @errorName(err) }),
+        };
+        if (matches.len == 0) try out.append(r.arena, name) else try out.appendSlice(r.arena, try fns.splitWords(r.arena, matches));
+    }
+    assert(out.items.len >= words);
+    return out.items;
+}
+
+/// GNU Make reports a missing include file after it reads all input, and then
+/// tries to make the file. zmake does not remake included files (ADR-0012).
+fn missingInclude(r: *Reader, m: Missing) Error {
+    assert(m.name.len > 0 and m.line > 0);
+    r.filename = m.file;
+    r.warn(m.line, "{s}: No such file or directory", .{m.name});
+    const has_rule = for (r.b.rules.items) |rule| {
+        if (!rule.is_pattern and isAny(m.name, rule.targets)) break true;
+    } else false;
+    if (has_rule) {
+        r.diag.set("*** zmake does not remake included files; make '{s}' first.  Stop.", .{m.name});
+    } else {
+        r.diag.set("*** No rule to make target '{s}'.  Stop.", .{m.name});
+    }
+    assert(r.diag.len > 0);
+    return error.Syntax;
 }
 
 /// `undefine NAMES`. Without `override`, a command-line variable stays.
@@ -545,4 +644,26 @@ test "reader errors" {
         try testing.expectError(error.Syntax, readTest(a, c[0], .legacy, &diag));
         try testing.expectEqualStrings(c[1], diag.message());
     }
+}
+
+test "include reads files in order and names each file" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    const a = arena.allocator();
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.createDirPath(testing.io, "mk");
+    try tmp.dir.writeFile(testing.io, .{ .sub_path = "mk/a.mk", .data = "X += a\ninclude mk/b.mk\n" });
+    try tmp.dir.writeFile(testing.io, .{ .sub_path = "mk/b.mk", .data = "X += b\nlib:\n\techo lib\n" });
+    var ev = eval.Evaluator.init(a, testing.io, tmp.dir, &diag);
+    const db = try read(&ev, "X = main\ninclude mk/a.mk\n-include nope.mk\nall: lib\n", "Makefile", .legacy, &diag);
+    try testing.expectEqualStrings("main a b", try ev.expand("$(X)", null));
+    try testing.expectEqualStrings("Makefile mk/a.mk mk/b.mk", ev.lookup("MAKEFILE_LIST").?.value);
+    try testing.expectEqualStrings("mk/b.mk", db.rules[0].file);
+    try testing.expectEqual(@as(u32, 2), db.rules[0].source_line);
+    try testing.expectEqualStrings("Makefile", db.rules[1].file);
+    var ev2 = eval.Evaluator.init(a, testing.io, tmp.dir, &diag);
+    try testing.expectError(error.Syntax, read(&ev2, "include nope.mk\nall:\n", "Makefile", .legacy, &diag));
+    try testing.expectEqualStrings("*** No rule to make target 'nope.mk'.  Stop.", diag.message());
 }

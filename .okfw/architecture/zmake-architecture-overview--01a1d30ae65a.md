@@ -34,7 +34,7 @@ input file → reader (lexer → parser → evaluator) → database → DAG → 
 | `src/functions.zig` | Implements `subst`, `patsubst`, `wildcard`, `shell`, substitution references and glob matching. |
 | `src/textfns.zig` | Implements the pure text and file name functions, for example `filter`, `sort`, `word`, `dir` and `abspath`. |
 | `src/builtins.zig` | Applies the eager functions to their expanded arguments. The evaluator handles the lazy ones on its frame stack ([ADR-0011](/decisions/adr-0011-lazy-functions-use-staged-calls-on-the-frame-stack--01a1d35f6009.md)). |
-| `src/reader.zig` | Reads the input file line by line and applies each statement at once. Handles the conditionals, `define`, `override`, `undefine` and the queued `$(eval ...)` texts on explicit stacks ([ADR-0012](/decisions/adr-0012-a-reader-evaluates-each-statement-while-it-reads--01a1d36899c8.md)). |
+| `src/reader.zig` | Reads the input file line by line and applies each statement at once. Handles the conditionals, `define`, `override`, `undefine`, `include` and the queued `$(eval ...)` texts on explicit stacks. Each source has its own file name for messages ([ADR-0012](/decisions/adr-0012-a-reader-evaluates-each-statement-while-it-reads--01a1d36899c8.md)). |
 | `src/database.zig` | Replays the statements through the evaluator. Collects the expanded rules and the special targets. Classifies each target. |
 | `src/dag.zig` | Resolves each goal through explicit rules, pattern rules and existing files. Detects cycles with a three-color search on an explicit stack. Sorts the graph. |
 | `src/executor.zig` | Decides which targets are out of date. Expands each recipe before its first line runs. Runs recipe lines through `/bin/sh -c`. Schedules jobs on `Io` tasks. |

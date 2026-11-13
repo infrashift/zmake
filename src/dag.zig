@@ -25,6 +25,8 @@ pub const Node = struct {
     stem: []const u8,
     /// The line of the rule that makes the target, or 0 when no rule exists.
     line: u32,
+    /// The input file of that rule, or empty when no rule exists.
+    file: []const u8 = "",
 };
 
 pub const Graph = struct {
@@ -43,6 +45,7 @@ const Explicit = struct {
     recipe: ?*const ast.Rule = null,
     task: bool = false,
     line: u32,
+    file: []const u8,
 };
 
 const Match = struct {
@@ -119,7 +122,7 @@ fn indexRules(b: *Builder) Error!void {
         }
         for (rule.targets) |t| {
             const gop = try b.explicit.getOrPut(b.arena, t);
-            if (!gop.found_existing) gop.value_ptr.* = .{ .line = rule.source_line };
+            if (!gop.found_existing) gop.value_ptr.* = .{ .line = rule.source_line, .file = rule.file };
             const e = gop.value_ptr;
             try e.prerequisites.appendSlice(b.arena, rule.prerequisites);
             try e.order_only.appendSlice(b.arena, rule.order_only);
@@ -135,9 +138,8 @@ fn indexRules(b: *Builder) Error!void {
 
 fn warnOverride(b: *Builder, target: []const u8, old: *const ast.Rule, new: *const ast.Rule) Error!void {
     assert(old.has_recipe and new.has_recipe);
-    const file = b.db.filename;
-    try b.warnings.append(b.arena, try std.fmt.allocPrint(b.arena, "{s}:{d}: warning: overriding recipe for target '{s}'", .{ file, recipeLine(new), target }));
-    try b.warnings.append(b.arena, try std.fmt.allocPrint(b.arena, "{s}:{d}: warning: ignoring old recipe for target '{s}'", .{ file, recipeLine(old), target }));
+    try b.warnings.append(b.arena, try std.fmt.allocPrint(b.arena, "{s}:{d}: warning: overriding recipe for target '{s}'", .{ new.file, recipeLine(new), target }));
+    try b.warnings.append(b.arena, try std.fmt.allocPrint(b.arena, "{s}:{d}: warning: ignoring old recipe for target '{s}'", .{ old.file, recipeLine(old), target }));
     assert(b.warnings.items.len >= 2);
 }
 
@@ -195,6 +197,7 @@ fn explicitNode(b: *Builder, name: []const u8, e: *const Explicit, match: ?Match
     var stem: []const u8 = "";
     var order_only: []const []const u8 = e.order_only.items;
     var line = if (e.recipe) |r| r.source_line else e.line;
+    var file = if (e.recipe) |r| r.file else e.file;
     if (match) |m| {
         // The pattern prerequisites come first, so `$<` is the pattern source.
         prereqs = try std.mem.concat(b.arena, []const u8, &.{ m.prerequisites, prereqs });
@@ -202,17 +205,18 @@ fn explicitNode(b: *Builder, name: []const u8, e: *const Explicit, match: ?Match
         recipes = m.rule.recipes;
         stem = m.stem;
         line = m.rule.source_line;
+        file = m.rule.file;
     }
     const kind = classifyNode(b, name, true, e.task, match != null, recipes);
     assert(line > 0);
-    return .{ .name = name, .kind = kind, .prerequisites = prereqs, .order_only = order_only, .recipes = recipes, .stem = stem, .line = line };
+    return .{ .name = name, .kind = kind, .prerequisites = prereqs, .order_only = order_only, .recipes = recipes, .stem = stem, .line = line, .file = file };
 }
 
 fn patternNode(b: *Builder, name: []const u8, m: Match) Node {
     assert(m.rule.is_pattern and m.rule.has_recipe);
     const kind = classifyNode(b, name, true, false, true, m.rule.recipes);
     assert(kind == .file or kind == .explicit_phony);
-    return .{ .name = name, .kind = kind, .prerequisites = m.prerequisites, .order_only = m.order_only, .recipes = m.rule.recipes, .stem = m.stem, .line = m.rule.source_line };
+    return .{ .name = name, .kind = kind, .prerequisites = m.prerequisites, .order_only = m.order_only, .recipes = m.rule.recipes, .stem = m.stem, .line = m.rule.source_line, .file = m.rule.file };
 }
 
 fn classifyNode(b: *Builder, name: []const u8, has_rule: bool, task: bool, from_pattern: bool, recipes: []const ast.RecipeLine) ast.TargetKind {
@@ -385,7 +389,7 @@ fn cycleError(b: *Builder, path: []const Visit, back: NodeId) Error {
         if (v.id == back) started = true;
         if (!started) continue;
         const n = b.nodes.items[v.id];
-        text.print(b.arena, "{s} ({s}:{d}) -> ", .{ n.name, b.db.filename, n.line }) catch return error.OutOfMemory;
+        text.print(b.arena, "{s} ({s}:{d}) -> ", .{ n.name, n.file, n.line }) catch return error.OutOfMemory;
     }
     assert(started);
     text.appendSlice(b.arena, b.nodes.items[back].name) catch return error.OutOfMemory;

@@ -19,13 +19,14 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **8. Order-only fix** | Pattern rules keep their order-only prerequisites | Done |
 | **9. Functions** | Text, file name, conditional, loop, variable and message functions | Done |
 | **10. Reader** | Conditionals, `define`, `override`, `undefine` and `$(eval ...)` | Done |
+| **11. Include** | `include`, `-include`, `sinclude`, `MAKEFILE_LIST`, file names in messages | Done |
 
 ## Follow-ups
 
 These features are outside the current scope. Each one stops the build with an
 error today:
 
-- `include`, `export` and `vpath`
+- `export` and `vpath`
 - Built-in implicit rules and built-in variables such as `CC`, suffix rules, double-colon rules and target-specific variables
 - The options `-k` (keep going), `-q`, `-t` and `-B`
 - Quoted values with spaces in `MAKEFLAGS` overrides

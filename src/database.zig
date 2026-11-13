@@ -151,6 +151,7 @@ fn addRule(ev: *eval.Evaluator, b: *Builder, r: ast.RuleDecl) Error!void {
         .task = r.task,
         .is_pattern = is_pattern,
         .source_line = r.line,
+        .file = r.file,
     });
     if (b.db.default_goal == null and !is_pattern) {
         const first = targets[0];

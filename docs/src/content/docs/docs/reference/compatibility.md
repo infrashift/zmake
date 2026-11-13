@@ -15,8 +15,8 @@ feature outside this subset. A silent misparse is worse than an error
 | Rules | Explicit rules, pattern rules, order-only prerequisites, inline `; recipe` text |
 | Automatic variables | `$@`, `$<`, `$^`, `$+`, `$*`, `$?` and their `D` and `F` forms |
 | Functions | All GNU Make functions except `guile` ([Functions](../functions/)), substitution references |
-| Directives | `ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif`, `define`, `override`, `undefine` ([Conditionals](../../guides/conditionals/)) |
-| Variables | `MAKE`, `MAKEFLAGS`, `MAKELEVEL`, `SHELL` |
+| Directives | `ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif`, `define`, `override`, `undefine` ([Conditionals](../../guides/conditionals/)), `include`, `-include`, `sinclude` ([Include Files](../../guides/include/)) |
+| Variables | `MAKE`, `MAKEFLAGS`, `MAKELEVEL`, `SHELL`, `MAKEFILE_LIST` |
 | Recipe prefixes | `@`, `-`, `+` |
 | Options | `-f`, `-C`, `-j`, `-n` |
 | Jobserver | `--jobserver-auth=R,W`, `--jobserver-fds=R,W`, `--jobserver-auth=fifo:PATH` |
@@ -42,7 +42,6 @@ These features stop the build with `file:line`:
 
 | Feature | Error |
 |---|---|
-| `include`, `-include` | `unsupported directive` |
 | `export`, `unexport`, `vpath`, `load` | `unsupported directive` |
 | `$(guile ...)` | `unsupported function` |
 | `$(eval ...)` in a recipe | `$(eval ...) in a recipe is not supported` |
@@ -60,6 +59,7 @@ directive.
 - **Modern-mode deletion.** Modern mode deletes a partial file target by default. See [Syntax Modes](../../guides/syntax-modes/).
 - **Recursive variable errors.** The error shows the line that uses the variable. GNU Make shows the line that defines it.
 - **Eval timing.** An eval takes effect after the statement that calls it, not inside the same expansion ([ADR-0012](../../project/decisions/#adr-0012-a-reader-evaluates-each-statement-while-it-reads)).
+- **Include files.** zmake does not remake an included file, and it does not search include directories ([Include Files](../../guides/include/)).
 - **Intermediate files.** GNU Make deletes a file that a chain of pattern rules made. zmake keeps it.
 - **Platforms.** zmake supports Linux. The jobserver needs `/proc`.
 

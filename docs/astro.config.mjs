@@ -41,6 +41,7 @@ export default defineConfig({
 						{ label: 'Tasks & Phony Inference', slug: 'docs/guides/tasks-and-phony-inference' },
 						{ label: 'Pattern Rules & Variables', slug: 'docs/guides/pattern-rules' },
 						{ label: 'Conditionals & define', slug: 'docs/guides/conditionals' },
+						{ label: 'Include Files', slug: 'docs/guides/include' },
 						{ label: 'Parallel Builds & Jobserver', slug: 'docs/guides/parallel-builds' },
 						{ label: 'Migrating from GNU Make', slug: 'docs/guides/migrating' },
 					],
