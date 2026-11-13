@@ -63,7 +63,7 @@ zmake supports these GNU Make features:
 zmake stops with an error for features outside this list, for example `include`, `ifeq` or `$(foreach ...)`. It does not misread them in silence. See `PLAN.md` for the follow-ups.
 
 ## Development
-Run `make check` (or `zmake check`). The gates are:
+Run `make check` or `zmake check`. GNU Make reads the `Makefile`. zmake reads the `ZMakefile`, which has the same targets in modern mode. The gates are:
 
 - `make lint`: `zig fmt --check` and `scripts/nasa-lint.py`, which checks the NASA Power of 10 rules
 - `make test`: the unit tests and the mode tests

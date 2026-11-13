@@ -15,6 +15,7 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **4. Graph** | Goal resolution, pattern rules, cycle detection, topological order | Done |
 | **5. Executor** | Modification time checks, `-jN` scheduler, GNU Make jobserver, acceptance suite | Done |
 | **6. Docs site** | This site, the landing-page demo, the GitHub Pages deploy | Done |
+| **7. Modern ZMakefile** | The zmake repo runs its own gates through a modern-mode `ZMakefile` | Done |
 
 ## Follow-ups
 

@@ -168,8 +168,20 @@ expect_eq "unsupported function" "Makefile:2: *** unsupported function 'foreach'
 scenario "7. zmake reads the zmake Makefile"
 if [ -n "$GNU_MAKE" ]; then
   for goal in build lint wiki docs-style; do
-    expect_eq "dry run of '$goal' matches GNU Make" "$("$GNU_MAKE" -s -C "$ROOT" -n $goal 2>&1)" "$("$ZMAKE" -C "$ROOT" -n $goal 2>&1)"
+    expect_eq "dry run of '$goal' matches GNU Make" "$("$GNU_MAKE" -s -C "$ROOT" -n $goal 2>&1)" "$("$ZMAKE" -C "$ROOT" -f Makefile -n $goal 2>&1)"
   done
+fi
+
+# The ZMakefile declares the same targets in modern mode. Each dry run must
+# match GNU Make on the Makefile, so the two files cannot drift apart.
+scenario "8. The zmake ZMakefile matches the Makefile"
+if [ -n "$GNU_MAKE" ]; then
+  goals=$(sed -n 's/^\.PHONY: //p' "$ROOT/Makefile")
+  expect_has "the Makefile lists its targets in .PHONY" "check" "$goals"
+  for goal in $goals; do
+    expect_eq "ZMakefile dry run of '$goal' matches GNU Make" "$("$GNU_MAKE" -s -C "$ROOT" -f Makefile -n $goal 2>&1)" "$("$ZMAKE" -C "$ROOT" -f ZMakefile -n $goal 2>&1)"
+  done
+  expect_eq "ZMakefile default goal matches GNU Make" "$("$GNU_MAKE" -s -C "$ROOT" -f Makefile -n 2>&1)" "$("$ZMAKE" -C "$ROOT" -f ZMakefile -n 2>&1)"
 fi
 
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"

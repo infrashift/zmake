@@ -11,4 +11,5 @@
 * [ISSUE-005: Parallel executor and GNU Make jobserver](issue-005-parallel-executor-and-gnu-make-jobserver--01a1d30ae6a7.md) - Phase 5: out-of-date checks, recipe execution, -j scheduling, the jobserver, and the acceptance scenarios.
 * [ISSUE-006: Documentation site on GitHub Pages](issue-006-documentation-site-on-github-pages--01a1d33ebf0b.md) - Phase 6: an Astro Starlight site in docs/, published to GitHub Pages through GitHub Actions.
 * [ISSUE-007: Pattern rules drop order-only prerequisites](issue-007-pattern-rules-drop-order-only-prerequisites--01a1d3419a7f.md) - A pattern rule loses its order-only prerequisites, so obj/%.o: src/%.c | obj never creates obj/.
+* [ISSUE-008: Modern-mode ZMakefile for the zmake repo](issue-008-modern-mode-zmakefile-for-the-zmake-repo--01a1d348f8fb.md) - Phase 7: a ZMakefile with the same targets as the Makefile, checked against GNU Make by the acceptance suite.
 

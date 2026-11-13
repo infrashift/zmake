@@ -13,4 +13,5 @@
 * [ADR-0007: Delete partial targets by mode](adr-0007-delete-partial-targets-by-mode--01a1d327df21.md) - Legacy mode deletes a failed file target only with .DELETE_ON_ERROR, as GNU Make does; modern mode deletes it by default.
 * [ADR-0008: Take jobserver tokens through a private non-blocking descriptor](adr-0008-take-jobserver-tokens-through-a-private-non-blocking-descriptor--01a1d327df28.md) - zmake reopens the jobserver pipe through /proc with O_NONBLOCK, so it never blocks and never changes the pipe that child makes share.
 * [ADR-0009: Document zmake with Astro Starlight on GitHub Pages](adr-0009-document-zmake-with-astro-starlight-on-github-pages--01a1d33eea33.md) - An Astro Starlight site in docs/, built with bun and deployed to GitHub Pages by GitHub Actions; the docs toolchain stays outside the zig build.
+* [ADR-0010: Keep a modern-mode ZMakefile next to the Makefile](adr-0010-keep-a-modern-mode-zmakefile-next-to-the-makefile--01a1d348f8d1.md) - The repo keeps a Makefile for GNU Make and a ZMakefile for zmake with the same targets; the acceptance suite compares their dry runs.
 

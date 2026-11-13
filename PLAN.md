@@ -65,6 +65,12 @@ Tracking: [ISSUE-006](.okfw/issues/issue-006-documentation-site-on-github-pages-
 - [x] `scripts/ste-check.py` checks the docs pages
 - [x] `.github/workflows/docs-release.yml` builds each pull request and deploys each push to `main`
 
+## Phase 7 — Modern-mode ZMakefile for the zmake repo
+Tracking: [ISSUE-008](.okfw/issues/issue-008-modern-mode-zmakefile-for-the-zmake-repo--01a1d348f8fb.md)
+- [x] `ZMakefile` with every `Makefile` target as an `@name:` task ([ADR-0010](.okfw/decisions/adr-0010-keep-a-modern-mode-zmakefile-next-to-the-makefile--01a1d348f8d1.md))
+- [x] Acceptance scenario 8 compares each `ZMakefile` dry run with GNU Make on the `Makefile`
+- [x] Scenario 7 reads the `Makefile` with `-f Makefile`
+
 ## Acceptance scenarios
 1. **The `build/` directory (modern mode).** Create `./build` and a `ZMakefile` with a `build:` rule. `zmake build` runs the recipe.
 2. **Explicit task (modern mode).** Declare `@deploy: build` with 4-space indentation. `zmake deploy` runs `build`, then `deploy`.

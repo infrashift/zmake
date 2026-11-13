@@ -23,7 +23,9 @@ zmake is a Make-compatible build tool in Zig. It ships as one static binary. It 
 - `scripts/` holds the lint scripts: `nasa-lint.py` (Power of 10) and `ste-check.py` (ASD-STE100).
 
 ## Verification & Workflow Commands (HOW)
-Run these GNU Make targets after every change:
+`Makefile` (GNU Make) and `ZMakefile` (zmake, modern mode) have the same targets. Change both together: acceptance scenario 8 compares them ([ADR-0010](.okfw/decisions/adr-0010-keep-a-modern-mode-zmakefile-next-to-the-makefile--01a1d348f8d1.md)).
+
+Run these targets after every change:
 - `make lint` → `zig fmt --check` and `scripts/nasa-lint.py`
 - `make test` → `zig build test`
 - `make build` → `zig build`

@@ -72,3 +72,10 @@ first job always runs on the implicit token, so zmake cannot deadlock. See
 This site is an Astro Starlight site in `docs/`. GitHub Actions builds it with
 bun and deploys it to GitHub Pages. The docs toolchain is not part of the Zig
 build, so ADR-0002 does not change.
+
+### ADR-0010: Keep a modern-mode ZMakefile next to the Makefile
+
+The repo keeps a `Makefile` for GNU Make and a `ZMakefile` for zmake, with the
+same targets. The `ZMakefile` uses `@name:` tasks and space-indented recipes.
+The acceptance suite compares the dry runs of both files for each target. See
+[Make Targets](../../reference/make-targets/).

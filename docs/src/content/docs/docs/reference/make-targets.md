@@ -3,8 +3,25 @@ title: Make Targets
 description: The Makefile targets that build, test, lint and document zmake.
 ---
 
-The zmake repository uses a plain GNU Make `Makefile`. zmake can also run it:
-`zmake check` gives the same result as `make check`.
+The zmake repository has two input files with the same targets:
+
+- `Makefile` is a plain GNU Make file. `make check` reads it.
+- `ZMakefile` is the same file in modern mode. `zmake check` reads it, because zmake finds a `ZMakefile` first.
+
+The `ZMakefile` declares each target as a task, with no `.PHONY` list:
+
+```make
+## check: run every gate
+@check: lint test acceptance wiki docs-style
+
+## lint: check the formatting and the Power of 10 rules
+@lint:
+    $(ZIG) fmt --check $(ZIG_SOURCES)
+    $(PYTHON) -I scripts/nasa-lint.py
+```
+
+The acceptance suite compares the dry run of each target in both files. A
+target that is missing from one file fails `make acceptance`.
 
 | Target | Command |
 |---|---|
@@ -20,5 +37,5 @@ The zmake repository uses a plain GNU Make `Makefile`. zmake can also run it:
 | `make docs-dev` | Serve this site with live reload (bun) |
 | `make docs-build` | Build this site into `docs/dist`, the same build as the Pages deploy |
 
-Before a commit, run `make check`. When you change the site, also run
+Before a commit, run `make check` or `zmake check`. When you change the site, also run
 `make docs-build`. Fix each failure and run the gates again until all pass.
