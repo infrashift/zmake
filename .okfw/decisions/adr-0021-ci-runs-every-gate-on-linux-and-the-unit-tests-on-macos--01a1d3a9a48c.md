@@ -35,3 +35,5 @@ The gates ran only on one Linux workstation. zmake builds for macOS since Phase 
 ## Alternatives considered
 - **Run the acceptance suite on macOS with GNU Make 4.4 from Homebrew.** Rejected for now: some messages of GNU Make 4.4 differ from 4.3, and the suite compares bytes.
 - **A third-party action to install Zig.** Rejected: a pinned download with a sum check needs no new dependency.
+
+**Update:** CI also runs the acceptance suite on macOS against GNU Make 4.3 built from source ([ADR-0023](/decisions/adr-0023-the-acceptance-suite-runs-on-macos-against-gnu-make-4-3--01a1d4ecd992.md)).

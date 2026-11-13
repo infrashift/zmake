@@ -27,7 +27,10 @@ zmake works one phase at a time. `PLAN.md` holds the phases.
 See [Make Targets](../../reference/make-targets/) for each gate.
 
 CI runs `make check` on Linux for each push and pull request. On macOS (arm64
-and x86_64), it runs the unit tests and a smoke test of the fifo jobserver.
+and x86_64), it runs the unit tests, the acceptance suite and a smoke test of
+the fifo jobserver. CI builds GNU Make 4.3 from source on macOS, because the
+suite compares bytes with it. `tests/acceptance.sh` uses only commands that
+work on Linux, macOS and FreeBSD.
 
 ## Power of 10
 

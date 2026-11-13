@@ -13,6 +13,7 @@ pub const eval = @import("eval.zig");
 pub const database = @import("database.zig");
 pub const reader = @import("reader.zig");
 pub const dag = @import("dag.zig");
+pub const dircache = @import("dircache.zig");
 pub const context = @import("context.zig");
 pub const jobserver = @import("jobserver.zig");
 pub const executor = @import("executor.zig");

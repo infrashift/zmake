@@ -136,6 +136,12 @@ Tracking: [ISSUE-020](.okfw/issues/issue-020-static-pattern-rules--01a1d399e029.
 - [x] One explicit rule per target, with the stem in `$*`; GNU Make warning and errors
 - [x] `$|` gives the order-only prerequisites
 
+## Phase 21 — Acceptance suite on macOS
+Tracking: [ISSUE-021](.okfw/issues/issue-021-acceptance-suite-on-macos--01a1d4dbc5ce.md) · [ADR-0023](.okfw/decisions/adr-0023-the-acceptance-suite-runs-on-macos-against-gnu-make-4-3--01a1d4ecd992.md)
+- [x] CI builds GNU Make 4.3 on macOS and runs the acceptance suite there
+- [x] The acceptance script uses only portable commands
+- [x] Exact-case file names on macOS, as in GNU Make
+
 ## Acceptance scenarios
 1. **The `build/` directory (modern mode).** Create `./build` and a `ZMakefile` with a `build:` rule. `zmake build` runs the recipe.
 2. **Explicit task (modern mode).** Declare `@deploy: build` with 4-space indentation. `zmake deploy` runs `build`, then `deploy`.
@@ -143,7 +149,7 @@ Tracking: [ISSUE-020](.okfw/issues/issue-020-static-pattern-rules--01a1d399e029.
 
 ## Follow-ups
 Phases 8 to 20 cover the earlier follow-ups. Open:
-- Test runs on FreeBSD, and the acceptance suite on macOS (CI runs the unit tests on macOS since [ADR-0021](.okfw/decisions/adr-0021-ci-runs-every-gate-on-linux-and-the-unit-tests-on-macos--01a1d3a9a48c.md))
+- Test runs on FreeBSD (today `make cross` only builds for it)
 
 Outside the scope:
 - `$(guile ...)`, `.ONESHELL`, `.SECONDEXPANSION`, `--output-sync`, and remaking of included makefiles

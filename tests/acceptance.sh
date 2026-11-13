@@ -2,7 +2,9 @@
 # End-to-end acceptance scenarios for zmake. `zig build acceptance` passes the
 # binary path as $1. Each scenario runs in its own temporary directory.
 # Scenarios 1-3 are the canonical PLAN.md scenarios. Where GNU Make is
-# installed, the script compares the output of zmake with GNU Make.
+# installed, the script compares the output of zmake with GNU Make 4.3. The
+# script runs on Linux, macOS and FreeBSD (ADR-0023): it uses no GNU-only
+# options of date, paste, sed or grep.
 set -u
 # Start clean when a make runs this script: an inherited MAKELEVEL or MAKEFLAGS
 # changes the output of GNU Make and of zmake.
@@ -11,6 +13,7 @@ unset MAKEFLAGS MFLAGS MAKELEVEL
 ZMAKE=$(realpath "$1")
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 GNU_MAKE=$(command -v make || true)
+OS=$(uname -s)
 PASS=0
 FAIL=0
 WORK=$(mktemp -d)
@@ -33,10 +36,18 @@ scenario() { # name: create and enter a fresh directory
   local dir="$WORK/$(printf '%s' "$1" | tr -c 'a-zA-Z0-9' '_')"
   mkdir -p "$dir" && cd "$dir" || exit 2
 }
+now() { # print the time in tenths of a second. BSD date has no %N.
+  if [ -n "${EPOCHREALTIME:-}" ]; then
+    local us=${EPOCHREALTIME/[.,]/}
+    echo $((10#$us / 100000))
+  else
+    python3 -c 'import time; print(int(time.time() * 10))'
+  fi
+}
 elapsed() { # command...: print the run time in tenths of a second
   local start end
-  start=$(date +%s%N); "$@" >/dev/null 2>&1; end=$(date +%s%N)
-  echo $(((end - start) / 100000000))
+  start=$(now); "$@" >/dev/null 2>&1; end=$(now)
+  echo $((end - start))
 }
 
 scenario "1. The build/ directory (modern mode)"
@@ -54,7 +65,7 @@ scenario "2. Explicit @task with 4-space indentation (modern mode)"
 printf 'build:\n    echo step-build\n\n@deploy: build\n    echo step-deploy\n    @echo silent-line\n' > ZMakefile
 out=$("$ZMAKE" deploy 2>&1); code=$?
 expect_eq "exit code 0" 0 "$code"
-expect_eq "build runs, then deploy" "echo step-build|step-build|echo step-deploy|step-deploy|silent-line" "$(printf '%s' "$out" | paste -sd'|')"
+expect_eq "build runs, then deploy" "echo step-build|step-build|echo step-deploy|step-deploy|silent-line" "$(printf '%s' "$out" | paste -sd'|' -)"
 printf 'app: main.c\n    cp main.c $@\n' > ZMakefile
 touch main.c
 "$ZMAKE" >/dev/null 2>&1
@@ -88,11 +99,11 @@ if [ -n "$GNU_MAKE" ]; then
   expect_eq "dry run matches GNU Make" "$("$GNU_MAKE" -n 2>&1)" "$("$ZMAKE" -n 2>&1)"
 fi
 out=$("$ZMAKE" 2>&1)
-expect_eq "first run compiles every object" "gcc -c main.c -o main.o|gcc -c util.c -o util.o|gcc -c helper.c -o helper.o|gcc -o app main.o util.o helper.o" "$(printf '%s' "$out" | paste -sd'|')"
+expect_eq "first run compiles every object" "gcc -c main.c -o main.o|gcc -c util.c -o util.o|gcc -c helper.c -o helper.o|gcc -o app main.o util.o helper.o" "$(printf '%s' "$out" | paste -sd'|' -)"
 expect_eq "second run has nothing to do" "zmake: Nothing to be done for 'all'." "$("$ZMAKE" 2>&1)"
 sleep 0.01; touch util.c
 out=$("$ZMAKE" 2>&1)
-expect_eq "only the dirty object rebuilds" "gcc -c util.c -o util.o|gcc -o app main.o util.o helper.o" "$(printf '%s' "$out" | paste -sd'|')"
+expect_eq "only the dirty object rebuilds" "gcc -c util.c -o util.o|gcc -o app main.o util.o helper.o" "$(printf '%s' "$out" | paste -sd'|' -)"
 if [ -n "$GNU_MAKE" ]; then
   sleep 0.01; touch helper.c
   expect_eq "incremental dry run matches GNU Make" "$("$GNU_MAKE" -n 2>&1)" "$("$ZMAKE" -n 2>&1)"
@@ -124,8 +135,14 @@ expect_has "the sub-make inherits -n and prints its recipe" 'echo "MAKEFLAGS=[$M
 expect_not "the sub-make runs nothing under -n" "MAKEFLAGS=[" "$(printf '%s' "$out" | grep -v '^echo')"
 if [ -n "$GNU_MAKE" ]; then
   printf '.PHONY: top\ntop:\n\t+%s\n' "$ZMAKE" > gnu.mk
-  t=$(elapsed "$GNU_MAKE" -j2 -f gnu.mk)
-  if [ "$t" -ge 18 ] && [ "$t" -lt 30 ]; then pass "zmake obeys a GNU Make -j2 pool ($t/10 s)"; else fail "GNU -j2 pool: $t/10 s"; fi
+  if [ "$OS" = Linux ]; then
+    t=$(elapsed "$GNU_MAKE" -j2 -f gnu.mk)
+    if [ "$t" -ge 18 ] && [ "$t" -lt 30 ]; then pass "zmake obeys a GNU Make -j2 pool ($t/10 s)"; else fail "GNU -j2 pool: $t/10 s"; fi
+  else
+    # Off Linux, zmake cannot share the pipe pool of GNU Make 4.3 (ADR-0020).
+    out=$("$GNU_MAKE" -j2 -f gnu.mk 2>&1)
+    expect_has "off Linux, zmake uses -j1 in a GNU Make pipe pool" "cannot share the pipe jobserver of the parent on this system: using -j1." "$out"
+  fi
   printf '.PHONY: top\ntop:\n\t%s\n' "$ZMAKE" > noplus.mk
   out=$("$GNU_MAKE" -j2 -f noplus.mk 2>&1)
   expect_has "without +, zmake falls back to -j1" "jobserver unavailable: using -j1" "$out"
@@ -463,7 +480,7 @@ if [ -n "$GNU_MAKE" ]; then
   expect_eq "values, inheritance and order match GNU Make" "$(bash probe.sh g "$GNU_MAKE" 2>&1)" "$(bash probe.sh z "$ZMAKE" 2>&1)"
 fi
 printf '.PHONY: all a b c d\nall: a d\na: b c\n\t@echo a\nb:\n\t@echo b\nc:\n\t@echo c\nd:\n\t@echo d\n' > Makefile
-expect_eq "a serial build runs in depth-first post-order" "b|c|a|d" "$("$ZMAKE" 2>&1 | paste -sd'|')"
+expect_eq "a serial build runs in depth-first post-order" "b|c|a|d" "$("$ZMAKE" 2>&1 | paste -sd'|' -)"
 
 scenario "16. Double-colon rules (Phase 15)"
 mkdir -p g z

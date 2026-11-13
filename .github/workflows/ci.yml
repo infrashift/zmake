@@ -2,9 +2,9 @@ name: CI
 
 # Linux runs every gate: `make check` (lint, unit tests, the acceptance suite
 # against GNU Make 4.3, the macOS and FreeBSD cross builds, the wiki and the
-# documentation style). macOS runs the unit tests and a smoke test of the fifo
-# jobserver, because the acceptance suite compares output with GNU Make 4.3 and
-# macOS has make 3.81 (ADR-0021).
+# documentation style) (ADR-0021). macOS runs the unit tests, the acceptance
+# suite against GNU Make 4.3 built from source, and a smoke test of the fifo
+# jobserver (ADR-0023).
 on:
   push:
     branches: [main]
@@ -20,6 +20,8 @@ concurrency:
 
 env:
   ZIG_VERSION: 0.17.1
+  GNU_MAKE_VERSION: "4.3"
+  GNU_MAKE_SHA256: e05fdde47c5f7ca45cb697e973894ff4f5d79e13b750ed57d7b66d8defc78e19
 
 jobs:
   check:
@@ -96,8 +98,31 @@ jobs:
           rm zig.tar.xz
           echo "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
 
+      # macOS has GNU Make 3.81. The acceptance suite compares bytes with GNU
+      # Make 4.3, so build 4.3 from the GNU release and put it first in PATH.
+      - name: Build GNU Make 4.3
+        run: |
+          curl -fsSL -o make.tar.gz "https://ftp.gnu.org/gnu/make/make-${GNU_MAKE_VERSION}.tar.gz"
+          echo "${GNU_MAKE_SHA256}  make.tar.gz" | shasum -a 256 -c -
+          tar -xzf make.tar.gz
+          cd "make-${GNU_MAKE_VERSION}"
+          ./configure --quiet --disable-dependency-tracking --disable-nls --without-guile \
+            --prefix="$RUNNER_TEMP/gnu-make" CFLAGS="-O2 -Wno-implicit-function-declaration"
+          /usr/bin/make --quiet
+          /usr/bin/make --quiet install
+          echo "$RUNNER_TEMP/gnu-make/bin" >> "$GITHUB_PATH"
+
+      - name: Tool versions
+        run: |
+          zig version
+          make --version | head -1
+          bash --version | head -1
+
       - name: Unit tests
         run: make test
+
+      - name: Acceptance suite
+        run: make acceptance
 
       - name: Build
         run: zig build --release

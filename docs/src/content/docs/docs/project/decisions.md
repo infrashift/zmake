@@ -174,3 +174,11 @@ stem replaces `%` in each prerequisite, and `$*` gives the stem. A target that
 the pattern does not match gives the GNU Make warning. `$|` gives the
 order-only prerequisites. See
 [Pattern Rules](../../guides/pattern-rules/#static-pattern-rules).
+
+### ADR-0023: The acceptance suite runs on macOS against GNU Make 4.3
+
+The macOS CI jobs build GNU Make 4.3 from source and run the acceptance suite.
+The script uses only portable commands. The first run found a bug: the macOS
+file system ignores case, so zmake read `Makefile` as `makefile` and found
+`util.C` for `util.c`. On macOS, zmake now checks the exact case through a
+directory listing, as GNU Make does.

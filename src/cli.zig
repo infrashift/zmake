@@ -5,6 +5,7 @@ const assert = std.debug.assert;
 const Io = std.Io;
 const ast = @import("ast.zig");
 const Diagnostic = @import("diag.zig").Diagnostic;
+const dircache = @import("dircache.zig");
 
 pub const Override = struct {
     name: []const u8,
@@ -348,7 +349,7 @@ pub fn modeForPath(path: []const u8) ast.SyntaxMode {
     return .legacy;
 }
 
-pub const DiscoverError = error{NoInputFile} || Io.Dir.AccessError;
+pub const DiscoverError = error{NoInputFile} || Io.Dir.AccessError || dircache.Error;
 
 /// Select the input file and its syntax mode.
 pub fn discover(io: Io, dir: Io.Dir, opts: Options, diag: *Diagnostic) DiscoverError!InputFile {
@@ -359,7 +360,10 @@ pub fn discover(io: Io, dir: Io.Dir, opts: Options, diag: *Diagnostic) DiscoverE
     for (candidates) |c| {
         assert(c.name.len > 0);
         if (dir.access(io, c.name, .{})) |_| {
-            return .{ .path = c.name, .mode = opts.mode orelse c.mode };
+            // On macOS, `makefile` also finds `Makefile`. GNU Make compares
+            // the case through a directory listing (ADR-0023).
+            const exact = !dircache.needed or (try dircache.listedIn(io, dir, c.name));
+            if (exact) return .{ .path = c.name, .mode = opts.mode orelse c.mode };
         } else |err| switch (err) {
             error.FileNotFound => {},
             else => |e| return e,
@@ -466,9 +470,7 @@ test "discover prefers ZMakefile over Makefile" {
     try testing.expectError(error.NoInputFile, discover(io, tmp.dir, .{}, &diag));
     try tmp.dir.writeFile(io, .{ .sub_path = "Makefile", .data = "" });
     const legacy = try discover(io, tmp.dir, .{}, &diag);
-    // On a case-insensitive file system (the macOS default), the search finds
-    // the file as `makefile` first, as GNU Make does.
-    try testing.expect(std.ascii.eqlIgnoreCase("Makefile", legacy.path));
+    try testing.expectEqualStrings("Makefile", legacy.path);
     try testing.expectEqual(ast.SyntaxMode.legacy, legacy.mode);
     try tmp.dir.writeFile(io, .{ .sub_path = "ZMakefile", .data = "" });
     const modern = try discover(io, tmp.dir, .{}, &diag);

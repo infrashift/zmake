@@ -8,6 +8,7 @@ const Io = std.Io;
 const ast = @import("ast.zig");
 const fns = @import("functions.zig");
 const database = @import("database.zig");
+const dircache = @import("dircache.zig");
 const Diagnostic = @import("diag.zig").Diagnostic;
 
 pub const Error = error{ Graph, OutOfMemory };
@@ -104,6 +105,8 @@ const Builder = struct {
     colors: std.ArrayList(Color) = .empty,
     warnings: std.ArrayList([]const u8) = .empty,
     goal_ids: std.ArrayList(NodeId) = .empty,
+    /// The directory listings for exact-case checks on macOS.
+    names: dircache.Cache = .{},
 
     fn fail(b: *Builder, comptime fmt: []const u8, args: anytype) Error {
         comptime assert(fmt.len > 0);
@@ -296,9 +299,18 @@ fn classifyNode(b: *Builder, name: []const u8, has_rule: bool, task: bool, from_
     return kind;
 }
 
+/// True when `name` exists with this exact case, as GNU Make sees it.
 fn exists(b: *Builder, name: []const u8) Error!bool {
     assert(name.len > 0);
-    if (b.dir.access(b.io, name, .{})) |_| return true else |err| switch (err) {
+    if (b.dir.access(b.io, name, .{})) |_| {
+        if (!dircache.needed) return true;
+        const found = b.names.listed(b.arena, b.io, b.dir, name) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            else => return b.fail("*** {s}: {s}.  Stop.", .{ name, @errorName(err) }),
+        };
+        assert(b.names.dirs.count() > 0);
+        return found;
+    } else |err| switch (err) {
         error.FileNotFound => return false,
         else => return b.fail("*** {s}: {s}.  Stop.", .{ name, @errorName(err) }),
     }

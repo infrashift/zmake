@@ -29,6 +29,7 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **18. MAKEFLAGS quoting** | Values with spaces and backslashes reach sub-makes | Done |
 | **19. macOS and BSD** | A fifo jobserver off Linux, `--jobserver-style`, cross builds | Done |
 | **20. Static patterns** | Static pattern rules (`objs: %.o: %.c`) and `$\|` | Done |
+| **21. macOS acceptance** | The acceptance suite on macOS against GNU Make 4.3; exact-case file names | Done |
 
 ## Follow-ups
 
@@ -37,5 +38,5 @@ These features are outside the current scope:
 - `$(guile ...)`, `load`, `.ONESHELL` and `.SECONDEXPANSION` stop the build with an error.
 - zmake does not remake included files, search include directories, or delete intermediate files.
 - `GPATH`.
-- Test runs on FreeBSD, and the acceptance suite on macOS. Today, CI runs the unit tests on macOS, and `make cross` builds for FreeBSD.
+- Test runs on FreeBSD. Today, `make cross` only builds for FreeBSD.
 
