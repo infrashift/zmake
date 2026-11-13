@@ -21,9 +21,11 @@ description: "The parser rejects include, conditionals, define, export and vpath
 The plan does not cover `include`, `-include`, `ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif`, `define`, `endef`, `export`, `unexport`, `override` or `vpath`. A parser that does not know these lines reads them as rules or assignments. The build then does the wrong thing with no error.
 
 ## Decision
-The parser rejects each directive from the list with this error:
+The parser rejects each directive from the list with this error. A directive word followed by `=` or `:` is a variable or a target name, not a directive.
 
 `Makefile:7: *** unsupported directive 'ifeq'.  Stop.`
+
+The parser also rejects three forms outside the scope: double-colon rules (`a:: b`), target-specific variables (`a: CC = x`) and shell assignments (`X != cmd`).
 
 ## Consequences
 - A real-world Makefile with conditionals fails at once, with a clear message.

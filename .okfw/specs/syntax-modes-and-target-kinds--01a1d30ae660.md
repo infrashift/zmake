@@ -22,10 +22,13 @@ description: "How zmake selects legacy or modern mode, which recipe indentation 
 
 ## Recipe lines
 - **Legacy mode:** a recipe line starts with a tab. A space-indented line after a rule is an error (`missing separator`).
-- **Modern mode:** a recipe line starts with a tab or with two or more spaces. The first indented line sets the indent of the block. zmake strips that indent from each line of the block. A non-blank line at column 0 ends the block. Blank lines and comment lines do not end the block.
+- **Modern mode:** a recipe line starts with a tab or with two or more spaces. The first indented line sets the indent of the block. zmake strips that indent from each line of the block. A non-blank line at column 0 ends the block. Blank lines and comment lines do not end the block. A recipe line with less indent than the block is an error.
+- **Modern mode limit:** inside a recipe block, each line with two or more spaces is a recipe line. Put variable assignments at column 0.
 
 ## Task syntax (modern mode only)
 - `@name: prerequisites` and `task name: prerequisites` declare a task.
+- In a rule with several targets, each target carries `@`, or none does.
+- `task:` with no name declares a plain target named `task`.
 - In legacy mode, zmake reads `@name` and `task` as ordinary target names.
 
 ## Target kinds

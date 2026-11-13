@@ -29,10 +29,10 @@ Tracking: [ISSUE-001](.okfw/issues/issue-001-scaffolding-ast-and-input-file-disc
 
 ## Phase 2 — Context-sensitive lexer and dual-mode parser
 Tracking: [ISSUE-002](.okfw/issues/issue-002-context-sensitive-lexer-and-dual-mode-parser--01a1d30ae694.md)
-- [ ] `src/lexer.zig`: continuations, comments, recipe lines (tab in legacy mode; tab or spaces in modern mode)
-- [ ] `src/parser.zig`: assignments, rules, pattern rules, `.PHONY`, `.DEFAULT_GOAL`, `@name:` and `task name:`
-- [ ] Unsupported directives fail with `file:line` ([ADR-0005](.okfw/decisions/adr-0005-unsupported-directives-fail-loudly--01a1d30ae687.md))
-- [ ] `tests/legacy_test.zig` and `tests/modern_test.zig`
+- [x] `src/lexer.zig`: continuations, comments, recipe lines (tab in legacy mode; tab or spaces in modern mode)
+- [x] `src/parser.zig`: assignments, rules, pattern rules, `.PHONY`, `.DEFAULT_GOAL`, `@name:` and `task name:`
+- [x] Unsupported directives fail with `file:line` ([ADR-0005](.okfw/decisions/adr-0005-unsupported-directives-fail-loudly--01a1d30ae687.md))
+- [x] `tests/legacy_test.zig` and `tests/modern_test.zig`
 
 ## Phase 3 — Two-phase variable evaluator
 Tracking: [ISSUE-003](.okfw/issues/issue-003-two-phase-variable-evaluator-and-target-classification--01a1d30ae69a.md)
