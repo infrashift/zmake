@@ -562,7 +562,7 @@ if [ -n "$GNU_MAKE" ]; then
 fi
 expect_has "a value with a space reaches the sub-make" "X=[a b]" "$(bash probe.sh z "$ZMAKE")"
 
-scenario "20. The fifo jobserver of macOS and the BSDs, on Linux (Phase 19)"
+scenario "20. The fifo jobserver of macOS and the BSDs (Phase 19)"
 export TMPDIR="$PWD"
 printf 'all: a b c d\na b c d:\n\t@sleep 1\n' > Makefile
 t=$(elapsed "$ZMAKE" -j4 --jobserver-style=fifo)

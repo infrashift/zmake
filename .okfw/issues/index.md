@@ -25,4 +25,5 @@
 * [ISSUE-019: Jobserver on macOS and the BSDs](issue-019-jobserver-on-macos-and-the-bsds--01a1d34ecd67.md) - Phase 19: the jobserver and the build without Linux-only system calls.
 * [ISSUE-020: Static pattern rules](issue-020-static-pattern-rules--01a1d399e029.md) - Static pattern rules (objs: %.o: %.c) give one explicit rule per target; today zmake stops with a clear error.
 * [ISSUE-021: Acceptance suite on macOS](issue-021-acceptance-suite-on-macos--01a1d4dbc5ce.md) - CI builds GNU Make 4.3 on macOS and runs the acceptance suite there; the script uses only portable commands.
+* [ISSUE-022: Test runs on FreeBSD](issue-022-test-runs-on-freebsd--01a1d4ee3b4d.md) - A CI job runs the unit tests and the acceptance suite in a FreeBSD VM, with pinned downloads and a pinned VM action.
 

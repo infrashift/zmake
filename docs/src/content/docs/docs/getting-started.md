@@ -4,7 +4,7 @@ description: Build zmake from source with Zig 0.17.1, then run a ZMakefile and a
 ---
 
 zmake has no binary release yet. Build it from source. zmake builds for Linux,
-macOS and FreeBSD. CI tests it on Linux and macOS.
+macOS and FreeBSD. CI tests it on all three systems.
 
 ## Build from source
 

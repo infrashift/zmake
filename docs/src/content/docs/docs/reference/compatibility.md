@@ -66,7 +66,7 @@ directive.
 - **`-q` and `-t`.** zmake does not run recipe lines with `+` or `$(MAKE)` under `-q` and `-t`. GNU Make runs them.
 - **File name case.** On macOS, the file system ignores case. As GNU Make does, zmake compares the exact case when it looks for the input file, a pattern prerequisite or a `vpath` file. `util.C` does not match `util.c` there.
 - **Intermediate files.** GNU Make deletes a file that a chain of pattern rules made. zmake keeps it.
-- **Platforms.** zmake builds for Linux, macOS and FreeBSD. CI runs all tests on Linux, and the unit tests and the acceptance suite on macOS. On macOS and FreeBSD, zmake cannot join a pipe jobserver of a parent and uses `-j1`.
+- **Platforms.** zmake builds for Linux, macOS and FreeBSD. CI runs all tests on Linux, and the unit tests and the acceptance suite on macOS and FreeBSD. On macOS and FreeBSD, zmake cannot join a pipe jobserver of a parent and uses `-j1`.
 
 ## Hard limits
 

@@ -4,7 +4,8 @@ name: CI
 # against GNU Make 4.3, the macOS and FreeBSD cross builds, the wiki and the
 # documentation style) (ADR-0021). macOS runs the unit tests, the acceptance
 # suite against GNU Make 4.3 built from source, and a smoke test of the fifo
-# jobserver (ADR-0023).
+# jobserver (ADR-0023). A FreeBSD VM runs the unit tests and the acceptance
+# suite (ADR-0024).
 on:
   push:
     branches: [main]
@@ -150,3 +151,51 @@ jobs:
           echo "$out"
           grep -q -- '--jobserver-auth=fifo:' <<< "$out"
           test -z "$(ls zmake-jobserver-* 2> /dev/null || true)"
+
+  # GitHub has no FreeBSD runner. The action boots a FreeBSD VM in QEMU on a
+  # Linux runner and copies the checkout into it. It is pinned to the commit of
+  # its v1.5.9 tag (ADR-0024).
+  freebsd:
+    name: tests (FreeBSD)
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Unit tests and acceptance suite in a FreeBSD VM
+        uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1.5.9
+        env:
+          ZIG_SHA256: fd8b9728f05db2a9942fc1f18087c0e0d6dfccb7a51557b06cf026d3e4c78542
+        with:
+          release: "15.1"
+          envs: ZIG_VERSION ZIG_SHA256 GNU_MAKE_VERSION GNU_MAKE_SHA256
+          copyback: false
+          prepare: |
+            pkg install -y bash curl
+          run: |
+            set -eu
+            freebsd-version
+            tools="$HOME/tools"
+            mkdir -p "$tools/zig" "$tools/bin"
+            curl -fsSL -o /tmp/zig.tar.xz "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-freebsd-${ZIG_VERSION}.tar.xz"
+            [ "$(sha256 -q /tmp/zig.tar.xz)" = "$ZIG_SHA256" ] || { echo "zig: checksum mismatch"; exit 1; }
+            tar -xJf /tmp/zig.tar.xz -C "$tools/zig" --strip-components=1
+            # FreeBSD has BSD make. The acceptance suite compares bytes with
+            # GNU Make 4.3, so build it from the GNU release.
+            curl -fsSL -o /tmp/make.tar.gz "https://ftp.gnu.org/gnu/make/make-${GNU_MAKE_VERSION}.tar.gz"
+            [ "$(sha256 -q /tmp/make.tar.gz)" = "$GNU_MAKE_SHA256" ] || { echo "make: checksum mismatch"; exit 1; }
+            tar -xzf /tmp/make.tar.gz -C /tmp
+            (cd "/tmp/make-${GNU_MAKE_VERSION}" && ./configure --quiet --disable-nls --without-guile && sh build.sh > /dev/null)
+            cp "/tmp/make-${GNU_MAKE_VERSION}/make" "$tools/bin/make"
+            # Scenario 3 of PLAN.md uses `CC := gcc`. FreeBSD has clang as cc
+            # and no gcc. As on macOS, gcc names the system compiler.
+            ln -s /usr/bin/cc "$tools/bin/gcc"
+            export PATH="$tools/bin:$tools/zig:$PATH"
+            zig version
+            make --version | head -1
+            bash --version | head -1
+            id -un
+            make test
+            make acceptance

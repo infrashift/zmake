@@ -37,3 +37,5 @@ The gates ran only on one Linux workstation. zmake builds for macOS since Phase 
 - **A third-party action to install Zig.** Rejected: a pinned download with a sum check needs no new dependency.
 
 **Update:** CI also runs the acceptance suite on macOS against GNU Make 4.3 built from source ([ADR-0023](/decisions/adr-0023-the-acceptance-suite-runs-on-macos-against-gnu-make-4-3--01a1d4ecd992.md)).
+
+**Update:** CI also runs the unit tests and the acceptance suite in a FreeBSD VM ([ADR-0024](/decisions/adr-0024-ci-runs-the-tests-in-a-freebsd-vm--01a1d4ff5f9a.md)).

@@ -182,3 +182,10 @@ The script uses only portable commands. The first run found a bug: the macOS
 file system ignores case, so zmake read `Makefile` as `makefile` and found
 `util.C` for `util.c`. On macOS, zmake now checks the exact case through a
 directory listing, as GNU Make does.
+
+### ADR-0024: CI runs the tests in a FreeBSD VM
+
+GitHub has no FreeBSD runner. A CI job boots a FreeBSD 15.1 VM with the
+`vmactions/freebsd-vm` action, pinned to a commit. The VM gets Zig 0.17.1 and
+GNU Make 4.3 with pinned SHA-256 sums, and runs the unit tests and the
+acceptance suite.

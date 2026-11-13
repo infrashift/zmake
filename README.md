@@ -84,7 +84,7 @@ Run `make check` or `zmake check`. GNU Make reads the `Makefile`. zmake reads th
 - `make wiki`: validation of the OKF wiki in `.okfw/`
 - `make docs-style`: an ASD-STE100 check of the documentation
 
-CI runs `make check` on Linux. On macOS (arm64 and x86_64), it runs the unit tests, the acceptance suite against GNU Make 4.3 and a jobserver smoke test.
+CI runs `make check` on Linux. On macOS (arm64 and x86_64) and in a FreeBSD VM, it runs the unit tests and the acceptance suite against GNU Make 4.3. macOS also runs a jobserver smoke test.
 
 The wiki in `.okfw/` holds the architecture, the specs and the design decisions. Start with the *zmake architecture overview*.
 
