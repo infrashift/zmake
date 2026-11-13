@@ -43,7 +43,7 @@ file part), for example `$(@D)` and `$(<F)`.
 
 ## Functions
 
-zmake supports four functions and substitution references:
+zmake supports the GNU Make functions and substitution references:
 
 ```make
 SRCS := $(wildcard src/*.c)
@@ -53,11 +53,7 @@ NAME := $(subst -,_,my-app)
 REV  := $(shell git rev-parse --short HEAD)
 ```
 
-Any other function, for example `$(foreach ...)`, stops the build:
-
-```text
-Makefile:3: *** unsupported function 'foreach'.  Stop.
-```
+See [Functions](../../reference/functions/) for the full list.
 
 ## Pattern rules
 

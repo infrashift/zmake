@@ -14,7 +14,7 @@ feature outside this subset. A silent misparse is worse than an error
 | Assignments | `=`, `:=`, `::=`, `?=`, `+=`, command-line overrides |
 | Rules | Explicit rules, pattern rules, order-only prerequisites, inline `; recipe` text |
 | Automatic variables | `$@`, `$<`, `$^`, `$+`, `$*`, `$?` and their `D` and `F` forms |
-| Functions | `wildcard`, `shell`, `patsubst`, `subst`, substitution references |
+| Functions | All GNU Make functions except `eval` and `guile` ([Functions](../functions/)), substitution references |
 | Variables | `MAKE`, `MAKEFLAGS`, `MAKELEVEL`, `SHELL` |
 | Recipe prefixes | `@`, `-`, `+` |
 | Options | `-f`, `-C`, `-j`, `-n` |
@@ -45,7 +45,7 @@ These features stop the build with `file:line`:
 | `ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif` | `unsupported directive` |
 | `define`, `endef` | `unsupported directive` |
 | `export`, `unexport`, `override`, `vpath` | `unsupported directive` |
-| Functions other than the four above, for example `$(foreach ...)` | `unsupported function` |
+| `$(eval ...)` and `$(guile ...)` | `unsupported function` |
 | Double-colon rules (`a:: b`) | Parse error |
 | Target-specific variables (`a: CC = x`) | Parse error |
 | Shell assignments (`X != cmd`) | Parse error |

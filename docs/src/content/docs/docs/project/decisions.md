@@ -79,3 +79,11 @@ The repo keeps a `Makefile` for GNU Make and a `ZMakefile` for zmake, with the
 same targets. The `ZMakefile` uses `@name:` tasks and space-indented recipes.
 The acceptance suite compares the dry runs of both files for each target. See
 [Make Targets](../../reference/make-targets/).
+
+### ADR-0011: Lazy functions use staged calls on the frame stack
+
+`if`, `and`, `or` and `intcmp` expand only the arguments that they need.
+`foreach`, `let` and `call` bind their variables in a scope and expand the body
+in a child frame. The scope restores the shadowed variables after the body. No
+function calls the evaluator again, so a recursive `$(call ...)` needs no
+recursion in zmake. See [Functions](../../reference/functions/).

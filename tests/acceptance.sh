@@ -162,8 +162,8 @@ expect_eq ".SILENT hides the echo" "quiet" "$("$ZMAKE" 2>&1)"
 printf '.NOTPARALLEL:\n.PHONY: all a b c\nall: a b c\na b c:\n\tsleep 0.5\n' > Makefile
 t=$(elapsed "$ZMAKE" -j4)
 if [ "$t" -ge 14 ]; then pass ".NOTPARALLEL forces one job at a time ($t/10 s)"; else fail ".NOTPARALLEL ignored: $t/10 s"; fi
-printf 'X = $(foreach a,b,c)\nall: ; @echo $(X)\n' > Makefile
-expect_eq "unsupported function" "Makefile:2: *** unsupported function 'foreach'.  Stop." "$("$ZMAKE" 2>&1)"
+printf 'X = $(guile (+ 1 2))\nall: ; @echo $(X)\n' > Makefile
+expect_eq "unsupported function" "Makefile:2: *** unsupported function 'guile'.  Stop." "$("$ZMAKE" 2>&1)"
 
 scenario "7. zmake reads the zmake Makefile"
 if [ -n "$GNU_MAKE" ]; then
@@ -193,6 +193,41 @@ fi
 out=$("$ZMAKE" 2>&1); code=$?
 expect_eq "exit code 0" 0 "$code"
 expect_has "the order-only directory is made first" "mkdir -p obj" "$out"
+
+scenario "10. Functions match GNU Make (Phase 9)"
+mkdir -p sub/dir && touch sub/dir/f.c sub/dir/g.h && ln -s sub/dir lnk
+cat > Makefile <<'EOF'
+SRC := a.c b.o c.h src/d.c
+O = $(1)-$(2)-$(3)
+P = $(call O,$(1))
+S := $$(1)
+reverse = $(if $(1),$(call reverse,$(wordlist 2,$(words $(1)),$(1))) $(firstword $(1)))
+$(info filter=[$(filter %.c %.h,$(SRC))] out=[$(filter-out %.c,$(SRC))] find=[$(findstring a,cat)][$(findstring x,cat)])
+$(info sort=[$(sort c b  c a)] strip=[$(strip   a   b  )] words=$(words $(SRC)) word=$(word 2,$(SRC)) list=[$(wordlist 2,3,$(SRC))])
+$(info first=$(firstword $(SRC)) last=$(lastword $(SRC)) dir=[$(dir $(SRC) /x)] notdir=[$(notdir src/a.c dir/)])
+$(info suffix=[$(suffix a.c b src.d/x a.tar.gz)] base=[$(basename a.c src.d/x b a.tar.gz)] join=[$(join a b c,1 2)])
+$(info prefix=[$(addprefix x/,a b)] suffix=[$(addsuffix .c,a b)] abs=[$(abspath a/../b ./c /x/./y/..)] real=[$(realpath lnk/f.c nope sub)])
+$(info if=[$(if  x ,yes,no)][$(if ,yes,no)][$(if ,yes)] and=[$(and a,b)][$(and a,,b)] or=[$(or ,b,c)][$(or ,)])
+$(info foreach=[$(foreach x,a b c,<$(x)>)] gap=[$(foreach x,a b c,$(if $(filter b,$(x)),,$(x)))])
+$(info call=[$(call O,a,b,c)] hide=[$(call P,a,b,c)] simple=[$(call S,x)] builtin=[$(call firstword,a b)] reverse=[$(call reverse,a b c)])
+$(info value=[$(value O)] origin=$(origin O) $(origin NOPE) $(origin HOME) $(foreach v,a,$(origin v)) flavor=$(flavor O) $(flavor S) $(flavor NOPE))
+$(file >out.txt,hello)
+$(file >>out.txt,world)
+$(info file=[$(file <out.txt)] missing=[$(file <nope.txt)] glob=[$(wildcard sub/dir/*.c)])
+$(warning a warning)
+all:
+	@echo recipe $(info in-recipe)$(words $^) done
+EOF
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "output matches GNU Make" "$("$GNU_MAKE" -s 2>&1)" "$("$ZMAKE" 2>&1)"
+  expect_eq "file written as GNU Make writes it" "$(printf 'hello\nworld')" "$(cat out.txt)"
+fi
+printf 'X := $(word 0,a b)\nall:;@:\n' > Makefile
+expect_eq "word 0 message" "Makefile:1: *** first argument to 'word' function must be greater than 0.  Stop." "$("$ZMAKE" 2>&1)"
+printf 'X := $(error boom here)\nall:;@:\n' > Makefile
+expect_eq "error message" "Makefile:1: *** boom here.  Stop." "$("$ZMAKE" 2>&1)"
+printf 'X := $(let a b,1 2 3,$(a)|$(b)) $(intcmp 3,2,lt,eq,gt)\n$(info $(X))\nall:;@:\n' > Makefile
+expect_eq "let and intcmp (GNU Make 4.4)" "1|2 3 gt" "$("$ZMAKE" 2>&1)"
 
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

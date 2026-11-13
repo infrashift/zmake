@@ -25,7 +25,7 @@ The parser rejects each directive from the list with this error. A directive wor
 
 `Makefile:7: *** unsupported directive 'ifeq'.  Stop.`
 
-The evaluator also rejects GNU functions other than `subst`, `patsubst`, `wildcard` and `shell`, for example `$(foreach ...)`. Without this check, `$(foreach a,b,c)` expands to an empty variable.
+The evaluator also rejects GNU functions that it does not implement. Without this check, such a reference expands to an empty variable. Since Phase 9, only `eval` and `guile` remain ([ADR-0011](/decisions/adr-0011-lazy-functions-use-staged-calls-on-the-frame-stack--01a1d35f6009.md)).
 
 The parser also rejects three forms outside the scope: double-colon rules (`a:: b`), target-specific variables (`a: CC = x`) and shell assignments (`X != cmd`).
 

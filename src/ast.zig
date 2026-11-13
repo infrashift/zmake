@@ -17,6 +17,8 @@ pub const limits = struct {
     pub const jobs_max: u32 = 256;
     pub const recipe_lines_max: u32 = 4096;
     pub const names_per_line_max: u32 = 65_536;
+    /// Arguments of one function call, for example `$(call f,a,b)`.
+    pub const function_args_max: u8 = 16;
 };
 
 pub const SyntaxMode = enum {
@@ -61,6 +63,19 @@ pub const Origin = enum(u8) {
     environment = 1,
     file = 2,
     command_line = 3,
+    /// The variables of `foreach`, `let` and `call`. They shadow other definitions.
+    automatic = 5,
+
+    /// The name that `$(origin ...)` returns.
+    pub fn text(origin: Origin) []const u8 {
+        return switch (origin) {
+            .default => "default",
+            .environment => "environment",
+            .file => "file",
+            .command_line => "command line",
+            .automatic => "automatic",
+        };
+    }
 };
 
 pub const Variable = struct {
@@ -103,9 +118,17 @@ pub const RuleDecl = struct {
     line: u32,
 };
 
+/// A line with no separator, for example `$(info text)`. The loader expands it.
+/// GNU Make accepts the line when the expansion is empty.
+pub const Expression = struct {
+    text: []const u8,
+    line: u32,
+};
+
 pub const Statement = union(enum) {
     assignment: Assignment,
     rule: RuleDecl,
+    expression: Expression,
 };
 
 /// The parsed input file.

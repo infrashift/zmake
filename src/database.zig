@@ -53,6 +53,11 @@ pub fn load(ev: *eval.Evaluator, mk: ast.Makefile) Error!Database {
                 ev.line = r.line;
                 try addRule(ev, &b, r);
             },
+            .expression => |e| {
+                ev.line = e.line;
+                const value = try ev.expand(e.text, null);
+                if (std.mem.trim(u8, value, fns.whitespace).len > 0) return ev.fail("missing separator", .{});
+            },
         }
     }
     b.db.rules = b.rules.items;
@@ -293,6 +298,17 @@ test "unsupported forms fail at load" {
     try testing.expectEqualStrings("Makefile:1: *** suffix rule '.c.o' is not supported; use a pattern rule.  Stop.", diag.message());
     try testing.expectError(error.Eval, loadTest(a, ".ONESHELL:\n", .legacy, &diag));
     try testing.expectError(error.Eval, loadTest(a, ".PHONY all:\n", .legacy, &diag));
+}
+
+test "a line that expands to nothing is valid" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    const a = arena.allocator();
+    const db = try loadTest(a, "X := 1\n$(if $(X),,$(error no X))\nall:\n", .legacy, &diag);
+    try testing.expectEqualStrings("all", db.default_goal.?);
+    try testing.expectError(error.Eval, loadTest(a, "$(firstword a b)\n", .legacy, &diag));
+    try testing.expectEqualStrings("Makefile:1: *** missing separator.  Stop.", diag.message());
 }
 
 test "classification truth table" {

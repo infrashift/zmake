@@ -57,10 +57,10 @@ zmake supports these GNU Make features:
 - The assignments `=`, `:=`, `::=`, `?=` and `+=`, and command-line overrides
 - Explicit rules, pattern rules, order-only prerequisites and inline `; recipe` text
 - The automatic variables `$@`, `$<`, `$^`, `$+`, `$*`, `$?` and their `D` and `F` forms
-- The functions `wildcard`, `shell`, `patsubst` and `subst`, and substitution references
+- The GNU Make functions, for example `foreach`, `call`, `if`, `filter` and `file`, and substitution references
 - `.PHONY`, `.DEFAULT_GOAL`, `.PRECIOUS`, `.SILENT`, `.NOTPARALLEL` and `.DELETE_ON_ERROR`
 
-zmake stops with an error for features outside this list, for example `include`, `ifeq` or `$(foreach ...)`. It does not misread them in silence. See `PLAN.md` for the follow-ups.
+zmake stops with an error for features outside this list, for example `include`, `ifeq` or `$(eval ...)`. It does not misread them in silence. See `PLAN.md` for the follow-ups.
 
 ## Development
 Run `make check` or `zmake check`. GNU Make reads the `Makefile`. zmake reads the `ZMakefile`, which has the same targets in modern mode. The gates are:

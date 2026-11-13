@@ -15,6 +15,8 @@ const assert = std.debug.assert;
 const Io = std.Io;
 const ast = @import("ast.zig");
 const fns = @import("functions.zig");
+const textfns = @import("textfns.zig");
+const builtins = @import("builtins.zig");
 const parser = @import("parser.zig");
 const Diagnostic = @import("diag.zig").Diagnostic;
 
@@ -32,14 +34,136 @@ pub const Auto = struct {
 
 pub const VarTable = std.StringHashMapUnmanaged(ast.Variable);
 
-const Func = enum { ref, subst_ref, subst, patsubst, wildcard, shell };
+/// The built-in functions, plus `ref` (a variable reference) and `subst_ref`
+/// (a substitution reference such as `$(SRC:.c=.o)`).
+pub const Func = enum {
+    ref,
+    subst_ref,
+    subst,
+    patsubst,
+    wildcard,
+    shell,
+    filter,
+    filter_out,
+    findstring,
+    sort,
+    strip,
+    word,
+    words,
+    wordlist,
+    firstword,
+    lastword,
+    dir,
+    notdir,
+    suffix,
+    basename,
+    addsuffix,
+    addprefix,
+    join,
+    abspath,
+    realpath,
+    value,
+    origin,
+    flavor,
+    @"error",
+    warning,
+    info,
+    file,
+    @"if",
+    @"and",
+    @"or",
+    intcmp,
+    foreach,
+    let,
+    call,
+};
+
+/// A built-in function and its argument counts. `max == 0` means no upper
+/// limit. A function with a fixed maximum keeps extra commas in its last argument.
+pub const Spec = struct { name: []const u8, func: Func, min: u8, max: u8 };
+
+pub const specs = [_]Spec{
+    .{ .name = "subst", .func = .subst, .min = 3, .max = 3 },
+    .{ .name = "patsubst", .func = .patsubst, .min = 3, .max = 3 },
+    .{ .name = "wildcard", .func = .wildcard, .min = 1, .max = 1 },
+    .{ .name = "shell", .func = .shell, .min = 1, .max = 1 },
+    .{ .name = "filter", .func = .filter, .min = 2, .max = 2 },
+    .{ .name = "filter-out", .func = .filter_out, .min = 2, .max = 2 },
+    .{ .name = "findstring", .func = .findstring, .min = 2, .max = 2 },
+    .{ .name = "sort", .func = .sort, .min = 1, .max = 1 },
+    .{ .name = "strip", .func = .strip, .min = 1, .max = 1 },
+    .{ .name = "word", .func = .word, .min = 2, .max = 2 },
+    .{ .name = "words", .func = .words, .min = 1, .max = 1 },
+    .{ .name = "wordlist", .func = .wordlist, .min = 3, .max = 3 },
+    .{ .name = "firstword", .func = .firstword, .min = 1, .max = 1 },
+    .{ .name = "lastword", .func = .lastword, .min = 1, .max = 1 },
+    .{ .name = "dir", .func = .dir, .min = 1, .max = 1 },
+    .{ .name = "notdir", .func = .notdir, .min = 1, .max = 1 },
+    .{ .name = "suffix", .func = .suffix, .min = 1, .max = 1 },
+    .{ .name = "basename", .func = .basename, .min = 1, .max = 1 },
+    .{ .name = "addsuffix", .func = .addsuffix, .min = 2, .max = 2 },
+    .{ .name = "addprefix", .func = .addprefix, .min = 2, .max = 2 },
+    .{ .name = "join", .func = .join, .min = 2, .max = 2 },
+    .{ .name = "abspath", .func = .abspath, .min = 1, .max = 1 },
+    .{ .name = "realpath", .func = .realpath, .min = 1, .max = 1 },
+    .{ .name = "value", .func = .value, .min = 1, .max = 1 },
+    .{ .name = "origin", .func = .origin, .min = 1, .max = 1 },
+    .{ .name = "flavor", .func = .flavor, .min = 1, .max = 1 },
+    .{ .name = "error", .func = .@"error", .min = 1, .max = 1 },
+    .{ .name = "warning", .func = .warning, .min = 1, .max = 1 },
+    .{ .name = "info", .func = .info, .min = 1, .max = 1 },
+    .{ .name = "file", .func = .file, .min = 1, .max = 2 },
+    .{ .name = "if", .func = .@"if", .min = 2, .max = 3 },
+    .{ .name = "and", .func = .@"and", .min = 1, .max = 0 },
+    .{ .name = "or", .func = .@"or", .min = 1, .max = 0 },
+    .{ .name = "intcmp", .func = .intcmp, .min = 2, .max = 5 },
+    .{ .name = "foreach", .func = .foreach, .min = 3, .max = 3 },
+    .{ .name = "let", .func = .let, .min = 3, .max = 3 },
+    .{ .name = "call", .func = .call, .min = 1, .max = 0 },
+};
+
+pub fn findSpec(name: []const u8) ?Spec {
+    assert(name.len > 0);
+    for (specs) |s| {
+        if (std.mem.eql(u8, s.name, name)) return s;
+    }
+    assert(specs.len > 0);
+    return null;
+}
+
+const args_max = ast.limits.function_args_max;
+const ws = fns.whitespace;
+
+/// The names `$(0)` to `$(15)` that `call` binds.
+const param_names = blk: {
+    var names: [args_max][]const u8 = undefined;
+    for (&names, 0..) |*n, i| n.* = std.fmt.comptimePrint("{d}", .{i});
+    break :blk names;
+};
+
+/// `args`: the frame expands the arguments one by one. `body`: the frame
+/// expands the chosen branch of `if` or `intcmp`, or the body of `foreach`,
+/// `let` or `call`.
+const Stage = enum { args, body };
+
+/// The variables that `foreach`, `let` or `call` bind while the body expands.
+/// `saved` holds the definitions that the bindings shadow.
+const Scope = struct {
+    names: []const []const u8,
+    saved: []?ast.Variable,
+    words: []const []const u8 = &.{},
+    index: usize = 0,
+    out: std.ArrayList(u8) = .empty,
+};
 
 const Pending = struct {
     func: Func,
-    n: u8,
+    n: u8 = 0,
     next: u8 = 0,
-    raw: [3][]const u8 = .{ "", "", "" },
-    results: [3][]const u8 = .{ "", "", "" },
+    stage: Stage = .args,
+    raw: [args_max][]const u8 = @splat(""),
+    results: [args_max][]const u8 = @splat(""),
+    scope: ?*Scope = null,
 };
 
 const Frame = struct {
@@ -66,14 +190,8 @@ const Stack = struct {
 };
 
 /// GNU Make functions that zmake does not implement (ADR-0005). zmake rejects
-/// them, so `$(foreach ...)` does not expand to an empty variable by mistake.
-const unsupported_functions = [_][]const u8{
-    "abspath", "addprefix", "addsuffix", "and",        "basename",   "call",      "dir",    "error",
-    "eval",    "file",      "filter",    "filter-out", "findstring", "firstword", "flavor", "foreach",
-    "guile",   "if",        "info",      "intcmp",     "join",       "lastword",  "let",    "notdir",
-    "or",      "origin",    "realpath",  "sort",       "strip",      "suffix",    "value",  "warning",
-    "word",    "wordlist",  "words",
-};
+/// them, so such a reference does not expand to an empty variable by mistake.
+const unsupported_functions = [_][]const u8{ "eval", "guile" };
 
 pub const Evaluator = struct {
     arena: std.mem.Allocator,
@@ -85,6 +203,8 @@ pub const Evaluator = struct {
     /// The location for error messages.
     filename: []const u8 = "zmake",
     line: u32 = 0,
+    /// The absolute working directory for `$(abspath ...)`, read once.
+    cwd: ?[]const u8 = null,
 
     pub fn init(arena: std.mem.Allocator, io: Io, dir: Io.Dir, diag: *Diagnostic) Evaluator {
         assert(diag.len <= Diagnostic.capacity);
@@ -188,18 +308,221 @@ pub const Evaluator = struct {
     /// Give the result of the frame that ended to its parent, the new top.
     fn deliver(ev: *Evaluator, stack: *Stack, result: []const u8, auto: ?*const Auto) Error!void {
         assert(stack.len >= 1);
-        const parent = &stack.frames[stack.len - 1];
+        const parent = stack.top();
         if (parent.pending) |*p| {
+            if (p.stage == .body) return ev.bodyDone(stack, result);
             assert(p.next < p.n);
             p.results[p.next] = result;
             p.next += 1;
-            if (p.next < p.n) return ev.push(stack, .{ .src = p.raw[p.next] });
-            const done = p.*;
-            parent.pending = null;
-            return ev.complete(stack, done, auto);
+            return ev.advance(stack, auto);
         }
         try ev.emit(parent, result);
         assert(parent.pending == null);
+    }
+
+    /// One more argument has a value. Expand the next argument, start a body,
+    /// or apply the call. `if`, `and`, `or` and `intcmp` expand only the
+    /// arguments that they need.
+    fn advance(ev: *Evaluator, stack: *Stack, auto: ?*const Auto) Error!void {
+        const p = &stack.top().pending.?;
+        assert(p.stage == .args and p.next >= 1 and p.next <= p.n);
+        assert(p.n <= args_max);
+        switch (p.func) {
+            .@"if" => return ev.chooseBranch(stack, if (std.mem.trim(u8, p.results[0], ws).len > 0) 1 else 2),
+            .@"and", .@"or" => return ev.advanceLogic(stack),
+            .intcmp => if (p.next == 2) return ev.compareInts(stack),
+            .foreach, .let => if (p.next == 2) return ev.startLoop(stack),
+            else => {},
+        }
+        if (p.next < p.n) return ev.push(stack, .{ .src = p.raw[p.next] });
+        if (p.func == .call) return ev.startCall(stack);
+        const done = p.*;
+        stack.top().pending = null;
+        try ev.complete(stack, done, auto);
+    }
+
+    /// End the pending call of the top frame with `text` as its result.
+    fn finishPending(ev: *Evaluator, stack: *Stack, text: []const u8) Error!void {
+        const top = stack.top();
+        assert(top.pending != null);
+        top.pending = null;
+        try ev.emit(top, text);
+        assert(top.pending == null);
+    }
+
+    /// Expand argument `index` as the result. A missing argument gives an empty result.
+    fn chooseBranch(ev: *Evaluator, stack: *Stack, index: u8) Error!void {
+        const p = &stack.top().pending.?;
+        assert(p.stage == .args and index >= 1);
+        if (index >= p.n) return ev.finishPending(stack, "");
+        p.stage = .body;
+        try ev.push(stack, .{ .src = p.raw[index] });
+        assert(stack.len >= 2);
+    }
+
+    /// `and` stops at the first empty argument. `or` stops at the first non-empty one.
+    fn advanceLogic(ev: *Evaluator, stack: *Stack) Error!void {
+        const p = &stack.top().pending.?;
+        assert(p.func == .@"and" or p.func == .@"or");
+        assert(p.next >= 1 and p.next <= p.n);
+        const last = p.results[p.next - 1];
+        const is_and = p.func == .@"and";
+        const empty = std.mem.trim(u8, last, ws).len == 0;
+        if (is_and and empty) return ev.finishPending(stack, "");
+        if (!is_and and !empty) return ev.finishPending(stack, last);
+        if (p.next < p.n) return ev.push(stack, .{ .src = p.raw[p.next] });
+        try ev.finishPending(stack, if (is_and) last else "");
+    }
+
+    /// `$(intcmp lhs,rhs[,lt[,eq[,gt]]])`. A missing `gt` part is the `eq` part.
+    /// With two arguments, the result is the number when both are equal.
+    fn compareInts(ev: *Evaluator, stack: *Stack) Error!void {
+        const p = &stack.top().pending.?;
+        assert(p.func == .intcmp and p.next == 2);
+        const lhs = try ev.parseInt("first", "intcmp", p.results[0]);
+        const rhs = try ev.parseInt("second", "intcmp", p.results[1]);
+        if (p.n == 2) {
+            const text = if (lhs == rhs) try std.fmt.allocPrint(ev.arena, "{d}", .{lhs}) else "";
+            return ev.finishPending(stack, text);
+        }
+        const index: u8 = switch (std.math.order(lhs, rhs)) {
+            .lt => 2,
+            .eq => 3,
+            .gt => if (p.n > 4) 4 else 3,
+        };
+        assert(index >= 2 and index <= 4);
+        try ev.chooseBranch(stack, index);
+    }
+
+    /// Parse a decimal integer argument. `which` is "first" or "second".
+    pub fn parseInt(ev: *Evaluator, which: []const u8, func: []const u8, text: []const u8) Error!i64 {
+        assert(which.len > 0 and func.len > 0);
+        const t = std.mem.trim(u8, text, ws);
+        assert(t.len <= text.len);
+        return std.fmt.parseInt(i64, t, 10) catch return ev.fail("non-numeric {s} argument to '{s}' function: '{s}'", .{ which, func, t });
+    }
+
+    /// Bind the variable of `foreach` or the variables of `let`, then expand the body.
+    fn startLoop(ev: *Evaluator, stack: *Stack) Error!void {
+        const p = &stack.top().pending.?;
+        assert(p.next == 2 and p.n == 3);
+        const words = try fns.splitWords(ev.arena, p.results[1]);
+        if (p.func == .foreach and words.len == 0) return ev.finishPending(stack, "");
+        const name = std.mem.trim(u8, p.results[0], ws);
+        const names: []const []const u8 = if (p.func == .let)
+            try fns.splitWords(ev.arena, name)
+        else if (name.len > 0) try ev.arena.dupe([]const u8, &.{name}) else &.{};
+        const scope = try ev.openScope(names);
+        scope.words = words;
+        if (p.func == .let) {
+            try ev.bindLet(scope);
+        } else if (names.len > 0) {
+            try ev.setAutomatic(names[0], words[0]);
+        }
+        p.scope = scope;
+        p.stage = .body;
+        assert(p.func == .foreach or p.func == .let);
+        try ev.push(stack, .{ .src = p.raw[2] });
+    }
+
+    /// `let`: each name takes one word. The last name takes the rest of the list.
+    fn bindLet(ev: *Evaluator, scope: *const Scope) Error!void {
+        assert(scope.saved.len == scope.names.len);
+        if (scope.names.len == 0) return;
+        const last = scope.names.len - 1;
+        for (scope.names, 0..) |name, i| {
+            const value = if (i < last)
+                (if (i < scope.words.len) scope.words[i] else "")
+            else if (last < scope.words.len) try joinWords(ev.arena, scope.words[last..], false) else "";
+            try ev.setAutomatic(name, value);
+        }
+        assert(ev.vars.contains(scope.names[last]));
+    }
+
+    /// `call`: bind `$(0)` to `$(15)`, then expand the value of the variable.
+    /// A simple variable gives its value as it is, as in GNU Make. A built-in
+    /// function name calls the function with the arguments.
+    fn startCall(ev: *Evaluator, stack: *Stack) Error!void {
+        const p = &stack.top().pending.?;
+        assert(p.func == .call and p.next == p.n);
+        const name = std.mem.trim(u8, p.results[0], ws);
+        if (name.len == 0) return ev.finishPending(stack, "");
+        if (findSpec(name) != null) {
+            const args = try textfns.escapeDollars(ev.arena, p.results[1..p.n]);
+            p.stage = .body;
+            return ev.push(stack, .{ .src = try std.mem.concat(ev.arena, u8, &.{ "$(", name, " ", args, ")" }) });
+        }
+        const v = ev.lookup(name) orelse return ev.finishPending(stack, "");
+        const scope = try ev.openScope(&param_names);
+        for (param_names, 0..) |param, i| {
+            try ev.setAutomatic(param, if (i == 0) name else if (i < p.n) p.results[i] else "");
+        }
+        if (!v.recursive) {
+            try ev.closeScope(scope);
+            return ev.finishPending(stack, v.value);
+        }
+        p.scope = scope;
+        p.stage = .body;
+        assert(v.recursive and ev.vars.contains("0"));
+        try ev.push(stack, .{ .src = v.value });
+    }
+
+    /// The chosen branch or the body has a value. `foreach` repeats the body
+    /// for each word and joins the results with one space.
+    fn bodyDone(ev: *Evaluator, stack: *Stack, result: []const u8) Error!void {
+        const p = &stack.top().pending.?;
+        assert(p.stage == .body);
+        const scope = p.scope orelse return ev.finishPending(stack, result);
+        if (p.func != .foreach) {
+            try ev.closeScope(scope);
+            return ev.finishPending(stack, result);
+        }
+        assert(scope.index < scope.words.len);
+        if (scope.index > 0) try scope.out.append(ev.arena, ' ');
+        try scope.out.appendSlice(ev.arena, result);
+        if (scope.out.items.len > ast.limits.expansion_bytes_max) {
+            return ev.fail("expansion is longer than {d} bytes", .{ast.limits.expansion_bytes_max});
+        }
+        scope.index += 1;
+        if (scope.index < scope.words.len) {
+            if (scope.names.len > 0) try ev.setAutomatic(scope.names[0], scope.words[scope.index]);
+            return ev.push(stack, .{ .src = p.raw[2] });
+        }
+        try ev.closeScope(scope);
+        try ev.finishPending(stack, scope.out.items);
+    }
+
+    fn openScope(ev: *Evaluator, names: []const []const u8) Error!*Scope {
+        const scope = try ev.arena.create(Scope);
+        const saved = try ev.arena.alloc(?ast.Variable, names.len);
+        for (names, saved) |name, *slot| slot.* = ev.vars.get(name);
+        scope.* = .{ .names = names, .saved = saved };
+        assert(scope.saved.len == names.len);
+        assert(scope.index == 0);
+        return scope;
+    }
+
+    fn setAutomatic(ev: *Evaluator, name: []const u8, value: []const u8) Error!void {
+        assert(name.len > 0);
+        try ev.vars.put(ev.arena, name, .{ .value = value, .recursive = false, .origin = .automatic });
+        assert(ev.vars.get(name).?.origin == .automatic);
+    }
+
+    /// Restore the definitions that a scope shadows, last name first.
+    fn closeScope(ev: *Evaluator, scope: *const Scope) Error!void {
+        assert(scope.saved.len == scope.names.len);
+        var i = scope.names.len;
+        while (i > 0) {
+            i -= 1;
+            const name = scope.names[i];
+            if (scope.saved[i]) |old| {
+                try ev.vars.put(ev.arena, name, old);
+            } else if (ev.vars.contains(name)) {
+                const removed = ev.vars.remove(name);
+                assert(removed);
+            }
+        }
+        assert(i == 0);
     }
 
     fn emit(ev: *Evaluator, frame: *Frame, text: []const u8) Error!void {
@@ -246,7 +569,7 @@ pub const Evaluator = struct {
     fn startReference(ev: *Evaluator, stack: *Stack, inner: []const u8, auto: ?*const Auto) Error!void {
         assert(stack.len > 0);
         const pending = try ev.classifyReference(inner);
-        assert(pending.n >= 1 and pending.n <= 3);
+        assert(pending.n >= 1 and pending.n <= args_max);
         if (pending.func == .ref and std.mem.indexOfScalar(u8, inner, '$') == null) {
             return ev.lookupAndPush(stack, inner, null, auto);
         }
@@ -257,15 +580,9 @@ pub const Evaluator = struct {
     fn classifyReference(ev: *Evaluator, inner: []const u8) Error!Pending {
         const word_end = std.mem.indexOfAny(u8, inner, " \t") orelse inner.len;
         const word = inner[0..word_end];
-        const args = std.mem.trimStart(u8, inner[word_end..], " \t");
-        if (word_end < inner.len) {
-            const func_arity = [_]struct { Func, []const u8, u8 }{
-                .{ .subst, "subst", 3 },       .{ .patsubst, "patsubst", 3 },
-                .{ .wildcard, "wildcard", 1 }, .{ .shell, "shell", 1 },
-            };
-            for (func_arity) |f| {
-                if (std.mem.eql(u8, word, f[1])) return ev.splitArgs(f[0], f[1], args, f[2]);
-            }
+        if (word_end < inner.len and word.len > 0) {
+            const args = std.mem.trimStart(u8, inner[word_end..], " \t");
+            if (findSpec(word)) |spec| return ev.splitArgs(spec, args);
             for (unsupported_functions) |name| {
                 if (std.mem.eql(u8, word, name)) return ev.fail("unsupported function '{s}'", .{name});
             }
@@ -274,60 +591,55 @@ pub const Evaluator = struct {
             const tail = inner[colon + 1 ..];
             if (parser.findTopLevel(tail, "=")) |eq| {
                 assert(colon + 1 + eq < inner.len);
-                return .{ .func = .subst_ref, .n = 3, .raw = .{ inner[0..colon], tail[0..eq], tail[eq + 1 ..] } };
+                var p: Pending = .{ .func = .subst_ref, .n = 3 };
+                p.raw[0] = inner[0..colon];
+                p.raw[1] = tail[0..eq];
+                p.raw[2] = tail[eq + 1 ..];
+                return p;
             }
         }
+        var p: Pending = .{ .func = .ref, .n = 1 };
+        p.raw[0] = inner;
         assert(word.len <= inner.len);
-        return .{ .func = .ref, .n = 1, .raw = .{ inner, "", "" } };
-    }
-
-    /// Split function arguments at top-level commas. The last argument keeps the rest.
-    fn splitArgs(ev: *Evaluator, func: Func, name: []const u8, args: []const u8, n: u8) Error!Pending {
-        assert(n >= 1 and n <= 3);
-        var p: Pending = .{ .func = func, .n = n };
-        var rest = args;
-        var i: u8 = 0;
-        while (i + 1 < n) : (i += 1) {
-            const comma = topLevelComma(rest) orelse {
-                return ev.fail("insufficient number of arguments ({d}) to function '{s}'", .{ i + 1, name });
-            };
-            p.raw[i] = rest[0..comma];
-            rest = rest[comma + 1 ..];
-        }
-        p.raw[n - 1] = rest;
-        assert(i == n - 1);
         return p;
     }
 
-    /// All arguments of a pending call have a value. Apply the call.
+    /// Split function arguments at top-level commas. A function with a fixed
+    /// maximum keeps the extra commas in its last argument.
+    fn splitArgs(ev: *Evaluator, spec: Spec, args: []const u8) Error!Pending {
+        var p: Pending = .{ .func = spec.func };
+        const cap: u8 = if (spec.max == 0) args_max else spec.max;
+        assert(cap >= spec.min and cap <= args_max);
+        var rest = args;
+        while (p.n < cap) {
+            var comma = topLevelComma(rest);
+            if (comma != null and p.n + 1 == cap) {
+                if (spec.max == 0) return ev.fail("more than {d} arguments to function '{s}'", .{ args_max, spec.name });
+                comma = null;
+            }
+            p.raw[p.n] = if (comma) |c| rest[0..c] else rest;
+            p.n += 1;
+            rest = rest[(comma orelse break) + 1 ..];
+        }
+        if (p.n < spec.min) {
+            return ev.fail("insufficient number of arguments ({d}) to function '{s}'", .{ p.n, spec.name });
+        }
+        assert(p.n >= 1 and p.n <= args_max);
+        return p;
+    }
+
+    /// All arguments of an eager call have a value. Apply the call.
     fn complete(ev: *Evaluator, stack: *Stack, p: Pending, auto: ?*const Auto) Error!void {
         assert(p.next == p.n);
         assert(stack.len >= 1);
         const r = p.results;
-        const top = stack.top();
-        const a = ev.arena;
-        const ws = fns.whitespace;
-        const text: []const u8 = switch (p.func) {
+        switch (p.func) {
             .ref => return ev.lookupAndPush(stack, std.mem.trim(u8, r[0], ws), null, auto),
             .subst_ref => return ev.lookupAndPush(stack, std.mem.trim(u8, r[0], ws), .{ r[1], r[2] }, auto),
-            .subst => try fns.subst(a, r[0], r[1], r[2]),
-            .patsubst => try fns.patsubst(a, std.mem.trim(u8, r[0], ws), std.mem.trim(u8, r[1], ws), r[2]),
-            .wildcard => fns.wildcard(a, ev.io, ev.dir, r[0]) catch |err| return ev.functionError("wildcard", err),
-            .shell => blk: {
-                const sh = if (ev.lookup("SHELL")) |v| v.value else "/bin/sh";
-                break :blk fns.shell(a, ev.io, sh, r[0]) catch |err| return ev.functionError("shell", err);
-            },
-        };
-        try ev.emit(top, text);
-        assert(top.pending == null);
-    }
-
-    fn functionError(ev: *Evaluator, name: []const u8, err: fns.Error) Error {
-        assert(name.len > 0);
-        return switch (err) {
-            error.OutOfMemory => error.OutOfMemory,
-            else => ev.fail("function '{s}' failed: {s}", .{ name, @errorName(err) }),
-        };
+            else => {},
+        }
+        const text = try builtins.apply(ev, p.func, r[0..p.n], auto);
+        try ev.emit(stack.top(), text);
     }
 
     /// Emit the value of variable `name`. A recursive value needs a new frame.
@@ -353,7 +665,7 @@ pub const Evaluator = struct {
     }
 
     /// Return the value of an automatic variable, or null when `name` is not one.
-    fn autoValue(ev: *Evaluator, name: []const u8, auto: ?*const Auto) Error!?[]const u8 {
+    pub fn autoValue(ev: *Evaluator, name: []const u8, auto: ?*const Auto) Error!?[]const u8 {
         assert(name.len > 0);
         if (name.len > 2 or std.mem.indexOfScalar(u8, "@<^+*?", name[0]) == null) return null;
         if (name.len == 2 and name[1] != 'D' and name[1] != 'F') return null;
@@ -479,6 +791,61 @@ test "functions" {
     try testing.expectEqualStrings("x(y)", try ev.expand("$(subst a,(y),xa)", null));
 }
 
+test "conditional functions expand only what they need" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    var ev = testEvaluator(arena.allocator(), &diag);
+    try testing.expectEqualStrings("[yes] [no] []", try ev.expand("[$(if  x ,yes,no)] [$(if ,yes,no)] [$(if ,yes)]", null));
+    try testing.expectEqualStrings("[b] [] [b] []", try ev.expand("[$(and a,b)] [$(and a,,b)] [$(or ,b,c)] [$(or ,)]", null));
+    // The branch that is not taken never expands, so its error never fires.
+    try testing.expectEqualStrings("ok", try ev.expand("$(if x,ok,$(error boom))", null));
+    try testing.expectEqualStrings("ok", try ev.expand("$(or ok,$(error boom))$(and ,$(error boom))", null));
+    try testing.expectEqualStrings("lt eq gt 7 ", try ev.expand("$(intcmp 1,2,lt) $(intcmp 2,2,lt,eq) $(intcmp 3,2,lt,eq,gt) $(intcmp 007,7) $(intcmp 1,7)", null));
+    try testing.expectEqualStrings("eq", try ev.expand("$(intcmp 9,7,lt,eq)", null));
+}
+
+test "foreach, let and call bind and restore variables" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    var ev = testEvaluator(arena.allocator(), &diag);
+    try ev.define("x", "outer", false, .file);
+    try testing.expectEqualStrings("<a> <b> <c>", try ev.expand("$(foreach x,a b c,<$(x)>)", null));
+    try testing.expectEqualStrings("a  c", try ev.expand("$(foreach x,a b c,$(if $(filter b,$(x)),,$(x)))", null));
+    try testing.expectEqualStrings("outer", try ev.expand("$(x)", null));
+    try testing.expectEqualStrings("1|2 3", try ev.expand("$(let a b,1 2 3,$(a)|$(b))", null));
+    try ev.define("O", "$(1)-$(2)-$(3)", true, .file);
+    try ev.define("P", "$(call O,$(1))", true, .file);
+    try ev.define("S", "$$(1)", false, .file);
+    try testing.expectEqualStrings("a-b-c a-- $$(1) a --", try ev.expand("$(call O,a,b,c) $(call P,a,b,c) $(call S,x) $(call firstword,a b) $(call O,$(0))", null));
+    try ev.define("reverse", "$(if $(1),$(call reverse,$(wordlist 2,$(words $(1)),$(1))) $(firstword $(1)))", true, .file);
+    try testing.expectEqualStrings(" c b a", try ev.expand("$(call reverse,a b c)", null));
+    try testing.expectEqual(@as(?ast.Variable, null), ev.lookup("1"));
+    try testing.expectEqualStrings("automatic simple", try ev.expand("$(foreach v,a,$(origin v) $(flavor v))", null));
+}
+
+test "word and variable functions" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    var ev = testEvaluator(arena.allocator(), &diag);
+    try ev.define("R", "[$(1)]", true, .file);
+    try testing.expectEqualStrings("b [] b c", try ev.expand("$(word 2,a b c) [$(word 9,a b)] $(wordlist 2,3,a b c d)", null));
+    try testing.expectEqualStrings("[$(1)] recursive undefined file", try ev.expand("$(value R) $(flavor R) $(origin NOPE) $(origin R)", null));
+    try testing.expectError(error.Eval, ev.expand("$(word 0,a b)", null));
+    try testing.expectEqualStrings("*** first argument to 'word' function must be greater than 0.  Stop.", diag.message());
+    try testing.expectError(error.Eval, ev.expand("$(word x,a b)", null));
+    try testing.expectEqualStrings("*** non-numeric first argument to 'word' function: 'x'.  Stop.", diag.message());
+    try testing.expectError(error.Eval, ev.expand("$(wordlist 0,2,a)", null));
+    try testing.expectEqualStrings("*** invalid first argument to 'wordlist' function: '0'.  Stop.", diag.message());
+    try testing.expectError(error.Eval, ev.expand("$(foreach a,b)", null));
+    try testing.expectEqualStrings("*** insufficient number of arguments (2) to function 'foreach'.  Stop.", diag.message());
+    try testing.expectError(error.Eval, ev.expand("$(error boom here)", null));
+    try testing.expectEqualStrings("*** boom here.  Stop.", diag.message());
+    try testing.expectEqualStrings("a,b", try ev.expand("$(strip a,b)", null));
+}
+
 test "automatic variables" {
     var arena: std.heap.ArenaAllocator = .init(testing.allocator);
     defer arena.deinit();
@@ -504,8 +871,8 @@ test "evaluation errors" {
     try ev.define("LOOP2", "$(LOOP)", true, .file);
     try testing.expectError(error.Eval, ev.expand("$(LOOP)", null));
     try testing.expectEqualStrings("*** Recursive variable 'LOOP' references itself (eventually).  Stop.", diag.message());
-    try testing.expectError(error.Eval, ev.expand("$(foreach x,a b,$(x))", null));
-    try testing.expectEqualStrings("*** unsupported function 'foreach'.  Stop.", diag.message());
+    try testing.expectError(error.Eval, ev.expand("$(guile (+ 1 2))", null));
+    try testing.expectEqualStrings("*** unsupported function 'guile'.  Stop.", diag.message());
     try testing.expectError(error.Eval, ev.expand("$(subst a,b)", null));
     try testing.expectError(error.Eval, ev.expand("$(A", null));
 }

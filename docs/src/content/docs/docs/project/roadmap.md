@@ -17,6 +17,7 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **6. Docs site** | This site, the landing-page demo, the GitHub Pages deploy | Done |
 | **7. Modern ZMakefile** | The zmake repo runs its own gates through a modern-mode `ZMakefile` | Done |
 | **8. Order-only fix** | Pattern rules keep their order-only prerequisites | Done |
+| **9. Functions** | Text, file name, conditional, loop, variable and message functions | Done |
 
 ## Follow-ups
 
@@ -25,7 +26,6 @@ error today:
 
 - `include`, conditionals, `define`, `export` and `vpath`
 - Built-in implicit rules and built-in variables such as `CC`, suffix rules, double-colon rules and target-specific variables
-- Functions other than `wildcard`, `shell`, `patsubst` and `subst`
 - The options `-k` (keep going), `-q`, `-t` and `-B`
 - Quoted values with spaces in `MAKEFLAGS` overrides
 - macOS and BSD support for the jobserver

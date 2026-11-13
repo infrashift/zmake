@@ -31,15 +31,15 @@ zmake has no binary release. Build it from source with Zig 0.17.1 on Linux. See
 		target. `@deploy:` declares a task that always runs.
 	</Card>
 	<Card title="GNU Make compatible" icon="puzzle">
-		Assignments, pattern rules, automatic variables, four functions and
-		the common special targets. Dry runs match GNU Make 4.3.
+		Assignments, pattern rules, automatic variables, the GNU functions
+		and the common special targets. Dry runs match GNU Make 4.3.
 	</Card>
 	<Card title="Parallel builds" icon="rocket">
 		`-jN` runs up to N jobs. zmake serves and joins the GNU Make
 		jobserver, so recursive builds share one pool of jobs.
 	</Card>
 	<Card title="Fails loudly" icon="warning">
-		`include`, `ifeq` and `$(foreach ...)` stop the build with
+		`include`, `ifeq` and `$(eval ...)` stop the build with
 		`file:line`. zmake does not misread a feature outside its scope.
 	</Card>
 	<Card title="Power of 10" icon="setting">

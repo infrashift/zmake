@@ -87,7 +87,10 @@ const Parser = struct {
         const text = ll.text;
         assert(text.len > 0);
         if (directiveName(text)) |name| return p.fail(ll.line, "unsupported directive '{s}'", .{name});
-        const sep = findSeparator(text) orelse return p.fail(ll.line, "missing separator", .{});
+        const sep = findSeparator(text) orelse {
+            if (std.mem.indexOfScalar(u8, text, '$') == null) return p.fail(ll.line, "missing separator", .{});
+            return p.statements.append(p.arena, .{ .expression = .{ .text = text, .line = ll.line } });
+        };
         switch (sep.kind) {
             .assign => |flavor| try p.addAssignment(text[0..sep.start], text[sep.end..], flavor, ll.line),
             .rule => try p.openRule(text[0..sep.start], text[sep.end..], ll.line),

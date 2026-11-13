@@ -78,9 +78,9 @@ Tracking: [ISSUE-007](.okfw/issues/issue-007-pattern-rules-drop-order-only-prere
 
 ## Phase 9 — Text, control and file functions
 Tracking: [ISSUE-009](.okfw/issues/issue-009-text-control-and-file-functions--01a1d34ecd22.md)
-- [ ] Text and file name functions
-- [ ] `if`, `or`, `and`, `foreach`, `call`, `let`, `intcmp` on the frame stack
-- [ ] `value`, `origin`, `flavor`, `error`, `warning`, `info`, `file`
+- [x] Text and file name functions
+- [x] `if`, `or`, `and`, `foreach`, `call`, `let`, `intcmp` on the frame stack
+- [x] `value`, `origin`, `flavor`, `error`, `warning`, `info`, `file`
 
 ## Phase 10 — Conditionals, define, override, undefine and eval
 Tracking: [ISSUE-010](.okfw/issues/issue-010-conditionals-define-override-undefine-and-eval--01a1d34ecd29.md)

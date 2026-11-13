@@ -17,7 +17,7 @@ and the line:
 
 ```text
 Makefile:7: *** unsupported directive 'ifeq'.  Stop.
-Makefile:12: *** unsupported function 'foreach'.  Stop.
+Makefile:12: *** unsupported function 'eval'.  Stop.
 ```
 
 ## Common errors
@@ -28,7 +28,7 @@ Makefile:12: *** unsupported function 'foreach'.  Stop.
 | `unsupported directive 'ifeq'` | `ifeq`, `ifneq`, `ifdef`, `ifndef` | Use `?=` defaults or command-line variables. |
 | `unsupported directive 'define'` | `define`, `endef` | Use a script file for multi-line text. |
 | `unsupported directive 'export'` | `export`, `unexport`, `override`, `vpath` | Pass the variable on the recipe line, for example `X=$(X) ./run.sh`. |
-| `unsupported function 'foreach'` | A function other than `wildcard`, `shell`, `patsubst`, `subst` | Use `patsubst` or a substitution reference. |
+| `unsupported function 'eval'` | `$(eval ...)` or `$(guile ...)` | Write the rules out, or use `$(foreach ...)` and `$(call ...)` in values. |
 | An empty command | A built-in variable such as `$(CC)` | Set `CC := cc` in the input file. |
 
 zmake also rejects double-colon rules (`a:: b`), target-specific variables
