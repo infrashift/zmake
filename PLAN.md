@@ -12,6 +12,7 @@ Loop: implement → `make lint test` → repeat until green → update the wiki 
 - Architecture: [zmake architecture overview](.okfw/architecture/zmake-architecture-overview--01a1d30ae65a.md)
 - Specs: [Syntax modes and target kinds](.okfw/specs/syntax-modes-and-target-kinds--01a1d30ae660.md) · [CLI contract](.okfw/specs/cli-contract--01a1d30ae665.md) · [Jobserver protocol](.okfw/specs/jobserver-protocol--01a1d30ae66b.md)
 - Decisions: [ADR-0006 frame stack](.okfw/decisions/adr-0006-expansion-uses-an-explicit-frame-stack--01a1d31ab339.md) · [ADR-0007 partial targets](.okfw/decisions/adr-0007-delete-partial-targets-by-mode--01a1d327df21.md) · [ADR-0008 jobserver](.okfw/decisions/adr-0008-take-jobserver-tokens-through-a-private-non-blocking-descriptor--01a1d327df28.md)
+- Docs: [ADR-0009 docs site](.okfw/decisions/adr-0009-document-zmake-with-astro-starlight-on-github-pages--01a1d33eea33.md) · https://infrashift.github.io/zmake/
 - Rules: [ADR-0003 Power of 10](.okfw/decisions/adr-0003-adapt-the-nasa-power-of-10-rules-to-zig--01a1d30ae67c.md) · ASD-STE100 for all documentation
 
 ## Phase 0 — Bootstrap
@@ -55,6 +56,15 @@ Tracking: [ISSUE-005](.okfw/issues/issue-005-parallel-executor-and-gnu-make-jobs
 - [x] `src/jobserver.zig`: pipe server and client (`R,W` and `fifo:PATH`)
 - [x] `tests/acceptance.sh` with the three canonical scenarios below
 
+## Phase 6 — Documentation site
+Tracking: [ISSUE-006](.okfw/issues/issue-006-documentation-site-on-github-pages--01a1d33ebf0b.md)
+- [x] Public repository `infrashift/zmake` with the Apache 2.0 license; the Pages source is GitHub Actions
+- [x] `docs/`: Astro Starlight site with a landing page, guides, reference and project pages ([ADR-0009](.okfw/decisions/adr-0009-document-zmake-with-astro-starlight-on-github-pages--01a1d33eea33.md))
+- [x] The logo moves to `docs/src/assets/zmake.jpeg`; Astro serves WebP copies
+- [x] `make docs-demo`, `make docs-dev` and `make docs-build`
+- [x] `scripts/ste-check.py` checks the docs pages
+- [x] `.github/workflows/docs-release.yml` builds each pull request and deploys each push to `main`
+
 ## Acceptance scenarios
 1. **The `build/` directory (modern mode).** Create `./build` and a `ZMakefile` with a `build:` rule. `zmake build` runs the recipe.
 2. **Explicit task (modern mode).** Declare `@deploy: build` with 4-space indentation. `zmake deploy` runs `build`, then `deploy`.
@@ -62,8 +72,9 @@ Tracking: [ISSUE-005](.okfw/issues/issue-005-parallel-executor-and-gnu-make-jobs
 
 ## Follow-ups
 - `include`, conditionals, `define`, `export` and `vpath`
-- Built-in implicit rules, suffix rules, double-colon rules and target-specific variables
+- Built-in implicit rules, built-in variables such as `CC`, suffix rules, double-colon rules and target-specific variables
 - Functions other than `wildcard`, `shell`, `patsubst` and `subst`
 - `-k` (keep going), `-q`, `-t` and `-B`
 - Quoted values with spaces in `MAKEFLAGS` overrides
+- Fix [ISSUE-007](.okfw/issues/issue-007-pattern-rules-drop-order-only-prerequisites--01a1d3419a7f.md): pattern rules drop their order-only prerequisites
 - macOS and BSD support for the jobserver ([ADR-0002](.okfw/decisions/adr-0002-zig-0-17-1-standard-library-only-linux-first--01a1d30ae676.md))

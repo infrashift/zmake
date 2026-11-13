@@ -12,4 +12,5 @@
 * [ADR-0006: Expansion uses an explicit frame stack](adr-0006-expansion-uses-an-explicit-frame-stack--01a1d31ab339.md) - Variable and function expansion runs on a fixed-size frame stack instead of recursion, to satisfy Power of 10 rule R1.
 * [ADR-0007: Delete partial targets by mode](adr-0007-delete-partial-targets-by-mode--01a1d327df21.md) - Legacy mode deletes a failed file target only with .DELETE_ON_ERROR, as GNU Make does; modern mode deletes it by default.
 * [ADR-0008: Take jobserver tokens through a private non-blocking descriptor](adr-0008-take-jobserver-tokens-through-a-private-non-blocking-descriptor--01a1d327df28.md) - zmake reopens the jobserver pipe through /proc with O_NONBLOCK, so it never blocks and never changes the pipe that child makes share.
+* [ADR-0009: Document zmake with Astro Starlight on GitHub Pages](adr-0009-document-zmake-with-astro-starlight-on-github-pages--01a1d33eea33.md) - An Astro Starlight site in docs/, built with bun and deployed to GitHub Pages by GitHub Actions; the docs toolchain stays outside the zig build.
 

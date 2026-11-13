@@ -1,0 +1,65 @@
+---
+title: zmake
+description: zmake is a Make-compatible build tool in Zig. A Makefile gets strict GNU Make semantics. A ZMakefile gets tasks and phony inference.
+sidebar:
+  order: 0
+  label: Overview
+---
+
+import { CardGrid, Card, LinkCard, Aside } from '@astrojs/starlight/components';
+
+**zmake** is a Make-compatible build tool in Zig. It ships as one static binary
+with no dependencies. It reads an input file in one of two syntax modes.
+
+| Mode | Input file | Behavior |
+|---|---|---|
+| Legacy | `Makefile`, `makefile`, `GNUmakefile` | Strict POSIX and GNU Make semantics. A target is a file unless `.PHONY` names it. Recipe lines start with a tab. |
+| Modern | `ZMakefile`, `Make.zig.mk`, or `--modern` | No `.PHONY` boilerplate. `@name:` and `task name:` declare a task. Recipe lines start with a tab or with spaces. |
+
+<Aside type="note" title="No release yet">
+zmake has no binary release. Build it from source with Zig 0.17.1 on Linux. See
+[Getting Started](./getting-started/).
+</Aside>
+
+<CardGrid>
+	<Card title="Two syntax modes" icon="random">
+		The file name selects the mode. `--modern` and `--legacy` override the
+		name. Legacy mode changes nothing about GNU Make semantics.
+	</Card>
+	<Card title="No .PHONY list" icon="approve-check">
+		In modern mode, a bare name without `$@` in its recipe is a phony
+		target. `@deploy:` declares a task that always runs.
+	</Card>
+	<Card title="GNU Make compatible" icon="puzzle">
+		Assignments, pattern rules, automatic variables, four functions and
+		the common special targets. Dry runs match GNU Make 4.3.
+	</Card>
+	<Card title="Parallel builds" icon="rocket">
+		`-jN` runs up to N jobs. zmake serves and joins the GNU Make
+		jobserver, so recursive builds share one pool of jobs.
+	</Card>
+	<Card title="Fails loudly" icon="warning">
+		`include`, `ifeq` and `$(foreach ...)` stop the build with
+		`file:line`. zmake does not misread a feature outside its scope.
+	</Card>
+	<Card title="Power of 10" icon="setting">
+		zmake follows the NASA/JPL Power of 10 rules: no recursion, bounded
+		loops, short functions and active assertions in release builds.
+	</Card>
+</CardGrid>
+
+<LinkCard
+	title="Getting Started"
+	description="Build zmake from source and run your first ZMakefile."
+	href="./getting-started/"
+/>
+<LinkCard
+	title="Tasks and Phony Inference"
+	description="How modern mode decides between a task, a phony target and a file."
+	href="./guides/tasks-and-phony-inference/"
+/>
+<LinkCard
+	title="Compatibility"
+	description="The GNU Make features that zmake supports, and the features that stop the build."
+	href="./reference/compatibility/"
+/>

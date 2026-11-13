@@ -1,0 +1,6 @@
+cc -O2 -Wall -c main.c -o main.o
+cc -O2 -Wall -c util.c -o util.o
+cc -o app main.o util.o
+zmake: warning: target 'build' shadows existing path './build'; prefix with '@build:' to silence
+./app --self-test
+scp app server:/srv/app

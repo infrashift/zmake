@@ -58,7 +58,8 @@ A name with no rule (a prerequisite only) is always `file`. The `$@` scan reads 
 | `.PRECIOUS`, `.SECONDARY` | zmake keeps these targets after a failed recipe line. |
 | `.SILENT` | zmake does not echo the recipe lines of the prerequisites, or of all targets when the list is empty. |
 | `.NOTPARALLEL` | zmake runs one job at a time. |
-| `.SUFFIXES`, `.DELETE_ON_ERROR`, `.INTERMEDIATE`, `.NOTINTERMEDIATE`, `.POSIX`, `.LOW_RESOLUTION_TIME` | No effect. zmake accepts them. |
+| `.DELETE_ON_ERROR` | Legacy mode deletes a partial file target after a failed recipe line ([ADR-0007](/decisions/adr-0007-delete-partial-targets-by-mode--01a1d327df21.md)). |
+| `.SUFFIXES`, `.INTERMEDIATE`, `.NOTINTERMEDIATE`, `.POSIX`, `.LOW_RESOLUTION_TIME` | No effect. zmake accepts them. |
 
 Any other special target is an error. An old-style suffix rule such as `.c.o:` is an error.
 

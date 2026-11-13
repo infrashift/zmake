@@ -1,0 +1,74 @@
+---
+title: Design Decisions
+description: A summary of the zmake architecture decision records (ADRs) in the project wiki.
+---
+
+The project wiki in `.okfw/decisions/` holds the full ADRs. Each ADR records the
+context, the decision, the consequences and the rejected options. This page
+gives a summary of each.
+
+### ADR-0001: Adopt an OKF wiki for project knowledge
+
+An OKF wiki in `.okfw/` holds the architecture, the specs, the decisions and
+the issues. The `okfw` CLI manages it. `PLAN.md` stays the phase checklist, and
+each phase has a mirror issue in the wiki.
+
+### ADR-0002: Zig 0.17.1, standard library only, Linux first
+
+`build.zig.zon` pins Zig 0.17.1. zmake uses the Zig standard library only and
+does not link libc. The jobserver calls `pipe2` and `fcntl` directly, so zmake
+supports Linux first.
+
+### ADR-0003: Adapt the NASA Power of 10 rules to Zig
+
+The NASA/JPL rules for safety-critical code apply to zmake:
+
+- No recursion. The evaluator and the graph use explicit stacks.
+- Fixed loop bounds. A loop that reaches its limit returns an error.
+- Functions of 60 lines or fewer, with two or more assertions each on average.
+- One arena per run, capped by hard limits.
+
+`scripts/nasa-lint.py` checks the rules that a script can check. Release
+builds are `ReleaseSafe`, so the assertions stay active.
+
+### ADR-0004: Modern mode declares tasks and infers phony targets
+
+Modern mode adds `@name:` and `task name:`. It infers a phony target for a bare
+name whose recipe does not refer to `$@`. The inference uses the name and the
+recipe, not the state of the disk. A phony target that shadows a path runs and
+prints a warning. Legacy mode does not change. See
+[Tasks and Phony Inference](../../guides/tasks-and-phony-inference/).
+
+### ADR-0005: Unsupported directives fail loudly
+
+The parser rejects `include`, the conditionals, `define`, `export`, `override`
+and `vpath` with `file:line`. The evaluator rejects functions outside its
+four. A parser that does not know these lines misreads them, and the build
+then does the wrong thing with no error.
+
+### ADR-0006: Expansion uses an explicit frame stack
+
+Make expansion nests, and Power of 10 forbids recursion. `Evaluator.expand`
+keeps an explicit stack of at most 64 frames. Each frame expands one string. A
+second frame for the same recursive variable gives the GNU error
+`Recursive variable 'X' references itself (eventually)`.
+
+### ADR-0007: Delete partial targets by mode
+
+GNU Make deletes a partial file target after a failed recipe line only with
+`.DELETE_ON_ERROR`. Legacy mode follows GNU Make. Modern mode deletes the
+target by default, and keeps `.PRECIOUS` and `.SECONDARY` targets.
+
+### ADR-0008: Take jobserver tokens through a private non-blocking descriptor
+
+zmake opens `/proc/self/fd/R` again with `O_NONBLOCK`. It takes tokens from
+that descriptor without blocking. The children keep the original blocking
+descriptor. When no token is free, zmake waits for one of its own jobs. The
+first job always runs on the implicit token, so zmake cannot deadlock. See
+[Parallel Builds and the Jobserver](../../guides/parallel-builds/).
+
+### ADR-0009: Document zmake with Astro Starlight on GitHub Pages
+
+This site is an Astro Starlight site in `docs/`. GitHub Actions builds it with
+bun and deploys it to GitHub Pages. The docs toolchain is not part of the Zig
+build, so ADR-0002 does not change.

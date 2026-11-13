@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="zmake">
+  <rect width="64" height="64" rx="14" fill="#0d1628"/>
+  <rect x="4.5" y="4.5" width="55" height="55" rx="11" fill="none" stroke="#4a9be0" stroke-opacity="0.45" stroke-width="2"/>
+  <!-- the orange Z of the wordmark -->
+  <path d="M16 15 H48 V22 L28 42 H48 V49 H16 V42 L36 22 H16 Z" fill="#f7931e" stroke="#c45f0a" stroke-width="1.5" stroke-linejoin="round"/>
+</svg>

@@ -11,12 +11,15 @@ zmake is a Make-compatible build tool in Zig. It ships as one static binary. It 
 - **Dependencies:** the Zig standard library only. Write an ADR before you add a dependency.
 - **Platform:** Linux first. The jobserver uses raw Linux system calls through `std.posix.system`.
 - **Wiki:** okfw (`.okfw/`). See the okfw block below.
+- **Docs:** Astro Starlight in `docs/` (bun 1.3.9), deployed to GitHub Pages ([ADR-0009](.okfw/decisions/adr-0009-document-zmake-with-astro-starlight-on-github-pages--01a1d33eea33.md)).
 
 ## Layout
 - `src/main.zig` is a thin CLI entry point.
 - `src/root.zig` exports the library modules for the tests.
 - `src/` holds the modules: `ast`, `lexer`, `parser`, `eval`, `dag`, `executor`, `jobserver`.
 - `tests/` holds the mode tests (`legacy_test.zig`, `modern_test.zig`) and `acceptance.sh`.
+- `docs/` holds the Astro Starlight site. `docs/src/content/docs/docs/` holds the pages. `docs/src/assets/` holds the logo.
+- `.github/workflows/docs-release.yml` deploys the site to https://infrashift.github.io/zmake/.
 - `scripts/` holds the lint scripts: `nasa-lint.py` (Power of 10) and `ste-check.py` (ASD-STE100).
 
 ## Verification & Workflow Commands (HOW)
@@ -28,6 +31,8 @@ Run these GNU Make targets after every change:
 - `make wiki` → `okfw validate --all && okfw validate --okf`
 - `make docs-style` → `scripts/ste-check.py`
 - `make check` → all of the gates above
+- `make docs-build` → build the Starlight site (the same build as the Pages deploy)
+- `make docs-dev` → serve the site locally; `make docs-demo` → regenerate the landing-page demo output
 
 ## Mandatory Execution Rules
 1. **One phase at a time.** Read `PLAN.md`. Implement only the first unchecked phase. Follow the *Development workflow* guide in `.okfw/`.

@@ -1,0 +1,17 @@
+# A modern-mode input file: no .PHONY list.
+CC := cc
+CFLAGS := -O2 -Wall
+
+build: app
+
+app: main.o util.o
+	$(CC) -o $@ $^
+
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
+
+test: build
+    ./app --self-test
+
+@deploy: test
+    scp app server:/srv/app

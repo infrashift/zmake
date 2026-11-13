@@ -4,7 +4,7 @@ ZIG ?= zig
 PYTHON ?= python3
 ZIG_SOURCES := build.zig src tests
 
-.PHONY: all build test lint fmt acceptance wiki docs-style check
+.PHONY: all build test lint fmt acceptance wiki docs-style docs-demo docs-dev docs-build check
 
 all: check
 
@@ -37,6 +37,21 @@ wiki:
 ## docs-style: check the documentation against ASD-STE100 rules
 docs-style:
 	$(PYTHON) -I scripts/ste-check.py
+
+## docs-demo: regenerate the landing-page demo output with zmake itself
+docs-demo: build
+	rm -rf zig-out/docs-demo
+	mkdir -p zig-out/docs-demo/build
+	cp docs/src/demo/ZMakefile zig-out/docs-demo/
+	cd zig-out/docs-demo && touch main.c util.c && ../bin/zmake -n deploy > ../../docs/src/demo/output.txt 2>&1
+
+## docs-dev: run the Astro Starlight site locally (bun)
+docs-dev:
+	cd docs && bun install && bun --bun run dev
+
+## docs-build: build the site into docs/dist (the same build as the Pages deploy)
+docs-build:
+	cd docs && bun install --frozen-lockfile && bun --bun run build
 
 ## check: run every gate
 check: lint test acceptance wiki docs-style

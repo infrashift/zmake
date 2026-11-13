@@ -23,9 +23,10 @@ Every change follows this loop. Do not report or commit work while a gate fails.
 6. **Repeat until green.** Fix each failure and run all gates again. Do not weaken or delete tests.
 7. **Update the wiki during the work.** Record each decision as an ADR when you make it. File each bug or design debt as an issue.
 8. **Close the phase.** Tick the `PLAN.md` checkboxes and the acceptance criteria. Add a **Resolution** section. Swap the tag `in-progress` → `closed`.
-9. **Check the writing style.** Run `make docs-style`. Fix every error.
-10. **Validate the wiki.** Run `make wiki`.
-11. **Journal.** Add an entry to today's `okfw daily` note: what changed, what you learned, what is next.
-12. **Commit.** Commit the code and the wiki together. Make one commit per phase.
+9. **Update the docs site.** Add or refresh the `docs/` pages for the delivered features. Update the roadmap page. Run `make docs-build`.
+10. **Check the writing style.** Run `make docs-style`. Fix every error.
+11. **Validate the wiki.** Run `make wiki`.
+12. **Journal.** Add an entry to today's `okfw daily` note: what changed, what you learned, what is next.
+13. **Commit.** Commit the code, the wiki and the docs together. Make one commit per phase.
 
 See [Wiki conventions](/wiki-conventions--01a1d30ae64f.md).

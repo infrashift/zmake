@@ -1,0 +1,35 @@
+/* zmake Starlight theme: the forge orange of the "Z" and the wrench in the
+   logo, on the deep navy of its background.
+
+   Starlight's own theme rules live in a cascade layer, and unlayered rules
+   like these win over layered ones regardless of specificity. A plain :root
+   override of a scale color therefore leaks into light mode as well, so the
+   dark-only values are scoped to data-theme="dark" (which Starlight sets on
+   <html> after resolving "auto"). */
+:root {
+	--sl-content-width: 52rem;
+}
+
+:root[data-theme='dark'] {
+	--sl-color-accent-low: hsl(26, 50%, 15%);
+	--sl-color-accent: hsl(30, 95%, 54%);
+	--sl-color-accent-high: hsl(34, 95%, 82%);
+	--sl-color-black: hsl(220, 45%, 8%);
+	--sl-color-gray-6: hsl(220, 35%, 14%);
+}
+
+:root[data-theme='light'] {
+	--sl-color-accent-low: hsl(32, 90%, 90%);
+	--sl-color-accent: hsl(24, 92%, 36%);
+	--sl-color-accent-high: hsl(22, 75%, 20%);
+}
+
+/* Inline code contrast */
+:root[data-theme='light'] .sl-markdown-content :not(pre) > code {
+	background-color: hsl(30, 40%, 93%);
+	color: hsl(22, 65%, 28%);
+}
+
+.sl-markdown-content table :not(pre) > code {
+	white-space: nowrap;
+}

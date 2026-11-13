@@ -2,6 +2,8 @@
 
 zmake is a Make-compatible build tool in Zig. It ships as one binary with no dependencies. It reads an input file in one of two syntax modes.
 
+Documentation: https://infrashift.github.io/zmake/
+
 | Mode | Input file | Behavior |
 |---|---|---|
 | Legacy | `Makefile`, `makefile`, `GNUmakefile` | Strict POSIX and GNU Make semantics. A target is a file unless `.PHONY` names it. Recipe lines start with a tab. |

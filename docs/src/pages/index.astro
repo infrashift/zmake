@@ -1,0 +1,236 @@
+---
+// Landing page: not managed by Starlight.
+import { Image } from 'astro:assets';
+import '../styles/landing.css';
+import logo from '../assets/zmake.jpeg';
+
+// A real modern-mode input file (docs/src/demo/ZMakefile) and the output of a
+// real `zmake -n deploy` with it, in a directory that also holds ./build.
+// `make docs-demo` regenerates output.txt with the zmake binary.
+import zmakefile from '../demo/ZMakefile?raw';
+import demoOutput from '../demo/output.txt?raw';
+
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const repo = 'https://github.com/infrashift/zmake';
+
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+// Variable references: $(VAR) in blue, automatic variables ($@, $<, $^ ...) in violet.
+const refs = (s: string) =>
+	s
+		.split(/(\$\([^)]*\)|\$[@<^*?+])/)
+		.map((part) => {
+			if (/^\$\(/.test(part)) return `<span class="var">${esc(part)}</span>`;
+			if (/^\$[@<^*?+]$/.test(part)) return `<span class="auto">${esc(part)}</span>`;
+			return esc(part);
+		})
+		.join('');
+
+// Light Make highlighting, one line at a time: comments, assignments, targets, recipes.
+const sourceHtml = zmakefile
+	.trimEnd()
+	.split('\n')
+	.map((line) => {
+		if (/^\s*#/.test(line)) return `<span class="cmt">${esc(line)}</span>`;
+		if (/^[\t ]/.test(line)) return refs(line);
+		const assign = /^([A-Za-z_][A-Za-z0-9_]*)(\s*(?::?:=|\?=|\+=|=))(.*)$/.exec(line);
+		if (assign) return `<span class="var">${assign[1]}</span>${esc(assign[2])}${refs(assign[3])}`;
+		const rule = /^(@?[^:\s]+)(:)(.*)$/.exec(line);
+		if (rule) {
+			const cls = rule[1].startsWith('@') ? 'task' : 'rule';
+			return `<span class="${cls}">${esc(rule[1])}</span>${rule[2]}${refs(rule[3])}`;
+		}
+		return esc(line);
+	})
+	.join('\n');
+
+const outputHtml = demoOutput
+	.trimEnd()
+	.split('\n')
+	.map((line) => (/^zmake: warning:/.test(line) ? `<span class="warn">${esc(line)}</span>` : esc(line)))
+	.join('\n');
+---
+
+<html lang="en" data-theme="dark">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1" />
+	<title>zmake: Make-Compatible Build Tool in Zig</title>
+	<meta name="description" content="zmake is a Make-compatible build tool in Zig. A Makefile gets strict GNU Make semantics. A ZMakefile gets tasks, phony inference and no .PHONY boilerplate." />
+	<link rel="icon" type="image/svg+xml" href={`${base}favicon.svg`} />
+</head>
+<body>
+
+<nav class="nav">
+	<a href={base} class="nav-logo"><span class="prompt">&gt;</span> zmake</a>
+	<ul class="nav-links">
+		<li><a href={`${base}docs/`}>Docs</a></li>
+		<li><a href={`${base}docs/getting-started/`}>Quick Start</a></li>
+		<li class="hide-sm"><a href={`${base}docs/project/decisions/`}>Design</a></li>
+		<li class="hide-sm"><a href={`${base}docs/project/roadmap/`}>Roadmap</a></li>
+		<li><a href={repo}>GitHub</a></li>
+		<li><button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme">&#9790;</button></li>
+	</ul>
+</nav>
+
+<section class="hero">
+	<Image
+		src={logo}
+		alt="zmake logo: a winged alligator in a ZM harness flies over a blueprint of a build graph and holds an orange wrench. The text reads ZMake, deterministic build orchestration."
+		class="mascot"
+		width={1600}
+		widths={[480, 800, 1200, 1600]}
+		sizes="(max-width: 46rem) calc(100vw - 2rem), 44rem"
+		format="webp"
+		quality={80}
+		loading="eager"
+		fetchpriority="high"
+	/>
+	<div class="wordmark"><span class="prompt">&gt;</span> zmake<span class="caret">_</span></div>
+	<h1>Make, without the traps</h1>
+	<p class="tagline">
+		zmake is a Make-compatible build tool in <strong>Zig</strong>. It ships as one static binary.
+		A <code>Makefile</code> gets strict <strong>GNU Make</strong> semantics.
+		A <code>ZMakefile</code> gets <strong>modern mode</strong>: tasks, phony inference and no <code>.PHONY</code> list.
+		Features outside its scope stop the build with <code>file:line</code>. zmake does not misread them.
+	</p>
+	<div class="hero-cta">
+		<a href={`${base}docs/getting-started/`} class="btn btn-primary">Get Started</a>
+		<a href={`${base}docs/guides/syntax-modes/`} class="btn btn-secondary">Syntax Modes</a>
+		<a href={repo} class="btn btn-ghost">GitHub &rarr;</a>
+	</div>
+</section>
+
+<section class="install">
+	<code>git clone {repo} &amp;&amp; cd zmake &amp;&amp; zig build --release</code>
+	<span class="note">
+		Build from source with Zig 0.17.1 on Linux. The release build is <code>ReleaseSafe</code>, so the assertions stay active. Apache 2.0. <a href={`${base}docs/getting-started/`}>Install guide</a>
+	</span>
+</section>
+
+<section class="demo">
+	<div class="demo-grid">
+		<div class="terminal">
+			<div class="terminal-bar">
+				<span class="dot"></span><span class="dot"></span><span class="dot"></span>
+				<span class="title">ZMakefile &nbsp;·&nbsp; modern mode, no .PHONY</span>
+			</div>
+			<pre set:html={sourceHtml}></pre>
+		</div>
+		<div class="terminal">
+			<div class="terminal-bar">
+				<span class="dot"></span><span class="dot"></span><span class="dot"></span>
+				<span class="title">zmake -n deploy &nbsp;·&nbsp; with a ./build directory</span>
+			</div>
+			<pre class="wrap" set:html={outputHtml}></pre>
+		</div>
+	</div>
+	<p class="demo-caption">
+		Left: a <code>ZMakefile</code>. Recipes start with a tab or with spaces. Right: the output of <code>zmake -n deploy</code> in a directory that has a <code>build/</code> directory.
+		GNU Make skips a <code>build</code> rule in that case. zmake infers a phony target, runs it and prints a warning. zmake produced this output.
+	</p>
+</section>
+
+<section class="features">
+	<h2>Why zmake?</h2>
+	<div class="feature-grid">
+		<div class="feature-card">
+			<div class="icon">&#128260;</div>
+			<h3>Two Syntax Modes</h3>
+			<p>The file name selects the mode. <code>Makefile</code> gets strict GNU Make. <code>ZMakefile</code> gets modern mode. <code>--modern</code> and <code>--legacy</code> override the name.</p>
+		</div>
+		<div class="feature-card">
+			<div class="icon">&#127919;</div>
+			<h3>No .PHONY Boilerplate</h3>
+			<p><code>@deploy:</code> and <code>task deploy:</code> declare a task. A bare name without <code>$@</code> becomes a phony target. A name with a dot stays a file.</p>
+		</div>
+		<div class="feature-card">
+			<div class="icon">&#129520;</div>
+			<h3>GNU Make Compatible</h3>
+			<p>Assignments, pattern rules, automatic variables, order-only prerequisites and the special targets. The dry runs of the acceptance suite match GNU Make byte for byte.</p>
+		</div>
+		<div class="feature-card">
+			<div class="icon">&#9889;</div>
+			<h3>Parallel and Jobserver</h3>
+			<p><code>-jN</code> runs up to N jobs. zmake serves and joins the GNU Make jobserver, so a recursive <code>$(MAKE)</code> and a parent GNU Make share one pool.</p>
+		</div>
+		<div class="feature-card">
+			<div class="icon">&#128721;</div>
+			<h3>Fails Loudly</h3>
+			<p><code>include</code>, <code>ifeq</code> or <code>$(foreach ...)</code> stop the build with <code>file:line</code>. A silent misparse is worse than an error.</p>
+		</div>
+		<div class="feature-card">
+			<div class="icon">&#128640;</div>
+			<h3>Power of 10</h3>
+			<p>The NASA/JPL rules, adapted to Zig: no recursion, bounded loops, short functions, two assertions per function. One static binary, Zig standard library only.</p>
+		</div>
+	</div>
+</section>
+
+<section class="roadmap">
+	<h2>Where it's headed</h2>
+	<p class="subtitle">The project wiki tracks each phase as an issue. Each phase lands as one tested commit.</p>
+	<div class="roadmap-grid">
+		<a class="roadmap-card" href={`${base}docs/project/roadmap/`}>
+			<strong>Parser</strong><span>Context-sensitive lexer, both modes</span><br /><span class="status done">Done</span>
+		</a>
+		<a class="roadmap-card" href={`${base}docs/project/roadmap/`}>
+			<strong>Evaluator</strong><span>Two-phase expansion, classifier</span><br /><span class="status done">Done</span>
+		</a>
+		<a class="roadmap-card" href={`${base}docs/project/roadmap/`}>
+			<strong>Graph</strong><span>Pattern rules, cycle detection</span><br /><span class="status done">Done</span>
+		</a>
+		<a class="roadmap-card" href={`${base}docs/project/roadmap/`}>
+			<strong>Executor</strong><span>-jN scheduler, GNU jobserver</span><br /><span class="status done">Done</span>
+		</a>
+		<a class="roadmap-card" href={`${base}docs/project/roadmap/`}>
+			<strong>Docs</strong><span>This site, on GitHub Pages</span><br /><span class="status done">Done</span>
+		</a>
+		<a class="roadmap-card" href={`${base}docs/project/roadmap/`}>
+			<strong>More GNU Make</strong><span>include, conditionals, define</span><br /><span class="status next">Next</span>
+		</a>
+	</div>
+</section>
+
+<section class="callout">
+	<div class="callout-inner">
+		<h3>A build directory does not break a build rule</h3>
+		<p>In GNU Make, <code>build:</code> does nothing when <code>./build</code> exists. In modern mode, zmake runs it and tells you how to silence the warning.</p>
+		<a href={`${base}docs/getting-started/`} class="btn btn-primary">Get Started</a>
+		<a href={`${base}docs/guides/tasks-and-phony-inference/`} class="btn btn-secondary">Phony Inference</a>
+	</div>
+</section>
+
+<footer class="landing-footer">
+	<p>Built by <a href="https://github.com/infrashift">InfraShift</a> &middot; Sibling of <a href="https://infrashift.github.io/whac-a-leak/">Whac-a-Leak</a></p>
+</footer>
+
+<script>
+const toggle = document.getElementById('theme-toggle');
+const html = document.documentElement;
+
+function setTheme(theme: string) {
+	html.setAttribute('data-theme', theme);
+	try {
+		localStorage.setItem('zmake-theme', theme);
+	} catch {
+		// Storage can be blocked (private windows); the toggle still works for this page view.
+	}
+	if (toggle) toggle.textContent = theme === 'dark' ? '☾' : '☀';
+}
+
+toggle?.addEventListener('click', () => {
+	setTheme(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+});
+
+let saved: string | null = null;
+try {
+	saved = localStorage.getItem('zmake-theme');
+} catch {
+	saved = null;
+}
+setTheme(saved || 'dark');
+</script>
+
+</body>
+</html>

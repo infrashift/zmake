@@ -25,6 +25,7 @@ STEP_RE = re.compile(r"^\d+\.\s")
 
 def files(root):
     yield from (root / n for n in ("README.md", "PLAN.md", "CLAUDE.md") if (root / n).exists())
+    yield from sorted((root / "docs/src/content/docs").rglob("*.md*"))
     for p in sorted((root / ".okfw").rglob("*.md")):
         rel = p.relative_to(root / ".okfw")
         if rel.parts[0] not in ("daily", "ephemeral") and p.name not in ("index.md", "log.md"):
@@ -59,7 +60,7 @@ def prose_lines(text):
             continue
         if fence or not s:
             continue
-        if s.startswith(("#", "|", "<", "/>", "{")):
+        if s.startswith(("#", "|", "<", "import ", "export ", "/>", "{")):
             continue
         if s == "<!-- BEGIN okfw -->":
             return

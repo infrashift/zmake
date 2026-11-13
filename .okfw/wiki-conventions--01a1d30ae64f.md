@@ -46,7 +46,7 @@ This guide defines how the zmake OKF wiki (`.okfw/`) stores project knowledge.
 - Find open work with `okfw search --path issues --tag open`.
 
 ## Writing style
-All documentation follows ASD-STE100 Simplified Technical English. This includes the wiki, `README.md`, `PLAN.md` and `CLAUDE.md`.
+All documentation follows ASD-STE100 Simplified Technical English. This includes the wiki, the docs site, `README.md`, `PLAN.md` and `CLAUDE.md`.
 
 - Use active voice and simple present tense: "The parser rejects the line."
 - Start each procedural step with an imperative verb: Run, Read, Inspect, Verify, Add, Set.

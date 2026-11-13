@@ -1,3 +1,8 @@
 zig-out/
 .zig-cache/
 __pycache__/
+
+# Documentation site (Astro)
+docs/node_modules/
+docs/dist/
+docs/.astro/
