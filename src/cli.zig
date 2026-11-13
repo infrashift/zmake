@@ -466,7 +466,9 @@ test "discover prefers ZMakefile over Makefile" {
     try testing.expectError(error.NoInputFile, discover(io, tmp.dir, .{}, &diag));
     try tmp.dir.writeFile(io, .{ .sub_path = "Makefile", .data = "" });
     const legacy = try discover(io, tmp.dir, .{}, &diag);
-    try testing.expectEqualStrings("Makefile", legacy.path);
+    // On a case-insensitive file system (the macOS default), the search finds
+    // the file as `makefile` first, as GNU Make does.
+    try testing.expect(std.ascii.eqlIgnoreCase("Makefile", legacy.path));
     try testing.expectEqual(ast.SyntaxMode.legacy, legacy.mode);
     try tmp.dir.writeFile(io, .{ .sub_path = "ZMakefile", .data = "" });
     const modern = try discover(io, tmp.dir, .{}, &diag);
