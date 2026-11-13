@@ -10,4 +10,6 @@
 * [ADR-0004: Modern mode declares tasks and infers phony targets](adr-0004-modern-mode-declares-tasks-and-infers-phony-targets--01a1d30ae682.md) - Modern mode removes .PHONY boilerplate with @name/task syntax and a bare-name heuristic, and runs a shadowed task with a warning.
 * [ADR-0005: Unsupported directives fail loudly](adr-0005-unsupported-directives-fail-loudly--01a1d30ae687.md) - The parser rejects include, conditionals, define, export and vpath with a file:line error instead of a silent misparse.
 * [ADR-0006: Expansion uses an explicit frame stack](adr-0006-expansion-uses-an-explicit-frame-stack--01a1d31ab339.md) - Variable and function expansion runs on a fixed-size frame stack instead of recursion, to satisfy Power of 10 rule R1.
+* [ADR-0007: Delete partial targets by mode](adr-0007-delete-partial-targets-by-mode--01a1d327df21.md) - Legacy mode deletes a failed file target only with .DELETE_ON_ERROR, as GNU Make does; modern mode deletes it by default.
+* [ADR-0008: Take jobserver tokens through a private non-blocking descriptor](adr-0008-take-jobserver-tokens-through-a-private-non-blocking-descriptor--01a1d327df28.md) - zmake reopens the jobserver pipe through /proc with O_NONBLOCK, so it never blocks and never changes the pipe that child makes share.
 

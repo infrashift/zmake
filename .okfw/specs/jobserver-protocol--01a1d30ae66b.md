@@ -28,5 +28,10 @@ With `-jN` and N > 1, and no jobserver in `MAKEFLAGS`, zmake creates the pool:
 ## Client
 When `MAKEFLAGS` contains `--jobserver-auth=R,W` or `--jobserver-fds=R,W`, zmake joins the parent pool. It also accepts `--jobserver-auth=fifo:PATH`, the GNU Make 4.4 form. A client reads one byte to take a token. It writes the same byte back to return it.
 
+## Descriptors
+zmake takes tokens through a private non-blocking descriptor ([ADR-0008](/decisions/adr-0008-take-jobserver-tokens-through-a-private-non-blocking-descriptor--01a1d327df28.md)). When the parent did not pass the descriptors in `MAKEFLAGS`, zmake prints this GNU warning and uses `-j1`:
+
+`zmake: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.`
+
 ## Failure
 zmake returns every token that it holds before it exits, also after a failed recipe line.

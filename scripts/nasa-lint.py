@@ -31,7 +31,7 @@ LINE_RULES = [
     ("R7", re.compile(r"\bcatch\s*\{\s*\}"), "swallowed error `catch {}`"),
     ("R7", re.compile(r"\belse\s*\|_\|\s*\{\s*\}"), "swallowed error `else |_| {}`"),
     ("R7", re.compile(r"\bcatch\s+unreachable\b"), "`catch unreachable` hides an error"),
-    ("R7", re.compile(r"^\s*_\s*=\s*(?:try\s+)?[\w.]+\s*\("), "discarded call result `_ = f(...)`"),
+    ("R7", re.compile(r"(?<![\w.])_\s*=\s*(?:try\s+)?[\w.]+\s*\("), "discarded call result `_ = f(...)`"),
     ("R9", re.compile(r"\*\s*const\s+fn\b|\*\s*fn\s*\("), "function pointer type"),
 ]
 KEYWORDS = {"if", "while", "for", "switch", "return", "catch", "fn", "try", "orelse", "and", "or"}

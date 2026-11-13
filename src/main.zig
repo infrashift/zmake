@@ -29,7 +29,7 @@ fn runChecked(init: std.process.Init) Reported!void {
     var diag: zmake.Diagnostic = .{};
     const argv = init.minimal.args.toSlice(arena) catch return report(io, "out of memory");
     assert(argv.len >= 1);
-    const opts = zmake.cli.parseArgs(arena, argv[1..], &diag) catch |err| switch (err) {
+    var opts = zmake.cli.parseArgs(arena, argv[1..], &diag) catch |err| switch (err) {
         error.Usage => return reportUsage(io, diag.message()),
         error.OutOfMemory => return report(io, "out of memory"),
     };
@@ -44,10 +44,12 @@ fn runChecked(init: std.process.Init) Reported!void {
             return report(io, diag.message());
         };
     }
+    const mf = zmake.jobserver.parseMakeflags(arena, init.environ_map.get("MAKEFLAGS") orelse "") catch return report(io, "out of memory");
+    opts.dry_run = opts.dry_run or mf.dry_run;
     const mk = try load(arena, io, opts, &diag);
     assert(mk.filename.len > 0);
     var ev = zmake.eval.Evaluator.init(arena, io, Io.Dir.cwd(), &diag);
-    const db = try evaluate(&ev, init, opts, mk);
+    const db = try evaluate(&ev, init, opts, mf, mk);
     assert(db.rules.len <= mk.statements.len * zmake.ast.limits.names_per_line_max);
     const graph = zmake.dag.build(arena, io, Io.Dir.cwd(), &db, opts.goals, &diag) catch |err| switch (err) {
         error.Graph => return report(io, diag.message()),
@@ -55,6 +57,86 @@ fn runChecked(init: std.process.Init) Reported!void {
     };
     for (graph.warnings) |w| warn(io, w);
     assert(graph.goals.len >= 1);
+    try execute(init, opts, mf, &ev, &db, &graph, &diag);
+}
+
+/// Set up the jobserver and the child environment, then run the executor.
+fn execute(
+    init: std.process.Init,
+    opts: zmake.cli.Options,
+    mf: zmake.jobserver.Makeflags,
+    ev: *zmake.eval.Evaluator,
+    db: *const zmake.database.Database,
+    graph: *const zmake.dag.Graph,
+    diag: *zmake.Diagnostic,
+) Reported!void {
+    const io = init.io;
+    const arena = init.arena.allocator();
+    assert(graph.order.len > 0);
+    var jobs = opts.jobs;
+    const js = try setupJobserver(init, opts, mf, &jobs);
+    assert(jobs >= 1);
+    const overrides = std.mem.concat(arena, zmake.cli.Override, &.{ mf.overrides, opts.overrides }) catch return report(io, "out of memory");
+    const env = childEnvironment(init, opts.dry_run, jobs, js, overrides) catch return report(io, "out of memory");
+    var ex: zmake.executor.Executor = .{
+        .arena = arena,
+        .io = io,
+        .graph = graph,
+        .db = db,
+        .ev = ev,
+        .opts = .{ .jobs = jobs, .dry_run = opts.dry_run, .env = env },
+        .js = js,
+        .diag = diag,
+        .shell = "/bin/sh",
+    };
+    const ok = ex.run() catch |err| switch (err) {
+        error.Exec => return report(io, diag.message()),
+        error.OutOfMemory => return report(io, "out of memory"),
+    };
+    if (!ok) return error.Reported;
+}
+
+/// `-jN` with N > 1 creates a pool. Without `-j`, zmake joins the pool of a parent make.
+fn setupJobserver(init: std.process.Init, opts: zmake.cli.Options, mf: zmake.jobserver.Makeflags, jobs: *u32) Reported!?*zmake.jobserver.Jobserver {
+    const io = init.io;
+    const arena = init.arena.allocator();
+    assert(opts.jobs >= 1 and jobs.* == opts.jobs);
+    const js = arena.create(zmake.jobserver.Jobserver) catch return report(io, "out of memory");
+    if (opts.jobs_given) {
+        if (opts.jobs <= 1) return null;
+        js.* = zmake.jobserver.Jobserver.initServer(arena, opts.jobs) catch return report(io, "cannot create the jobserver pipe");
+        return js;
+    }
+    const auth = mf.auth orelse return null;
+    const client = zmake.jobserver.Jobserver.initClient(arena, auth) catch return report(io, "invalid jobserver in MAKEFLAGS");
+    js.* = client orelse {
+        warn(io, "zmake: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.");
+        return null;
+    };
+    jobs.* = @min(mf.jobs orelse zmake.ast.limits.jobs_max, zmake.ast.limits.jobs_max);
+    assert(jobs.* >= 1);
+    return js;
+}
+
+/// The environment of each recipe line: the zmake environment plus
+/// `MAKEFLAGS` and `MAKELEVEL`.
+fn childEnvironment(init: std.process.Init, dry_run: bool, jobs: u32, js: ?*zmake.jobserver.Jobserver, overrides: []const zmake.cli.Override) error{ OutOfMemory, Jobserver }!*std.process.Environ.Map {
+    assert(jobs >= 1);
+    const arena = init.arena.allocator();
+    const env = try arena.create(std.process.Environ.Map);
+    env.* = try init.environ_map.clone(arena);
+    const auth: ?[]const u8 = if (js) |j| j.auth else null;
+    const flags = try zmake.jobserver.composeMakeflags(arena, dry_run, jobs, auth, overrides);
+    if (flags.len > 0) {
+        try env.put("MAKEFLAGS", flags);
+    } else if (env.contains("MAKEFLAGS")) {
+        const removed = env.swapRemove("MAKEFLAGS");
+        assert(removed);
+    }
+    const level = std.fmt.parseInt(u32, init.environ_map.get("MAKELEVEL") orelse "0", 10) catch 0;
+    try env.put("MAKELEVEL", try std.fmt.allocPrint(arena, "{d}", .{level + 1}));
+    assert(env.contains("MAKELEVEL"));
+    return env;
 }
 
 fn warn(io: Io, message: []const u8) void {
@@ -64,16 +146,16 @@ fn warn(io: Io, message: []const u8) void {
 }
 
 /// Define the variables in origin order, then replay the input file.
-fn evaluate(ev: *zmake.eval.Evaluator, init: std.process.Init, opts: zmake.cli.Options, mk: zmake.ast.Makefile) Reported!zmake.database.Database {
+fn evaluate(ev: *zmake.eval.Evaluator, init: std.process.Init, opts: zmake.cli.Options, mf: zmake.jobserver.Makeflags, mk: zmake.ast.Makefile) Reported!zmake.database.Database {
     const io = init.io;
     const make_path = std.process.executablePathAlloc(io, init.arena.allocator()) catch return report(io, "cannot find the zmake executable path");
     assert(make_path.len > 0);
     ev.defineDefaults(make_path) catch return report(io, "out of memory");
     ev.importEnvironment(init.environ_map) catch return report(io, "out of memory");
-    for (opts.overrides) |o| {
+    for ([_][]const zmake.cli.Override{ mf.overrides, opts.overrides }) |list| for (list) |o| {
         const value = if (o.simple) ev.expand(o.value, null) catch |err| return evalError(io, ev, err) else o.value;
         ev.define(o.name, value, !o.simple, .command_line) catch return report(io, "out of memory");
-    }
+    };
     const db = zmake.database.load(ev, mk) catch |err| return evalError(io, ev, err);
     assert(db.mode == mk.mode);
     return db;

@@ -21,6 +21,7 @@ pub const Database = struct {
     silent: StringSet = .empty,
     silent_all: bool = false,
     not_parallel: bool = false,
+    delete_on_error: bool = false,
     default_goal: ?[]const u8 = null,
 };
 
@@ -141,6 +142,8 @@ fn addSpecial(ev: *eval.Evaluator, b: *Builder, target: []const u8, prereqs: []c
         for (prereqs) |p| try b.db.silent.put(ev.arena, p, {});
     } else if (eql(u8, target, ".NOTPARALLEL")) {
         b.db.not_parallel = true;
+    } else if (eql(u8, target, ".DELETE_ON_ERROR")) {
+        b.db.delete_on_error = true;
     } else if (isIgnoredSpecial(target)) {
         // These targets change nothing in zmake. See the CLI contract spec.
     } else {
@@ -151,7 +154,7 @@ fn addSpecial(ev: *eval.Evaluator, b: *Builder, target: []const u8, prereqs: []c
 
 fn isIgnoredSpecial(target: []const u8) bool {
     const ignored = [_][]const u8{
-        ".SUFFIXES", ".DELETE_ON_ERROR", ".INTERMEDIATE", ".NOTINTERMEDIATE", ".POSIX", ".LOW_RESOLUTION_TIME",
+        ".SUFFIXES", ".INTERMEDIATE", ".NOTINTERMEDIATE", ".POSIX", ".LOW_RESOLUTION_TIME",
     };
     for (ignored) |name| {
         if (std.mem.eql(u8, target, name)) return true;

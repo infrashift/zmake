@@ -1,0 +1,490 @@
+//! Executor. It decides which targets are out of date, expands their recipes
+//! (deferred phase) and runs each recipe line in its own `/bin/sh -c`.
+//!
+//! The scheduler runs on the main thread and owns all node state. A job runs
+//! the commands of one target. With `-j`, jobs run as concurrent `Io` tasks;
+//! a worker only runs commands and reports a completion under the mutex.
+
+const std = @import("std");
+const assert = std.debug.assert;
+const Io = std.Io;
+const ast = @import("ast.zig");
+const dag = @import("dag.zig");
+const database = @import("database.zig");
+const eval = @import("eval.zig");
+const parser = @import("parser.zig");
+const Jobserver = @import("jobserver.zig").Jobserver;
+const Diagnostic = @import("diag.zig").Diagnostic;
+
+pub const Error = error{ Exec, OutOfMemory };
+
+pub const Options = struct {
+    jobs: u32,
+    dry_run: bool,
+    env: *const std.process.Environ.Map,
+};
+
+const NodeState = struct {
+    pending: u32 = 0,
+    started: bool = false,
+    done: bool = false,
+    /// The recipe ran, or the target is phony: dependents treat it as newer.
+    rebuilt: bool = false,
+    /// A recipe line ran or printed for this node.
+    ran: bool = false,
+    /// The modification time after the node is done; null when missing.
+    mtime: ?i96 = null,
+};
+
+const Command = struct {
+    text: []const u8,
+    silent: bool,
+    ignore_error: bool,
+    /// False under `-n`, unless the line has `+` or refers to `$(MAKE)`.
+    execute: bool,
+    line: u32,
+};
+
+const Job = struct {
+    node: dag.NodeId,
+    commands: []const Command,
+    /// The modification time before the recipe ran.
+    before: ?i96,
+    failed: bool = false,
+};
+
+pub const Executor = struct {
+    arena: std.mem.Allocator,
+    io: Io,
+    graph: *const dag.Graph,
+    db: *const database.Database,
+    ev: *eval.Evaluator,
+    opts: Options,
+    js: ?*Jobserver,
+    diag: *Diagnostic,
+    shell: []const u8,
+    states: []NodeState = &.{},
+    dependents: [][]dag.NodeId = &.{},
+    ready: std.ArrayList(dag.NodeId) = .empty,
+    ready_head: usize = 0,
+    finished: usize = 0,
+    running: u32 = 0,
+    tokens: u32 = 0,
+    failed: bool = false,
+    group: Io.Group = .init,
+    mutex: Io.Mutex = .init,
+    cond: Io.Condition = .init,
+    out_mutex: Io.Mutex = .init,
+    completed: [ast.limits.jobs_max]*Job = undefined,
+    completed_len: u32 = 0,
+
+    /// Build every goal. Return false when a recipe line fails.
+    pub fn run(ex: *Executor) Error!bool {
+        assert(ex.graph.order.len > 0);
+        ex.shell = if (ex.ev.lookup("SHELL")) |v| v.value else "/bin/sh";
+        try ex.setup();
+        var budget: usize = ex.graph.order.len * 2 + 2;
+        while (ex.finished < ex.graph.order.len and budget > 0) : (budget -= 1) {
+            try ex.startReady();
+            if (ex.running == 0) break;
+            try ex.waitCompletions();
+        }
+        ex.group.await(ex.io) catch return ex.fail("interrupted", .{});
+        assert(ex.running == 0);
+        if (ex.js) |js| js.releaseAll() catch return ex.fail("jobserver write failed", .{});
+        if (ex.failed) return false;
+        assert(ex.finished == ex.graph.order.len);
+        try ex.reportGoals();
+        return true;
+    }
+
+    fn fail(ex: *Executor, comptime fmt: []const u8, args: anytype) Error {
+        comptime assert(fmt.len > 0);
+        ex.diag.set("*** " ++ fmt ++ ".  Stop.", args);
+        assert(ex.diag.len > 0);
+        return error.Exec;
+    }
+
+    /// Count the open prerequisites of each node and queue the leaves.
+    fn setup(ex: *Executor) Error!void {
+        const n = ex.graph.nodes.len;
+        ex.states = try ex.arena.alloc(NodeState, n);
+        @memset(ex.states, .{});
+        var rev = try ex.arena.alloc(std.ArrayList(dag.NodeId), n);
+        @memset(rev, .empty);
+        for (ex.graph.order) |id| {
+            const node = ex.graph.nodes[id];
+            ex.states[id].pending = @intCast(node.deps.len);
+            for (node.deps) |dep| try rev[dep].append(ex.arena, id);
+            if (node.deps.len == 0) try ex.ready.append(ex.arena, id);
+        }
+        ex.dependents = try ex.arena.alloc([]dag.NodeId, n);
+        for (rev, ex.dependents) |list, *slot| slot.* = list.items;
+        assert(ex.states.len == n and ex.dependents.len == n);
+        assert(ex.ready.items.len > 0);
+    }
+
+    fn slots(ex: *const Executor) u32 {
+        assert(ex.opts.jobs >= 1);
+        const n = if (ex.db.not_parallel) 1 else ex.opts.jobs;
+        assert(n <= ast.limits.jobs_max);
+        return n;
+    }
+
+    /// Start ready nodes while a job slot is free.
+    fn startReady(ex: *Executor) Error!void {
+        var budget: usize = ex.graph.order.len + 1;
+        while (budget > 0 and !ex.failed and ex.ready_head < ex.ready.items.len) : (budget -= 1) {
+            assert(ex.running <= ex.slots());
+            if (ex.running > 0) {
+                if (ex.running >= ex.slots()) return;
+                if (ex.js) |js| {
+                    if (!(js.tryAcquire() catch return ex.fail("jobserver read failed", .{}))) return;
+                    ex.tokens += 1;
+                }
+            }
+            const id = ex.ready.items[ex.ready_head];
+            ex.ready_head += 1;
+            const job = try ex.prepare(id) orelse {
+                try ex.balanceTokens();
+                try ex.complete(id);
+                continue;
+            };
+            try ex.dispatch(job);
+        }
+        assert(ex.ready_head <= ex.ready.items.len);
+    }
+
+    /// Keep one token for each running job after the first. The first job uses
+    /// the implicit token of this process.
+    fn balanceTokens(ex: *Executor) Error!void {
+        const js = ex.js orelse return;
+        assert(ex.tokens <= ast.limits.jobs_max);
+        var budget: u32 = ast.limits.jobs_max + 1;
+        while (ex.tokens > (ex.running -| 1) and budget > 0) : (budget -= 1) {
+            js.release() catch return ex.fail("jobserver write failed", .{});
+            ex.tokens -= 1;
+        }
+        assert(ex.tokens <= ex.running -| 1);
+    }
+
+    /// Run the job inline for one slot, or as a concurrent task for more.
+    fn dispatch(ex: *Executor, job: *Job) Error!void {
+        assert(!ex.states[job.node].done);
+        assert(job.commands.len > 0);
+        ex.states[job.node].started = true;
+        ex.running += 1;
+        if (ex.slots() == 1) {
+            ex.runJob(job);
+            return ex.waitCompletions();
+        }
+        ex.group.concurrent(ex.io, worker, .{ ex, job }) catch {
+            ex.runJob(job);
+        };
+        assert(ex.running >= 1);
+    }
+
+    fn worker(ex: *Executor, job: *Job) void {
+        assert(ex.running >= 1);
+        assert(job.commands.len > 0);
+        ex.runJob(job);
+    }
+
+    /// Run the commands of a job, then queue its completion. Runs on any thread.
+    fn runJob(ex: *Executor, job: *Job) void {
+        assert(job.commands.len > 0);
+        for (job.commands) |cmd| {
+            if (!cmd.silent or !cmd.execute) ex.echo(cmd.text);
+            if (!cmd.execute) continue;
+            if (ex.runCommand(job, cmd)) continue;
+            job.failed = true;
+            break;
+        }
+        ex.mutex.lockUncancelable(ex.io);
+        defer ex.mutex.unlock(ex.io);
+        assert(ex.completed_len < ex.completed.len);
+        ex.completed[ex.completed_len] = job;
+        ex.completed_len += 1;
+        ex.cond.signal(ex.io);
+    }
+
+    /// Run one command. Return true on success or on an ignored error.
+    fn runCommand(ex: *Executor, job: *const Job, cmd: Command) bool {
+        assert(cmd.execute);
+        const target = ex.graph.nodes[job.node].name;
+        const files: []const Io.File = if (ex.js) |js| js.files else &.{};
+        var child = std.process.spawn(ex.io, .{
+            .argv = &.{ ex.shell, "-c", cmd.text },
+            .environ_map = ex.opts.env,
+            .inherit_files = files,
+        }) catch |err| {
+            ex.printf("zmake: {s}: {s}\n", .{ ex.shell, @errorName(err) });
+            ex.printf("zmake: *** [{s}:{d}: {s}] Error 127\n", .{ ex.db.filename, cmd.line, target });
+            return false;
+        };
+        const term = child.wait(ex.io) catch {
+            ex.printf("zmake: *** [{s}:{d}: {s}] Interrupted\n", .{ ex.db.filename, cmd.line, target });
+            return false;
+        };
+        switch (term) {
+            .exited => |code| {
+                if (code == 0) return true;
+                const ignored: []const u8 = if (cmd.ignore_error) " (ignored)" else "";
+                const stars: []const u8 = if (cmd.ignore_error) "" else "*** ";
+                ex.printf("zmake: {s}[{s}:{d}: {s}] Error {d}{s}\n", .{ stars, ex.db.filename, cmd.line, target, code, ignored });
+            },
+            else => ex.printf("zmake: *** [{s}:{d}: {s}] {f}\n", .{ ex.db.filename, cmd.line, target, term }),
+        }
+        assert(term != .exited or term.exited != 0);
+        return cmd.ignore_error and term == .exited;
+    }
+
+    fn echo(ex: *Executor, text: []const u8) void {
+        assert(text.len > 0);
+        ex.out_mutex.lockUncancelable(ex.io);
+        defer ex.out_mutex.unlock(ex.io);
+        const stdout = Io.File.stdout();
+        stdout.writeStreamingAll(ex.io, text) catch return;
+        stdout.writeStreamingAll(ex.io, "\n") catch return;
+    }
+
+    /// Print a message to stderr under the output lock.
+    fn printf(ex: *Executor, comptime fmt: []const u8, args: anytype) void {
+        comptime assert(fmt.len > 0);
+        var buf: [Diagnostic.capacity + 256]u8 = undefined;
+        const text = std.fmt.bufPrint(&buf, fmt, args) catch return;
+        assert(text.len > 0);
+        ex.out_mutex.lockUncancelable(ex.io);
+        defer ex.out_mutex.unlock(ex.io);
+        Io.File.stderr().writeStreamingAll(ex.io, text) catch return;
+    }
+
+    /// Wait for at least one completion, then finish each completed job.
+    fn waitCompletions(ex: *Executor) Error!void {
+        assert(ex.running > 0);
+        var done: [ast.limits.jobs_max]*Job = undefined;
+        ex.mutex.lockUncancelable(ex.io);
+        var spins: u32 = 0;
+        while (ex.completed_len == 0 and spins < std.math.maxInt(u32)) : (spins += 1) {
+            ex.cond.waitUncancelable(ex.io, &ex.mutex);
+        }
+        const n = ex.completed_len;
+        @memcpy(done[0..n], ex.completed[0..n]);
+        ex.completed_len = 0;
+        ex.mutex.unlock(ex.io);
+        for (done[0..n]) |job| try ex.finishJob(job);
+        assert(n > 0);
+    }
+
+    fn finishJob(ex: *Executor, job: *Job) Error!void {
+        assert(ex.running > 0);
+        ex.running -= 1;
+        try ex.balanceTokens();
+        if (job.failed) {
+            if (!ex.failed and ex.running > 0) ex.printf("zmake: *** Waiting for unfinished jobs....\n", .{});
+            ex.failed = true;
+            try ex.removeFailedTarget(job);
+            return;
+        }
+        const st = &ex.states[job.node];
+        st.rebuilt = true;
+        st.ran = true;
+        try ex.complete(job.node);
+        assert(st.done);
+    }
+
+    /// Delete a file target that the failed recipe changed. Legacy mode does
+    /// this only with `.DELETE_ON_ERROR`, as GNU Make does. Modern mode always does.
+    fn removeFailedTarget(ex: *Executor, job: *const Job) Error!void {
+        const node = ex.graph.nodes[job.node];
+        assert(job.failed);
+        assert(node.name.len > 0);
+        if (node.kind != .file or ex.opts.dry_run or ex.db.precious.contains(node.name)) return;
+        if (ex.db.mode == .legacy and !ex.db.delete_on_error) return;
+        const after = try ex.mtimeOf(node.name);
+        if (after == null or (job.before != null and after.? == job.before.?)) return;
+        Io.Dir.cwd().deleteFile(ex.io, node.name) catch |err| {
+            ex.printf("zmake: *** cannot delete '{s}': {s}\n", .{ node.name, @errorName(err) });
+            return;
+        };
+        ex.printf("zmake: *** Deleting file '{s}'\n", .{node.name});
+    }
+
+    /// Mark a node done. Queue each dependent whose prerequisites are all done.
+    fn complete(ex: *Executor, id: dag.NodeId) Error!void {
+        const st = &ex.states[id];
+        assert(!st.done);
+        st.done = true;
+        ex.finished += 1;
+        if (ex.graph.nodes[id].kind == .file) st.mtime = try ex.mtimeOf(ex.graph.nodes[id].name);
+        if (ex.graph.nodes[id].kind.isPhony()) st.rebuilt = true;
+        for (ex.dependents[id]) |dep| {
+            assert(ex.states[dep].pending > 0);
+            ex.states[dep].pending -= 1;
+            if (ex.states[dep].pending == 0) try ex.ready.append(ex.arena, dep);
+        }
+    }
+
+    pub fn mtimeOf(ex: *Executor, name: []const u8) Error!?i96 {
+        assert(name.len > 0);
+        const st = Io.Dir.cwd().statFile(ex.io, name, .{}) catch |err| switch (err) {
+            error.FileNotFound, error.NotDir => return null,
+            else => return ex.fail("{s}: {s}", .{ name, @errorName(err) }),
+        };
+        return st.mtime.nanoseconds;
+    }
+
+    /// Decide whether node `id` runs. Return its job, or null when nothing runs.
+    fn prepare(ex: *Executor, id: dag.NodeId) Error!?*Job {
+        const node = ex.graph.nodes[id];
+        assert(ex.states[id].pending == 0);
+        assert(!ex.states[id].started and !ex.states[id].done);
+        const before = if (node.kind == .file) try ex.mtimeOf(node.name) else null;
+        if (node.kind == .inferred_phony and try ex.mtimeOf(node.name) != null) {
+            ex.printf("zmake: warning: target '{s}' shadows existing path './{s}'; prefix with '@{s}:' to silence\n", .{ node.name, node.name, node.name });
+        }
+        const newer = try ex.newerPrerequisites(id, before);
+        const out_of_date = node.kind.isPhony() or before == null or newer.len > 0;
+        if (!out_of_date) return null;
+        if (node.recipes.len == 0) {
+            ex.states[id].rebuilt = true;
+            return null;
+        }
+        const commands = try ex.expandRecipe(id, newer);
+        if (commands.len == 0) {
+            ex.states[id].rebuilt = true;
+            return null;
+        }
+        const job = try ex.arena.create(Job);
+        job.* = .{ .node = id, .commands = commands, .before = before };
+        assert(job.commands.len > 0);
+        return job;
+    }
+
+    /// The normal prerequisites that make the target out of date (`$?`).
+    fn newerPrerequisites(ex: *Executor, id: dag.NodeId, target_mtime: ?i96) Error![]const []const u8 {
+        const node = ex.graph.nodes[id];
+        assert(ex.states[id].pending == 0);
+        var newer: std.ArrayList([]const u8) = .empty;
+        for (node.prerequisites) |name| {
+            const dep = ex.graph.index.get(name).?;
+            const ds = ex.states[dep];
+            assert(ds.done);
+            const is_newer = if (target_mtime) |t|
+                ex.graph.nodes[dep].kind.isPhony() or ds.mtime == null or ds.mtime.? > t or (ex.opts.dry_run and ds.rebuilt)
+            else
+                true;
+            if (is_newer and !containsName(newer.items, name)) try newer.append(ex.arena, name);
+        }
+        assert(newer.items.len <= node.prerequisites.len);
+        return newer.items;
+    }
+
+    /// Expand every recipe line before the first one runs, as GNU Make does.
+    fn expandRecipe(ex: *Executor, id: dag.NodeId, newer: []const []const u8) Error![]const Command {
+        const node = ex.graph.nodes[id];
+        assert(node.recipes.len > 0);
+        assert(ex.states[id].pending == 0);
+        const auto: eval.Auto = .{ .target = node.name, .prerequisites = node.prerequisites, .stem = node.stem, .newer = newer };
+        const silent_target = ex.db.silent_all or ex.db.silent.contains(node.name);
+        var commands: std.ArrayList(Command) = .empty;
+        for (node.recipes) |r| {
+            ex.ev.line = r.line;
+            const text = ex.ev.expand(r.text, &auto) catch |err| return ex.evalError(err);
+            const p = parser.recipeLine(text, r.line);
+            if (std.mem.trim(u8, p.text, " \t\n").len == 0) continue;
+            const always = r.always_run or p.always_run or mentionsMake(r.text);
+            try commands.append(ex.arena, .{
+                .text = p.text,
+                .silent = r.silent or p.silent or silent_target,
+                .ignore_error = r.ignore_error or p.ignore_error,
+                .execute = !ex.opts.dry_run or always,
+                .line = r.line,
+            });
+        }
+        assert(commands.items.len <= node.recipes.len);
+        return commands.items;
+    }
+
+    fn evalError(ex: *Executor, err: eval.Error) Error {
+        assert(ex.ev.filename.len > 0);
+        assert(err == error.OutOfMemory or ex.ev.diag.len > 0);
+        return switch (err) {
+            error.OutOfMemory => error.OutOfMemory,
+            error.Eval => blk: {
+                // main.zig passes one Diagnostic to both. Copy only between two
+                // distinct buffers: a copy onto itself aliases.
+                if (ex.diag != ex.ev.diag) ex.diag.set("{s}", .{ex.ev.diag.message()});
+                break :blk error.Exec;
+            },
+        };
+    }
+
+    /// Print "is up to date" or "Nothing to be done" for each goal where no recipe ran.
+    fn reportGoals(ex: *Executor) Error!void {
+        for (ex.graph.goals) |goal| {
+            assert(ex.states[goal].done);
+            if (try ex.subtreeRan(goal)) continue;
+            const node = ex.graph.nodes[goal];
+            if (node.recipes.len > 0 and node.kind == .file) {
+                ex.out("zmake: '{s}' is up to date.\n", .{node.name});
+            } else {
+                ex.out("zmake: Nothing to be done for '{s}'.\n", .{node.name});
+            }
+        }
+        assert(ex.running == 0);
+    }
+
+    fn out(ex: *Executor, comptime fmt: []const u8, args: anytype) void {
+        comptime assert(fmt.len > 0);
+        var buf: [Diagnostic.capacity]u8 = undefined;
+        const text = std.fmt.bufPrint(&buf, fmt, args) catch return;
+        assert(text.len > 0);
+        Io.File.stdout().writeStreamingAll(ex.io, text) catch return;
+    }
+
+    /// True when a recipe ran for `root` or any node below it.
+    fn subtreeRan(ex: *Executor, root: dag.NodeId) Error!bool {
+        assert(root < ex.graph.nodes.len);
+        var seen = try ex.arena.alloc(bool, ex.graph.nodes.len);
+        @memset(seen, false);
+        var stack: std.ArrayList(dag.NodeId) = .empty;
+        try stack.append(ex.arena, root);
+        var budget: usize = ex.graph.nodes.len + 1;
+        while (stack.items.len > 0 and budget > 0) : (budget -= 1) {
+            const id = stack.items[stack.items.len - 1];
+            stack.items.len -= 1;
+            if (seen[id]) continue;
+            seen[id] = true;
+            if (ex.states[id].ran) return true;
+            for (ex.graph.nodes[id].deps) |d| try stack.append(ex.arena, d);
+        }
+        assert(stack.items.len == 0 or budget == 0);
+        return false;
+    }
+};
+
+fn containsName(names: []const []const u8, name: []const u8) bool {
+    assert(name.len > 0);
+    for (names) |n| {
+        if (std.mem.eql(u8, n, name)) return true;
+    }
+    return false;
+}
+
+/// GNU Make runs a line that refers to `$(MAKE)` also under `-n`.
+fn mentionsMake(text: []const u8) bool {
+    return std.mem.indexOf(u8, text, "$(MAKE)") != null or std.mem.indexOf(u8, text, "${MAKE}") != null;
+}
+
+test "mentions make" {
+    try std.testing.expect(mentionsMake("+$(MAKE) -C sub"));
+    try std.testing.expect(mentionsMake("${MAKE} all"));
+    try std.testing.expect(!mentionsMake("make all"));
+}
+
+test "contains name" {
+    const names = [_][]const u8{ "a.o", "b.o" };
+    try std.testing.expect(containsName(&names, "b.o"));
+    try std.testing.expect(!containsName(&names, "c.o"));
+}

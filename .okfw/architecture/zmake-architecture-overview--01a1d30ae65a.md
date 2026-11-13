@@ -34,11 +34,14 @@ input file → lexer → parser → AST → evaluator → DAG → executor → /
 | `src/functions.zig` | Implements `subst`, `patsubst`, `wildcard`, `shell`, substitution references and glob matching. |
 | `src/database.zig` | Replays the statements through the evaluator. Collects the expanded rules and the special targets. Classifies each target. |
 | `src/dag.zig` | Resolves each goal through explicit rules, pattern rules and existing files. Detects cycles with a three-color search on an explicit stack. Sorts the graph. |
-| `src/executor.zig` | Decides which targets are out of date. Runs recipe lines through `/bin/sh -c`. Schedules jobs. |
-| `src/jobserver.zig` | Holds the GNU-compatible token pool for `-j`. |
+| `src/executor.zig` | Decides which targets are out of date. Expands each recipe before its first line runs. Runs recipe lines through `/bin/sh -c`. Schedules jobs on `Io` tasks. |
+| `src/jobserver.zig` | Holds the GNU-compatible token pool for `-j` ([ADR-0008](/decisions/adr-0008-take-jobserver-tokens-through-a-private-non-blocking-descriptor--01a1d327df28.md)). Reads and writes `MAKEFLAGS`. |
 
 ## Memory
 One arena holds all memory for one invocation ([ADR-0003](/decisions/adr-0003-adapt-the-nasa-power-of-10-rules-to-zig--01a1d30ae67c.md)). zmake frees nothing before exit. Hard limits cap the input file size, the expansion depth and the graph size.
+
+## Threads
+The scheduler runs on the main thread. It owns the node state and the evaluator. Each job runs on a concurrent `Io` task. A worker only runs commands, prints under the output lock and queues its completion under the mutex.
 
 ## Two expansion phases
 - **Immediate:** the parser expands `:=` values, target names and prerequisite lists when it reads the line.

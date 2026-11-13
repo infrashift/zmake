@@ -30,6 +30,17 @@ description: "The zmake command line: options, input file discovery, variable ov
 
 An argument with `=` sets a variable. A command-line variable overrides the input file and the environment.
 
+## Environment
+- zmake reads `MAKEFLAGS` from a parent make: the `n` flag, `-jN`, `--jobserver-auth`, `--jobserver-fds` and `-- VAR=value` overrides.
+- Each recipe line gets `MAKEFLAGS` with the same forms, and `MAKELEVEL` plus one.
+- A line with `+` or with `$(MAKE)` also runs under `-n`. The sub-make gets `n` in `MAKEFLAGS`, so it prints only.
+- zmake ignores `SHELL` from the environment. Set `SHELL` in the input file to change the shell.
+
+## Failed recipe lines
+- A failed line stops the build. With `-j`, zmake prints `zmake: *** Waiting for unfinished jobs....` and waits for the running jobs.
+- A line with `-` prints `zmake: [Makefile:3: all] Error 1 (ignored)` and the recipe continues.
+- zmake deletes a partial file target by the rules of [ADR-0007](/decisions/adr-0007-delete-partial-targets-by-mode--01a1d327df21.md).
+
 ## Default goal
 zmake builds the targets on the command line. With no target, it builds `.DEFAULT_GOAL`. Without `.DEFAULT_GOAL`, it builds the first target that does not start with `.` and is not a pattern.
 
@@ -39,6 +50,7 @@ zmake uses the GNU Make message forms:
 - `zmake: Nothing to be done for 'all'.`
 - `zmake: *** No rule to make target 'x', needed by 'y'.  Stop.`
 - `zmake: *** [Makefile:12: app] Error 1`
+- `Makefile:2: *** missing separator.  Stop.` (no program name when the message starts with `file:line:`)
 
 ## Exit codes
 | Code | Meaning |

@@ -11,6 +11,7 @@ Loop: implement → `make lint test` → repeat until green → update the wiki 
 
 - Architecture: [zmake architecture overview](.okfw/architecture/zmake-architecture-overview--01a1d30ae65a.md)
 - Specs: [Syntax modes and target kinds](.okfw/specs/syntax-modes-and-target-kinds--01a1d30ae660.md) · [CLI contract](.okfw/specs/cli-contract--01a1d30ae665.md) · [Jobserver protocol](.okfw/specs/jobserver-protocol--01a1d30ae66b.md)
+- Decisions: [ADR-0006 frame stack](.okfw/decisions/adr-0006-expansion-uses-an-explicit-frame-stack--01a1d31ab339.md) · [ADR-0007 partial targets](.okfw/decisions/adr-0007-delete-partial-targets-by-mode--01a1d327df21.md) · [ADR-0008 jobserver](.okfw/decisions/adr-0008-take-jobserver-tokens-through-a-private-non-blocking-descriptor--01a1d327df28.md)
 - Rules: [ADR-0003 Power of 10](.okfw/decisions/adr-0003-adapt-the-nasa-power-of-10-rules-to-zig--01a1d30ae67c.md) · ASD-STE100 for all documentation
 
 ## Phase 0 — Bootstrap
@@ -49,10 +50,10 @@ Tracking: [ISSUE-004](.okfw/issues/issue-004-dependency-graph-pattern-rules-and-
 
 ## Phase 5 — Parallel executor and jobserver
 Tracking: [ISSUE-005](.okfw/issues/issue-005-parallel-executor-and-gnu-make-jobserver--01a1d30ae6a7.md)
-- [ ] `src/executor.zig`: modification time checks, phony targets, the collision warning, recipe prefixes, `-n`
-- [ ] Parallel scheduler for `-jN`
-- [ ] `src/jobserver.zig`: pipe server and client (`R,W` and `fifo:PATH`)
-- [ ] `tests/acceptance.sh` with the three canonical scenarios below
+- [x] `src/executor.zig`: modification time checks, phony targets, the collision warning, recipe prefixes, `-n`
+- [x] Parallel scheduler for `-jN`
+- [x] `src/jobserver.zig`: pipe server and client (`R,W` and `fifo:PATH`)
+- [x] `tests/acceptance.sh` with the three canonical scenarios below
 
 ## Acceptance scenarios
 1. **The `build/` directory (modern mode).** Create `./build` and a `ZMakefile` with a `build:` rule. `zmake build` runs the recipe.
@@ -63,3 +64,6 @@ Tracking: [ISSUE-005](.okfw/issues/issue-005-parallel-executor-and-gnu-make-jobs
 - `include`, conditionals, `define`, `export` and `vpath`
 - Built-in implicit rules, suffix rules, double-colon rules and target-specific variables
 - Functions other than `wildcard`, `shell`, `patsubst` and `subst`
+- `-k` (keep going), `-q`, `-t` and `-B`
+- Quoted values with spaces in `MAKEFLAGS` overrides
+- macOS and BSD support for the jobserver ([ADR-0002](.okfw/decisions/adr-0002-zig-0-17-1-standard-library-only-linux-first--01a1d30ae676.md))

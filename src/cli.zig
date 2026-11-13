@@ -17,6 +17,8 @@ pub const Options = struct {
     file: ?[]const u8 = null,
     directory: ?[]const u8 = null,
     jobs: u32 = 1,
+    /// True when the command line gives `-j`.
+    jobs_given: bool = false,
     dry_run: bool = false,
     mode: ?ast.SyntaxMode = null,
     help: bool = false,
@@ -122,6 +124,7 @@ fn parseOption(opts: *Options, rest: []const []const u8, diag: *Diagnostic) Pars
 /// `-j` without a number means "no limit" in GNU Make. zmake uses `limits.jobs_max`.
 fn parseJobs(opts: *Options, rest: []const []const u8, inline_value: ?[]const u8, diag: *Diagnostic) ParseError!usize {
     assert(rest.len >= 1);
+    opts.jobs_given = true;
     var text: ?[]const u8 = inline_value;
     var used: usize = 1;
     if (text == null and rest.len > 1) {

@@ -9,6 +9,8 @@ pub const functions = @import("functions.zig");
 pub const eval = @import("eval.zig");
 pub const database = @import("database.zig");
 pub const dag = @import("dag.zig");
+pub const jobserver = @import("jobserver.zig");
+pub const executor = @import("executor.zig");
 pub const Diagnostic = diag.Diagnostic;
 
 test {

@@ -32,6 +32,7 @@ pub const Graph = struct {
     /// Each node after its prerequisites.
     order: []const NodeId,
     goals: []const NodeId,
+    index: std.StringHashMapUnmanaged(NodeId),
     /// GNU-style warnings, for example an overriding recipe.
     warnings: []const []const u8,
 };
@@ -96,7 +97,7 @@ pub fn build(
         try search(&b, id, &order);
     }
     assert(order.items.len == countBlack(&b));
-    return .{ .nodes = b.nodes.items, .order = order.items, .goals = goals.items, .warnings = b.warnings.items };
+    return .{ .nodes = b.nodes.items, .order = order.items, .goals = goals.items, .index = b.index, .warnings = b.warnings.items };
 }
 
 fn countBlack(b: *const Builder) usize {
