@@ -66,7 +66,7 @@ Any other special target is an error. An old-style suffix rule such as `.c.o:` i
 
 ## Goal resolution
 zmake resolves each target in this order:
-1. Use the explicit rules for the target. Merge their prerequisites. The last recipe wins, with the GNU warnings.
+1. Use the explicit rules for the target. Merge their prerequisites. The last recipe wins, with the GNU warnings. Double-colon rules stay independent ([ADR-0017](/decisions/adr-0017-a-double-colon-target-keeps-one-instance-per-rule--01a1d38105ef.md)).
 2. For an explicit rule without a recipe, take the recipe from a pattern rule. Its prerequisites come first, so `$<` is the pattern source.
 3. Otherwise, use the viable pattern rule with the shortest stem. The first rule in the file wins a tie.
 4. Otherwise, use an existing file or a `.PHONY` name with no recipe.

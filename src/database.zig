@@ -223,6 +223,7 @@ fn addRule(ev: *eval.Evaluator, b: *Builder, r: ast.RuleDecl) Error!void {
         return ev.fail("suffix rule '{s}' is not supported; use a pattern rule", .{targets[0]});
     }
     const is_pattern = ast.isPattern(targets[0]);
+    if (is_pattern and r.double_colon) return ev.fail("double-colon pattern rules are not supported", .{});
     for (targets) |t| {
         if (ast.isPattern(t) != is_pattern) return ev.fail("mix of pattern and other targets in one rule", .{});
     }
@@ -236,6 +237,7 @@ fn addRule(ev: *eval.Evaluator, b: *Builder, r: ast.RuleDecl) Error!void {
         .is_pattern = is_pattern,
         .source_line = r.line,
         .file = r.file,
+        .double_colon = r.double_colon,
     });
     if (b.db.default_goal == null and !is_pattern) {
         const first = targets[0];

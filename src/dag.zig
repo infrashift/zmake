@@ -13,6 +13,15 @@ const Diagnostic = @import("diag.zig").Diagnostic;
 pub const Error = error{ Graph, OutOfMemory };
 pub const NodeId = u32;
 
+/// One `target:: prerequisites` rule. The executor decides and runs each one
+/// on its own, in file order.
+pub const Instance = struct {
+    prerequisites: []const []const u8,
+    recipes: []const ast.RecipeLine,
+    line: u32,
+    file: []const u8,
+};
+
 pub const Node = struct {
     name: []const u8,
     kind: ast.TargetKind,
@@ -33,6 +42,8 @@ pub const Node = struct {
     /// The node that first needs this node in the search. Its target-specific
     /// variables are in effect here too. Null for a goal.
     parent: ?NodeId = null,
+    /// The double-colon rules of the target, or empty. `recipes` is then empty.
+    instances: []const Instance = &.{},
 
     /// The path of the file on disk: the search result, else the name.
     pub fn filePath(node: *const Node) []const u8 {
@@ -60,6 +71,9 @@ const Explicit = struct {
     task: bool = false,
     line: u32,
     file: []const u8,
+    /// True after a `::` rule, false after a `:` rule, null before either.
+    double_colon: ?bool = null,
+    instances: std.ArrayList(Instance) = .empty,
 };
 
 const Match = struct {
@@ -140,9 +154,19 @@ fn indexRules(b: *Builder) Error!void {
             const gop = try b.explicit.getOrPut(b.arena, t);
             if (!gop.found_existing) gop.value_ptr.* = .{ .line = rule.source_line, .file = rule.file };
             const e = gop.value_ptr;
+            if (e.double_colon) |dc| {
+                if (dc != rule.double_colon) {
+                    return b.fail("{s}:{d}: *** target file '{s}' has both : and :: entries.  Stop.", .{ rule.file, rule.source_line, t });
+                }
+            }
+            e.double_colon = rule.double_colon;
             try e.prerequisites.appendSlice(b.arena, rule.prerequisites);
             try e.order_only.appendSlice(b.arena, rule.order_only);
             e.task = e.task or rule.task;
+            if (rule.double_colon) {
+                try e.instances.append(b.arena, .{ .prerequisites = rule.prerequisites, .recipes = rule.recipes, .line = rule.source_line, .file = rule.file });
+                continue;
+            }
             if (rule.has_recipe) {
                 if (e.recipe) |old| try warnOverride(b, t, old, rule);
                 e.recipe = rule;
@@ -191,8 +215,10 @@ fn resolve(b: *Builder, name: []const u8, needed_by: ?[]const u8) Error!Node {
     assert(!b.index.contains(name));
     const phony = b.db.phony.contains(name);
     if (b.explicit.getPtr(name)) |e| {
-        const match = if (e.recipe == null and !phony) try findPattern(b, name) else null;
+        const double_colon = e.double_colon orelse false;
+        const match = if (e.recipe == null and !phony and !double_colon) try findPattern(b, name) else null;
         var node = try explicitNode(b, name, e, match);
+        if (double_colon) try addInstances(b, &node, e);
         if (!phony) node.path = try searchPath(b, name);
         return node;
     }
@@ -235,6 +261,18 @@ fn explicitNode(b: *Builder, name: []const u8, e: *const Explicit, match: ?Match
     const kind = classifyNode(b, name, true, e.task, match != null, recipes);
     assert(line > 0);
     return .{ .name = name, .kind = kind, .prerequisites = prereqs, .order_only = order_only, .recipes = recipes, .stem = stem, .line = line, .file = file };
+}
+
+/// Give a double-colon target its rules. The kind follows all their recipes.
+fn addInstances(b: *Builder, node: *Node, e: *const Explicit) Error!void {
+    assert(e.instances.items.len > 0);
+    var all: std.ArrayList(ast.RecipeLine) = .empty;
+    for (e.instances.items) |inst| try all.appendSlice(b.arena, inst.recipes);
+    node.instances = e.instances.items;
+    node.kind = classifyNode(b, node.name, true, e.task, false, all.items);
+    node.line = e.instances.items[0].line;
+    node.file = e.instances.items[0].file;
+    assert(node.recipes.len == 0);
 }
 
 fn patternNode(b: *Builder, name: []const u8, m: Match) Node {
@@ -585,6 +623,22 @@ test "directory search finds prerequisites through vpath and VPATH" {
     try testing.expectEqualStrings("main.o", g.nodes[g.index.get("main.o").?].filePath());
     try b.vpath(&ev, "%.h", &.{});
     try testing.expectEqual(@as(usize, 1), b.vpaths.items.len);
+}
+
+test "double-colon rules keep one instance per rule" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    const a = arena.allocator();
+    const src = ".PHONY: a.in b.in\nout:: a.in\n\techo 1\nout:: b.in\n\techo 2\na.in:\nb.in:\n";
+    const g = try buildTest(a, Io.Dir.cwd(), src, .legacy, &.{}, &diag);
+    const out = g.nodes[g.goals[0]];
+    try testing.expectEqual(@as(usize, 2), out.instances.len);
+    try testing.expectEqualStrings("b.in", out.instances[1].prerequisites[0]);
+    try testing.expectEqual(@as(usize, 2), out.deps.len);
+    try testing.expectEqual(@as(usize, 0), out.recipes.len);
+    try testing.expectError(error.Graph, buildTest(a, Io.Dir.cwd(), "x: a\n\techo\nx:: b\n\techo\n", .legacy, &.{}, &diag));
+    try testing.expectEqualStrings("Makefile:3: *** target file 'x' has both : and :: entries.  Stop.", diag.message());
 }
 
 test "modern mode classifies graph nodes" {

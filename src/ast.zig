@@ -133,6 +133,8 @@ pub const RuleDecl = struct {
     line: u32,
     /// The input file of the rule, for messages. Included files have their own.
     file: []const u8 = "",
+    /// `target:: prerequisites`: an independent rule for the target.
+    double_colon: bool = false,
 };
 
 /// A line with no separator, for example `$(info text)`. The loader expands it.
@@ -176,6 +178,7 @@ pub const Rule = struct {
     is_pattern: bool,
     source_line: u32,
     file: []const u8 = "",
+    double_colon: bool = false,
 };
 
 /// True when `name` contains a `%` stem marker.

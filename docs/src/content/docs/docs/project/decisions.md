@@ -128,3 +128,10 @@ over the graph from the goals down builds the layers before the first job. The
 evaluator reads the layers before the global variables. The same phase made a
 serial build run in the depth-first order of GNU Make. See
 [Target-Specific Variables](../../guides/target-variables/).
+
+### ADR-0017: A double-colon target keeps one instance per rule
+
+The graph node of a `::` target keeps each rule as an instance with its own
+prerequisites and recipe. The executor decides each instance on its own and
+runs the due ones in file order, in one job. Since this phase, zmake prints the
+"is up to date" message of a goal when the goal is done, as GNU Make does.

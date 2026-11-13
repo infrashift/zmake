@@ -110,7 +110,7 @@ Tracking: [ISSUE-014](.okfw/issues/issue-014-target-specific-and-pattern-specifi
 
 ## Phase 15 — Double-colon rules
 Tracking: [ISSUE-015](.okfw/issues/issue-015-double-colon-rules--01a1d34ecd4a.md)
-- [ ] Independent `::` rules per target, in file order
+- [x] Independent `::` rules per target, in file order
 
 ## Phase 16 — Built-in variables, implicit rules and suffix rules
 Tracking: [ISSUE-016](.okfw/issues/issue-016-built-in-variables-implicit-rules-and-suffix-rules--01a1d34ecd51.md)

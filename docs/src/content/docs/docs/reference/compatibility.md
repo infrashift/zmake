@@ -12,7 +12,7 @@ feature outside this subset. A silent misparse is worse than an error
 | Area | Features |
 |---|---|
 | Assignments | `=`, `:=`, `::=`, `?=`, `+=`, command-line overrides |
-| Rules | Explicit rules, pattern rules, order-only prerequisites, inline `; recipe` text |
+| Rules | Explicit rules, pattern rules, double-colon rules, order-only prerequisites, inline `; recipe` text |
 | Target variables | Target-specific and pattern-specific variables, `override`, `export`, `private` ([Target-Specific Variables](../../guides/target-variables/)) |
 | Automatic variables | `$@`, `$<`, `$^`, `$+`, `$*`, `$?` and their `D` and `F` forms |
 | Functions | All GNU Make functions except `guile` ([Functions](../functions/)), substitution references |
@@ -47,7 +47,7 @@ These features stop the build with `file:line`:
 | `load` | `unsupported directive` |
 | `$(guile ...)` | `unsupported function` |
 | `$(eval ...)` in a recipe | `$(eval ...) in a recipe is not supported` |
-| Double-colon rules (`a:: b`) | Parse error |
+| Double-colon pattern rules (`%.o:: %.c`) | `double-colon pattern rules are not supported` |
 | Shell assignments (`X != cmd`) | Parse error |
 
 A directive word followed by `=` or `:` is a variable or a target name, not a

@@ -55,6 +55,8 @@ const Command = struct {
     /// False under `-n`, unless the line has `+` or refers to `$(MAKE)`.
     execute: bool,
     line: u32,
+    /// The input file of the recipe line, for messages.
+    file: []const u8,
 };
 
 const Job = struct {
@@ -121,7 +123,6 @@ pub const Executor = struct {
         if (ex.js) |js| js.releaseAll() catch return ex.fail("jobserver write failed", .{});
         if (ex.failed) return false;
         assert(ex.finished == ex.graph.order.len);
-        try ex.reportGoals();
         return true;
     }
 
@@ -255,7 +256,7 @@ pub const Executor = struct {
     fn runCommand(ex: *Executor, job: *const Job, cmd: Command) bool {
         assert(cmd.execute);
         const target = ex.graph.nodes[job.node].name;
-        const file = ex.graph.nodes[job.node].file;
+        const file = cmd.file;
         const files: []const Io.File = if (ex.js) |js| js.files else &.{};
         var child = std.process.spawn(ex.io, .{
             .argv = &.{ ex.shell, "-c", cmd.text },
@@ -367,6 +368,7 @@ pub const Executor = struct {
             ex.states[dep].pending -= 1;
             if (ex.states[dep].pending == 0) try ex.ready.push(ex.arena, ex.position[dep]);
         }
+        try ex.reportGoal(id);
     }
 
     pub fn mtimeOf(ex: *Executor, name: []const u8) Error!?i96 {
@@ -387,7 +389,8 @@ pub const Executor = struct {
         if (node.kind == .inferred_phony and try ex.mtimeOf(node.name) != null) {
             ex.printf("zmake: warning: target '{s}' shadows existing path './{s}'; prefix with '@{s}:' to silence\n", .{ node.name, node.name, node.name });
         }
-        const newer = try ex.newerPrerequisites(id, before);
+        if (node.instances.len > 0) return ex.prepareDoubleColon(id, before);
+        const newer = try ex.newerOf(node.prerequisites, before);
         const out_of_date = node.kind.isPhony() or before == null or newer.len > 0;
         if (!out_of_date) return null;
         if (node.kind == .file and ex.states[id].path.ptr != node.name.ptr) {
@@ -427,12 +430,39 @@ pub const Executor = struct {
         return paths;
     }
 
-    /// The normal prerequisites that make the target out of date (`$?`).
-    fn newerPrerequisites(ex: *Executor, id: dag.NodeId, target_mtime: ?i96) Error![]const []const u8 {
+    /// Each double-colon rule runs when the target is missing, when the rule
+    /// has no prerequisites, or when one of its prerequisites is newer. The
+    /// job runs the recipes of these rules in file order.
+    fn prepareDoubleColon(ex: *Executor, id: dag.NodeId, before: ?i96) Error!?*Job {
         const node = ex.graph.nodes[id];
-        assert(ex.states[id].pending == 0);
+        assert(node.instances.len > 0 and node.recipes.len == 0);
+        if (ex.contexts.len > 0) ex.ev.layers = ex.contexts[id];
+        defer ex.ev.layers = &.{};
+        const silent = ex.db.silent_all or ex.db.silent.contains(node.name);
+        var commands: std.ArrayList(Command) = .empty;
+        var due: usize = 0;
+        for (node.instances) |inst| {
+            const newer = try ex.newerOf(inst.prerequisites, before);
+            if (!node.kind.isPhony() and before != null and newer.len == 0 and inst.prerequisites.len > 0) continue;
+            due += 1;
+            const auto: eval.Auto = .{ .target = node.name, .prerequisites = try ex.pathsOf(inst.prerequisites), .stem = "", .newer = try ex.pathsOf(newer) };
+            try ex.appendCommands(&commands, inst.recipes, &auto, silent, inst.file);
+        }
+        if (due == 0) return null;
+        ex.states[id].rebuilt = true;
+        if (commands.items.len == 0) return null;
+        const auto: eval.Auto = .{ .target = node.name, .prerequisites = try ex.pathsOf(node.prerequisites), .stem = "", .newer = &.{} };
+        const job = try ex.arena.create(Job);
+        job.* = .{ .node = id, .commands = commands.items, .before = before, .env = try ex.jobEnvironment(&auto) };
+        assert(job.commands.len > 0);
+        return job;
+    }
+
+    /// The prerequisites in `names` that make a target with `target_mtime`
+    /// out of date (`$?`). A missing target makes each one newer.
+    fn newerOf(ex: *Executor, names: []const []const u8, target_mtime: ?i96) Error![]const []const u8 {
         var newer: std.ArrayList([]const u8) = .empty;
-        for (node.prerequisites) |name| {
+        for (names) |name| {
             const dep = ex.graph.index.get(name).?;
             const ds = ex.states[dep];
             assert(ds.done);
@@ -442,7 +472,8 @@ pub const Executor = struct {
                 true;
             if (is_newer and !containsName(newer.items, name)) try newer.append(ex.arena, name);
         }
-        assert(newer.items.len <= node.prerequisites.len);
+        assert(newer.items.len <= names.len);
+        assert(ex.finished <= ex.graph.order.len);
         return newer.items;
     }
 
@@ -453,13 +484,21 @@ pub const Executor = struct {
         assert(ex.states[id].pending == 0);
         const auto: eval.Auto = .{ .target = node.name, .prerequisites = try ex.pathsOf(node.prerequisites), .stem = node.stem, .newer = try ex.pathsOf(newer) };
         const silent_target = ex.db.silent_all or ex.db.silent.contains(node.name);
-        if (node.file.len > 0) ex.ev.filename = node.file;
         var commands: std.ArrayList(Command) = .empty;
-        for (node.recipes) |r| {
+        try ex.appendCommands(&commands, node.recipes, &auto, silent_target, node.file);
+        assert(commands.items.len <= ast.limits.recipe_lines_max);
+        return commands.items;
+    }
+
+    /// Expand `recipes` and add one command for each line of the result. A
+    /// canned recipe from `define` expands to several lines; GNU Make runs each
+    /// line as its own command, with its own prefixes.
+    fn appendCommands(ex: *Executor, commands: *std.ArrayList(Command), recipes: []const ast.RecipeLine, auto: *const eval.Auto, silent_target: bool, file: []const u8) Error!void {
+        assert(auto.target.len > 0);
+        if (file.len > 0) ex.ev.filename = file;
+        for (recipes) |r| {
             ex.ev.line = r.line;
-            const text = ex.ev.expand(r.text, &auto) catch |err| return ex.evalError(err);
-            // A canned recipe from `define` expands to several lines. GNU Make
-            // runs each line as its own command, with its own prefixes.
+            const text = ex.ev.expand(r.text, auto) catch |err| return ex.evalError(err);
             var rest = text;
             while (nextCommand(&rest)) |piece| {
                 const p = parser.recipeLine(piece, r.line);
@@ -472,11 +511,11 @@ pub const Executor = struct {
                     .ignore_error = r.ignore_error or p.ignore_error,
                     .execute = !ex.opts.dry_run or always,
                     .line = r.line,
+                    .file = file,
                 });
             }
         }
         assert(commands.items.len <= ast.limits.recipe_lines_max);
-        return commands.items;
     }
 
     /// The base environment plus each exported variable, expanded for this
@@ -538,19 +577,19 @@ pub const Executor = struct {
         };
     }
 
-    /// Print "is up to date" or "Nothing to be done" for each goal where no recipe ran.
-    fn reportGoals(ex: *Executor) Error!void {
-        for (ex.graph.goals) |goal| {
-            assert(ex.states[goal].done);
-            if (try ex.subtreeRan(goal)) continue;
-            const node = ex.graph.nodes[goal];
-            if (node.recipes.len > 0 and node.kind == .file) {
-                ex.out("zmake: '{s}' is up to date.\n", .{node.name});
-            } else {
-                ex.out("zmake: Nothing to be done for '{s}'.\n", .{node.name});
-            }
+    /// When a goal is done and no recipe ran for it, print "is up to date" or
+    /// "Nothing to be done" at once, as GNU Make does before the next goal.
+    fn reportGoal(ex: *Executor, id: dag.NodeId) Error!void {
+        assert(ex.states[id].done);
+        if (std.mem.indexOfScalar(dag.NodeId, ex.graph.goals, id) == null) return;
+        if (try ex.subtreeRan(id)) return;
+        const node = ex.graph.nodes[id];
+        if ((node.recipes.len > 0 or node.instances.len > 0) and node.kind == .file) {
+            ex.out("zmake: '{s}' is up to date.\n", .{node.name});
+        } else {
+            ex.out("zmake: Nothing to be done for '{s}'.\n", .{node.name});
         }
-        assert(ex.running == 0);
+        assert(ex.graph.goals.len > 0);
     }
 
     fn out(ex: *Executor, comptime fmt: []const u8, args: anytype) void {
@@ -558,6 +597,8 @@ pub const Executor = struct {
         var buf: [Diagnostic.capacity]u8 = undefined;
         const text = std.fmt.bufPrint(&buf, fmt, args) catch return;
         assert(text.len > 0);
+        ex.out_mutex.lockUncancelable(ex.io);
+        defer ex.out_mutex.unlock(ex.io);
         Io.File.stdout().writeStreamingAll(ex.io, text) catch return;
     }
 

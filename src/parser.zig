@@ -103,8 +103,8 @@ pub const Parser = struct {
         };
         switch (sep.kind) {
             .assign => |flavor| try p.addAssignment(text[0..sep.start], text[sep.end..], flavor, ll.line),
-            .rule => try p.openRule(text[0..sep.start], text[sep.end..], ll.line),
-            .double_colon => return p.fail(ll.line, "double-colon rules are not supported", .{}),
+            .rule => try p.openRule(text[0..sep.start], text[sep.end..], ll.line, false),
+            .double_colon => try p.openRule(text[0..sep.start], text[sep.end..], ll.line, true),
             .shell_assign => return p.fail(ll.line, "'!=' assignments are not supported", .{}),
             .semicolon => return p.fail(ll.line, "missing separator", .{}),
         }
@@ -122,11 +122,11 @@ pub const Parser = struct {
         try p.statements.append(p.arena, .{ .assignment = .{ .name = name, .flavor = flavor, .value = value, .line = line } });
     }
 
-    fn openRule(p: *Parser, lhs: []const u8, rhs: []const u8, line: u32) Error!void {
+    fn openRule(p: *Parser, lhs: []const u8, rhs: []const u8, line: u32, double_colon: bool) Error!void {
         assert(p.open_rule == null and p.recipes.items.len == 0);
         const head = try p.ruleTargets(lhs, line);
         if (findTopLevel(rhs, ";=")) |i| {
-            if (rhs[i] == '=') return p.targetVariable(head.targets, rhs, line);
+            if (rhs[i] == '=' and !double_colon) return p.targetVariable(head.targets, rhs, line);
         }
         var prereq_text = rhs;
         var has_recipe = false;
@@ -151,6 +151,7 @@ pub const Parser = struct {
             .task = head.task,
             .line = line,
             .file = p.filename,
+            .double_colon = double_colon,
         };
         assert(p.open_rule.?.targets.len > 0);
     }
@@ -372,7 +373,6 @@ test "errors carry file and line" {
     try testing.expectEqualStrings("Makefile:2: *** unsupported directive 'ifeq'.  Stop.", diag.message());
     try testing.expectError(error.Syntax, parse(a, "hello\n", "Makefile", .legacy, &diag));
     try testing.expectEqualStrings("Makefile:1: *** missing separator.  Stop.", diag.message());
-    try testing.expectError(error.Syntax, parse(a, "a:: b\n", "Makefile", .legacy, &diag));
     try testing.expectError(error.Syntax, parse(a, "X != ls\n", "Makefile", .legacy, &diag));
 }
 

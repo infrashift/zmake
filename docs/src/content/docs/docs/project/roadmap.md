@@ -23,13 +23,14 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **12. Export** | `export`, `unexport`, `.EXPORT_ALL_VARIABLES`, the recipe environment | Done |
 | **13. vpath** | `VPATH` and `vpath` directory search; paths in automatic variables | Done |
 | **14. Target variables** | Target-specific and pattern-specific variables; GNU serial order | Done |
+| **15. Double-colon rules** | Independent `::` rules per target | Done |
 
 ## Follow-ups
 
 These features are outside the current scope. Each one stops the build with an
 error today:
 
-- Built-in implicit rules and built-in variables such as `CC`, suffix rules, and double-colon rules
+- Built-in implicit rules, built-in variables such as `CC`, and suffix rules
 - The options `-k` (keep going), `-q`, `-t` and `-B`
 - Quoted values with spaces in `MAKEFLAGS` overrides
 - macOS and BSD support for the jobserver

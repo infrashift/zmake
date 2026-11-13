@@ -94,6 +94,23 @@ make the object out of date. The order-only prerequisites must also exist or
 have a rule. Otherwise the pattern rule does not apply.
 :::
 
+## Double-colon rules
+
+A target with `::` rules has one independent recipe for each rule:
+
+```make
+docs:: api.yaml
+	./gen-api-docs api.yaml
+docs:: guide.md
+	./render guide.md
+```
+
+- A rule runs when the target is missing, or when one of the prerequisites of that rule is newer.
+- A rule with no prerequisites always runs.
+- The rules run in file order. A failure stops the later rules.
+- `$^` and `$?` give the prerequisites of each rule.
+- A target cannot have both `:` and `::` rules.
+
 ## Cycles
 
 A circular dependency stops zmake. The message shows each rule with its line:

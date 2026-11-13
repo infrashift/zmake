@@ -465,5 +465,21 @@ fi
 printf '.PHONY: all a b c d\nall: a d\na: b c\n\t@echo a\nb:\n\t@echo b\nc:\n\t@echo c\nd:\n\t@echo d\n' > Makefile
 expect_eq "a serial build runs in depth-first post-order" "b|c|a|d" "$("$ZMAKE" 2>&1 | paste -sd'|')"
 
+scenario "16. Double-colon rules (Phase 15)"
+mkdir -p g z
+cat > probe.sh <<'EOS'
+cd "$1" || exit 2
+touch a.in b.in
+printf 'out:: a.in\n\t@echo "rule 1 for $@ from $^ (newer: $?)"\n\t@touch $@\nout:: b.in\n\t@echo "rule 2 for $@ from $^ (newer: $?)"\n\t@touch $@\nalways::\n\t@echo "always runs"\nalways::\n\t@echo "second always rule"\n' > Makefile
+"$2" out always; "$2" out always
+sleep 1; touch b.in; "$2" out
+printf 'x: a.in\n\t@echo one\nx:: b.in\n\t@echo two\n' > M2; "$2" -f M2 x
+printf 'f::\n\t@false\nf::\n\t@echo second\n' > M3; "$2" -f M3
+printf 'all: lib\n\t@echo all\nlib:: a.in\n\t@echo lib1\nlib:: b.in\n\t@echo lib2\n' > M4; "$2" -f M4
+EOS
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "double-colon rules match GNU Make" "$(bash probe.sh g "$GNU_MAKE" 2>&1 | sed 's/^z*make:/make:/')" "$(bash probe.sh z "$ZMAKE" 2>&1 | sed 's/^z*make:/make:/')"
+fi
+
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

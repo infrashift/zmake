@@ -55,7 +55,7 @@ zmake serves and joins the GNU Make jobserver. A recursive `$(MAKE)` and a paren
 zmake supports these GNU Make features:
 
 - The assignments `=`, `:=`, `::=`, `?=` and `+=`, and command-line overrides
-- Explicit rules, pattern rules, order-only prerequisites and inline `; recipe` text
+- Explicit rules, pattern rules, double-colon rules, order-only prerequisites and inline `; recipe` text
 - Target-specific and pattern-specific variables, with `override`, `export` and `private`
 - The automatic variables `$@`, `$<`, `$^`, `$+`, `$*`, `$?` and their `D` and `F` forms
 - The GNU Make functions, for example `foreach`, `call`, `if`, `filter` and `file`, and substitution references
