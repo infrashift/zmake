@@ -391,18 +391,24 @@ pub const Executor = struct {
         for (node.recipes) |r| {
             ex.ev.line = r.line;
             const text = ex.ev.expand(r.text, &auto) catch |err| return ex.evalError(err);
-            const p = parser.recipeLine(text, r.line);
-            if (std.mem.trim(u8, p.text, " \t\n").len == 0) continue;
-            const always = r.always_run or p.always_run or mentionsMake(r.text);
-            try commands.append(ex.arena, .{
-                .text = p.text,
-                .silent = r.silent or p.silent or silent_target,
-                .ignore_error = r.ignore_error or p.ignore_error,
-                .execute = !ex.opts.dry_run or always,
-                .line = r.line,
-            });
+            // A canned recipe from `define` expands to several lines. GNU Make
+            // runs each line as its own command, with its own prefixes.
+            var rest = text;
+            while (nextCommand(&rest)) |piece| {
+                const p = parser.recipeLine(piece, r.line);
+                if (std.mem.trim(u8, p.text, " \t\n").len == 0) continue;
+                if (commands.items.len >= ast.limits.recipe_lines_max) return ex.fail("more than {d} commands in one recipe", .{ast.limits.recipe_lines_max});
+                const always = r.always_run or p.always_run or mentionsMake(r.text);
+                try commands.append(ex.arena, .{
+                    .text = p.text,
+                    .silent = r.silent or p.silent or silent_target,
+                    .ignore_error = r.ignore_error or p.ignore_error,
+                    .execute = !ex.opts.dry_run or always,
+                    .line = r.line,
+                });
+            }
         }
-        assert(commands.items.len <= node.recipes.len);
+        assert(commands.items.len <= ast.limits.recipe_lines_max);
         return commands.items;
     }
 
@@ -463,6 +469,29 @@ pub const Executor = struct {
         return false;
     }
 };
+
+/// Cut the next command from `rest`: the text up to a newline that no backslash
+/// escapes. A backslash-newline stays in the command for the shell.
+fn nextCommand(rest: *[]const u8) ?[]const u8 {
+    const s = rest.*;
+    if (s.len == 0) return null;
+    var i: usize = 0;
+    while (i < s.len) : (i += 1) {
+        if (s[i] == '\n' and (i == 0 or s[i - 1] != '\\')) break;
+    }
+    rest.* = if (i < s.len) s[i + 1 ..] else s[s.len..];
+    assert(rest.len < s.len);
+    assert(i <= s.len);
+    return s[0..i];
+}
+
+test "next command splits at unescaped newlines" {
+    var rest: []const u8 = "@echo one\n-false\necho a \\\n  b";
+    try std.testing.expectEqualStrings("@echo one", nextCommand(&rest).?);
+    try std.testing.expectEqualStrings("-false", nextCommand(&rest).?);
+    try std.testing.expectEqualStrings("echo a \\\n  b", nextCommand(&rest).?);
+    try std.testing.expect(nextCommand(&rest) == null);
+}
 
 fn containsName(names: []const []const u8, name: []const u8) bool {
     assert(name.len > 0);

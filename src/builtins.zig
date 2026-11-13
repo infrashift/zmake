@@ -26,6 +26,7 @@ pub fn apply(ev: *Evaluator, func: Func, args: []const []const u8, auto: ?*const
         .wildcard, .shell, .abspath, .realpath, .file => applySystem(ev, func, args),
         .value, .origin, .flavor => applyVariable(ev, func, args, auto),
         .@"error", .warning, .info => applyMessage(ev, func, args),
+        .eval => queueEval(ev, args[0]),
         .ref, .subst_ref, .@"if", .@"and", .@"or", .intcmp, .foreach, .let, .call => unreachable,
         else => applyText(ev.arena, func, args),
     };
@@ -188,6 +189,16 @@ fn writeFile(ev: *Evaluator, name: []const u8, text: []const u8, append: bool) E
         return ev.fail("open: {s}: {s}", .{ name, @errorName(err) });
     };
     assert(data.len >= text.len);
+}
+
+/// `$(eval text)`: the reader reads the text after the current statement
+/// (ADR-0012). A recipe cannot call `eval`, because the reader is done.
+fn queueEval(ev: *Evaluator, text: []const u8) Error![]const u8 {
+    if (!ev.reading) return ev.fail("$(eval ...) in a recipe is not supported", .{});
+    if (std.mem.trim(u8, text, ws).len > 0) try ev.eval_queue.append(ev.arena, text);
+    assert(ev.reading);
+    assert(ev.eval_queue.items.len <= ast.limits.read_lines_max);
+    return "";
 }
 
 /// `$(value v)`, `$(origin v)` and `$(flavor v)`.

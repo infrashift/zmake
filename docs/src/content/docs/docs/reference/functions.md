@@ -95,7 +95,12 @@ reverse = $(if $(1),$(call reverse,$(wordlist 2,$(words $(1)),$(1))) $(firstword
 A line that has only a function call, such as `$(info ...)`, is valid when the
 expansion is empty.
 
+## eval
+
+`$(eval text)` reads `text` as more input, for example a rule from a template.
+See [Conditionals and define](../../guides/conditionals/#eval). An eval takes
+effect after the statement that calls it, and a recipe cannot call `eval`.
+
 ## Not supported
 
-- `$(eval ...)` stops the build until the reader supports it.
 - `$(guile ...)` stops the build. zmake has no Guile interpreter.

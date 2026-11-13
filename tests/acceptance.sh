@@ -153,8 +153,8 @@ printf 'out:\n    echo partial > $@; exit 3\n' > ZMakefile
 out=$("$ZMAKE" 2>&1)
 expect_has "modern mode deletes a partial target by default" "zmake: *** Deleting file 'out'" "$out"
 rm -f ZMakefile
-printf 'ifeq (a,b)\nendif\n' > Makefile
-expect_eq "unsupported directive" "Makefile:1: *** unsupported directive 'ifeq'.  Stop." "$("$ZMAKE" 2>&1)"
+printf 'load ./ext.so\nall:;@:\n' > Makefile
+expect_eq "unsupported directive" "Makefile:1: *** unsupported directive 'load'.  Stop." "$("$ZMAKE" 2>&1)"
 
 scenario "6. Special targets"
 printf '.SILENT:\n.PHONY: all\nall:\n\techo quiet\n' > Makefile
@@ -228,6 +228,99 @@ printf 'X := $(error boom here)\nall:;@:\n' > Makefile
 expect_eq "error message" "Makefile:1: *** boom here.  Stop." "$("$ZMAKE" 2>&1)"
 printf 'X := $(let a b,1 2 3,$(a)|$(b)) $(intcmp 3,2,lt,eq,gt)\n$(info $(X))\nall:;@:\n' > Makefile
 expect_eq "let and intcmp (GNU Make 4.4)" "1|2 3 gt" "$("$ZMAKE" 2>&1)"
+
+scenario "11. Conditionals, define, override, undefine and eval (Phase 10)"
+cat > Makefile <<'EOF'
+A = a
+E =
+R = $(E)
+ifeq (a ,a)
+$(info ws-before-comma=true)
+endif
+ifeq ( a,a )
+$(info ws-inside=true)
+else
+$(info ws-inside=false)
+endif
+ifneq "$(A)" 'b'
+$(info quotes=true)
+endif
+ifdef R
+$(info ifdef-R=true)
+endif
+ifdef E
+$(info ifdef-E=true)
+else ifeq (2,2)
+$(info else-ifeq=true)
+else
+$(info never)
+endif
+ifeq (1,2)
+  ifeq (bad syntax here
+  $(error never)
+  endif
+endif
+define MULTI
+line one
+	tab line # not a comment
+endef
+$(info [$(MULTI)] $(flavor MULTI))
+define SIMPLE :=
+v=$(A)
+endef
+$(info $(flavor SIMPLE) [$(value SIMPLE)])
+override CMD = file-value
+$(info CMD=$(CMD) origin=$(origin CMD))
+U = 1
+undefine U
+$(info U=[$(U)] $(origin U))
+$(foreach t,a b,$(eval $(t)_OBJ := $(t).o))
+$(info evals=$(a_OBJ) $(b_OBJ))
+define RULE
+gen-$(1):
+	@echo making $$@
+endef
+$(eval $(call RULE,x))
+all: gen-x
+ifeq ($(A),a)
+	@echo branch-a
+else
+	@echo branch-other
+endif
+	@echo after
+EOF
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "output matches GNU Make" "$("$GNU_MAKE" -s CMD=cmdline gen-x all 2>&1)" "$("$ZMAKE" CMD=cmdline gen-x all 2>&1)"
+  for src in 'ifeq (a,a)\nX=1\n' 'endif\n' 'ifeq (a,a)\nelse\nelse\nendif\n' 'ifeq a,a\nendif\n' 'define X\nabc\n' 'ifeq (a,a) junk\nendif\nall:;@echo ok\n'; do
+    printf "$src" > Makefile
+    expect_eq "message for '$(printf "$src" | head -1)' matches GNU Make" "$("$GNU_MAKE" -s 2>&1 | sed 's/^make:/zmake:/')" "$("$ZMAKE" 2>&1)"
+  done
+fi
+printf 'build:\nifdef FAST\n    @echo fast\nelse\n    @echo slow\nendif\n' > ZMakefile
+expect_eq "modern mode: a conditional selects recipe lines" "slow|fast" "$("$ZMAKE" build 2>&1)|$("$ZMAKE" build FAST=1 2>&1)"
+rm -f ZMakefile
+cat > Makefile <<'EOF'
+define CANNED
+@echo one
+-false
+echo three
+endef
+define FAIL
+false
+echo after-fail
+endef
+canned:
+	$(CANNED)
+fail:
+	$(FAIL)
+EOF
+if [ -n "$GNU_MAKE" ]; then
+  for goal in canned fail; do
+    expect_eq "canned recipe '$goal' runs line by line as in GNU Make" "$("$GNU_MAKE" $goal 2>&1 | sed 's/^make:/zmake:/'; echo "exit=${PIPESTATUS[0]}")" "$("$ZMAKE" $goal 2>&1; echo "exit=$?")"
+  done
+fi
+printf 'all:\n\t@echo $(eval Z := 1)z\n' > Makefile
+expect_eq "eval in a recipe stops" "Makefile:2: *** \$(eval ...) in a recipe is not supported.  Stop." "$("$ZMAKE" 2>&1)"
 
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

@@ -87,3 +87,12 @@ The acceptance suite compares the dry runs of both files for each target. See
 in a child frame. The scope restores the shadowed variables after the body. No
 function calls the evaluator again, so a recursive `$(call ...)` needs no
 recursion in zmake. See [Functions](../../reference/functions/).
+
+### ADR-0012: A reader evaluates each statement while it reads
+
+The reader reads the input file line by line and applies each statement at
+once, so a conditional sees the variables above it. Explicit stacks hold the
+open conditionals and the open sources. `$(eval ...)` queues its text, and the
+reader reads the text after the statement. An eval therefore takes effect one
+statement later than in GNU Make, and a recipe cannot call `eval`. See
+[Conditionals and define](../../guides/conditionals/).

@@ -76,6 +76,7 @@ pub const Func = enum {
     foreach,
     let,
     call,
+    eval,
 };
 
 /// A built-in function and its argument counts. `max == 0` means no upper
@@ -120,6 +121,7 @@ pub const specs = [_]Spec{
     .{ .name = "foreach", .func = .foreach, .min = 3, .max = 3 },
     .{ .name = "let", .func = .let, .min = 3, .max = 3 },
     .{ .name = "call", .func = .call, .min = 1, .max = 0 },
+    .{ .name = "eval", .func = .eval, .min = 1, .max = 1 },
 };
 
 pub fn findSpec(name: []const u8) ?Spec {
@@ -191,7 +193,7 @@ const Stack = struct {
 
 /// GNU Make functions that zmake does not implement (ADR-0005). zmake rejects
 /// them, so such a reference does not expand to an empty variable by mistake.
-const unsupported_functions = [_][]const u8{ "eval", "guile" };
+const unsupported_functions = [_][]const u8{"guile"};
 
 pub const Evaluator = struct {
     arena: std.mem.Allocator,
@@ -205,6 +207,10 @@ pub const Evaluator = struct {
     line: u32 = 0,
     /// The absolute working directory for `$(abspath ...)`, read once.
     cwd: ?[]const u8 = null,
+    /// True while the reader reads the input files. `$(eval)` works only then.
+    reading: bool = false,
+    /// The texts of `$(eval ...)` calls. The reader reads them after the statement.
+    eval_queue: std.ArrayList([]const u8) = .empty,
 
     pub fn init(arena: std.mem.Allocator, io: Io, dir: Io.Dir, diag: *Diagnostic) Evaluator {
         assert(diag.len <= Diagnostic.capacity);
@@ -221,6 +227,15 @@ pub const Evaluator = struct {
         }
         try ev.vars.put(ev.arena, name, .{ .value = value, .recursive = recursive, .origin = origin });
         assert(ev.vars.contains(name));
+    }
+
+    /// `undefine NAME`: remove the variable unless a higher origin defines it.
+    pub fn undefine(ev: *Evaluator, name: []const u8, origin: ast.Origin) void {
+        assert(name.len > 0);
+        const old = ev.vars.get(name) orelse return;
+        if (@backingInt(old.origin) > @backingInt(origin)) return;
+        const removed = ev.vars.remove(name);
+        assert(removed);
     }
 
     pub fn lookup(ev: *const Evaluator, name: []const u8) ?ast.Variable {

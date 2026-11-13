@@ -23,6 +23,7 @@ description: "How zmake selects legacy or modern mode, which recipe indentation 
 ## Recipe lines
 - **Legacy mode:** a recipe line starts with a tab. A space-indented line after a rule is an error (`missing separator`).
 - **Modern mode:** a recipe line starts with a tab or with two or more spaces. The first indented line sets the indent of the block. zmake strips that indent from each line of the block. A non-blank line at column 0 ends the block. Blank lines and comment lines do not end the block. A recipe line with less indent than the block is an error.
+- **Conditionals in a recipe:** a conditional line at column 0 does not end the rule. It selects recipe lines in both modes ([ADR-0012](/decisions/adr-0012-a-reader-evaluates-each-statement-while-it-reads--01a1d36899c8.md)).
 - **Modern mode limit:** inside a recipe block, each line with two or more spaces is a recipe line. Put variable assignments at column 0.
 
 ## Task syntax (modern mode only)

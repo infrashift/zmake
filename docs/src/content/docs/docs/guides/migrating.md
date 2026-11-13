@@ -16,8 +16,8 @@ zmake stops at the first feature outside its scope. The message gives the file
 and the line:
 
 ```text
-Makefile:7: *** unsupported directive 'ifeq'.  Stop.
-Makefile:12: *** unsupported function 'eval'.  Stop.
+Makefile:7: *** unsupported directive 'include'.  Stop.
+Makefile:12: *** unsupported directive 'export'.  Stop.
 ```
 
 ## Common errors
@@ -25,10 +25,8 @@ Makefile:12: *** unsupported function 'eval'.  Stop.
 | Error | Cause | Fix |
 |---|---|---|
 | `unsupported directive 'include'` | `include`, `-include` | Merge the included file, or keep GNU Make for this file. |
-| `unsupported directive 'ifeq'` | `ifeq`, `ifneq`, `ifdef`, `ifndef` | Use `?=` defaults or command-line variables. |
-| `unsupported directive 'define'` | `define`, `endef` | Use a script file for multi-line text. |
-| `unsupported directive 'export'` | `export`, `unexport`, `override`, `vpath` | Pass the variable on the recipe line, for example `X=$(X) ./run.sh`. |
-| `unsupported function 'eval'` | `$(eval ...)` or `$(guile ...)` | Write the rules out, or use `$(foreach ...)` and `$(call ...)` in values. |
+| `unsupported directive 'export'` | `export`, `unexport`, `vpath` | Pass the variable on the recipe line, for example `X=$(X) ./run.sh`. |
+| `$(eval ...) in a recipe is not supported` | `$(eval ...)` in a recipe | Move the eval to a line of its own, outside the recipe. |
 | An empty command | A built-in variable such as `$(CC)` | Set `CC := cc` in the input file. |
 
 zmake also rejects double-colon rules (`a:: b`), target-specific variables

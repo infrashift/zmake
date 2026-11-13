@@ -84,9 +84,9 @@ Tracking: [ISSUE-009](.okfw/issues/issue-009-text-control-and-file-functions--01
 
 ## Phase 10 — Conditionals, define, override, undefine and eval
 Tracking: [ISSUE-010](.okfw/issues/issue-010-conditionals-define-override-undefine-and-eval--01a1d34ecd29.md)
-- [ ] A reader that evaluates each statement while it reads
-- [ ] Conditionals with an explicit nesting stack, also inside recipes
-- [ ] `define`/`endef`, `override`, `undefine`, read-time `$(eval)`
+- [x] A reader that evaluates each statement while it reads
+- [x] Conditionals with an explicit nesting stack, also inside recipes
+- [x] `define`/`endef`, `override`, `undefine`, read-time `$(eval)`
 
 ## Phase 11 — include and MAKEFILE_LIST
 Tracking: [ISSUE-011](.okfw/issues/issue-011-include-and-makefile-list--01a1d34ecd30.md)

@@ -46,11 +46,11 @@ fn runChecked(init: std.process.Init) Reported!void {
     }
     const mf = zmake.jobserver.parseMakeflags(arena, init.environ_map.get("MAKEFLAGS") orelse "") catch return report(io, "out of memory");
     opts.dry_run = opts.dry_run or mf.dry_run;
-    const mk = try load(arena, io, opts, &diag);
-    assert(mk.filename.len > 0);
+    const input = try load(arena, io, opts, &diag);
+    assert(input.path.len > 0);
     var ev = zmake.eval.Evaluator.init(arena, io, Io.Dir.cwd(), &diag);
-    const db = try evaluate(&ev, init, opts, mf, mk);
-    assert(db.rules.len <= mk.statements.len * zmake.ast.limits.names_per_line_max);
+    const db = try evaluate(&ev, init, opts, mf, input);
+    assert(db.mode == input.mode);
     const graph = zmake.dag.build(arena, io, Io.Dir.cwd(), &db, opts.goals, &diag) catch |err| switch (err) {
         error.Graph => return report(io, diag.message()),
         error.OutOfMemory => return report(io, "out of memory"),
@@ -145,8 +145,8 @@ fn warn(io: Io, message: []const u8) void {
     writeAll(io, Io.File.stderr(), "\n");
 }
 
-/// Define the variables in origin order, then replay the input file.
-fn evaluate(ev: *zmake.eval.Evaluator, init: std.process.Init, opts: zmake.cli.Options, mf: zmake.jobserver.Makeflags, mk: zmake.ast.Makefile) Reported!zmake.database.Database {
+/// Define the variables in origin order, then read the input file.
+fn evaluate(ev: *zmake.eval.Evaluator, init: std.process.Init, opts: zmake.cli.Options, mf: zmake.jobserver.Makeflags, input: Input) Reported!zmake.database.Database {
     const io = init.io;
     const make_path = std.process.executablePathAlloc(io, init.arena.allocator()) catch return report(io, "cannot find the zmake executable path");
     assert(make_path.len > 0);
@@ -156,21 +156,24 @@ fn evaluate(ev: *zmake.eval.Evaluator, init: std.process.Init, opts: zmake.cli.O
         const value = if (o.simple) ev.expand(o.value, null) catch |err| return evalError(io, ev, err) else o.value;
         ev.define(o.name, value, !o.simple, .command_line) catch return report(io, "out of memory");
     };
-    const db = zmake.database.load(ev, mk) catch |err| return evalError(io, ev, err);
-    assert(db.mode == mk.mode);
+    const db = zmake.reader.read(ev, input.source, input.path, input.mode, ev.diag) catch |err| return evalError(io, ev, err);
+    assert(db.mode == input.mode);
     return db;
 }
 
-fn evalError(io: Io, ev: *zmake.eval.Evaluator, err: zmake.eval.Error) Reported {
+fn evalError(io: Io, ev: *zmake.eval.Evaluator, err: zmake.reader.Error) Reported {
     assert(ev.diag.len > 0 or err == error.OutOfMemory);
     return switch (err) {
-        error.Eval => report(io, ev.diag.message()),
+        error.Eval, error.Syntax => report(io, ev.diag.message()),
         error.OutOfMemory => report(io, "out of memory"),
     };
 }
 
-/// Find, read and parse the input file.
-fn load(arena: std.mem.Allocator, io: Io, opts: zmake.cli.Options, diag: *zmake.Diagnostic) Reported!zmake.ast.Makefile {
+/// The input file: its path, its syntax mode and its text.
+const Input = struct { path: []const u8, mode: zmake.ast.SyntaxMode, source: []const u8 };
+
+/// Find and read the input file.
+fn load(arena: std.mem.Allocator, io: Io, opts: zmake.cli.Options, diag: *zmake.Diagnostic) Reported!Input {
     const input = zmake.cli.discover(io, Io.Dir.cwd(), opts, diag) catch |err| switch (err) {
         error.NoInputFile => return report(io, diag.message()),
         else => |e| return report(io, @errorName(e)),
@@ -185,12 +188,8 @@ fn load(arena: std.mem.Allocator, io: Io, opts: zmake.cli.Options, diag: *zmake.
         }
         return report(io, diag.message());
     };
-    const mk = zmake.parser.parse(arena, source, input.path, input.mode, diag) catch |err| switch (err) {
-        error.Syntax => return report(io, diag.message()),
-        error.OutOfMemory => return report(io, "out of memory"),
-    };
-    assert(mk.mode == input.mode);
-    return mk;
+    assert(source.len <= zmake.ast.limits.input_file_bytes_max + 1);
+    return .{ .path = input.path, .mode = input.mode, .source = source };
 }
 
 fn report(io: Io, message: []const u8) Reported {

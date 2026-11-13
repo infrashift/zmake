@@ -21,7 +21,7 @@ description: "The parser rejects include, conditionals, define, export and vpath
 The plan does not cover `include`, `-include`, `ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif`, `define`, `endef`, `export`, `unexport`, `override` or `vpath`. A parser that does not know these lines reads them as rules or assignments. The build then does the wrong thing with no error.
 
 ## Decision
-The parser rejects each directive from the list with this error. A directive word followed by `=` or `:` is a variable or a target name, not a directive.
+The parser rejects each directive from the list with this error. Since Phase 10, the reader handles the conditionals, `define`, `override` and `undefine` ([ADR-0012](/decisions/adr-0012-a-reader-evaluates-each-statement-while-it-reads--01a1d36899c8.md)). `load` stays out of scope. A directive word followed by `=` or `:` is a variable or a target name, not a directive.
 
 `Makefile:7: *** unsupported directive 'ifeq'.  Stop.`
 

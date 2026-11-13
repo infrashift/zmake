@@ -9,11 +9,14 @@ const Diagnostic = @import("diag.zig").Diagnostic;
 
 pub const Error = error{ Syntax, OutOfMemory };
 
-/// Directives outside the scope of zmake (ADR-0005). The parser rejects them.
+/// Directives that the parser rejects (ADR-0005). The reader handles the
+/// conditionals, `define`, `override` and `undefine` before the parser sees a
+/// line, so `parse` alone still rejects them. `load` stays out of scope: it
+/// loads a shared object into make.
 const unsupported_directives = [_][]const u8{
     "include", "-include", "sinclude", "ifeq",  "ifneq",  "ifdef",    "ifndef",
     "else",    "endif",    "define",   "endef", "export", "unexport", "override",
-    "vpath",   "undefine", "private",
+    "vpath",   "undefine", "private",  "load",  "-load",
 };
 
 pub fn parse(
@@ -32,20 +35,14 @@ pub fn parse(
     var lx: lexer.Lexer = .init(arena, source, mode, filename);
     while (try lx.next(p.open_rule != null, diag)) |ll| {
         assert(ll.line > 0 and ll.line <= lx.line);
-        switch (ll.kind) {
-            .recipe => try p.addRecipe(ll),
-            .normal => {
-                try p.closeRule();
-                try p.parseLine(ll);
-            },
-        }
+        try p.feed(ll);
     }
     try p.closeRule();
     assert(p.open_rule == null);
     return .{ .mode = mode, .filename = filename, .statements = p.statements.items };
 }
 
-const Parser = struct {
+pub const Parser = struct {
     arena: std.mem.Allocator,
     filename: []const u8,
     mode: ast.SyntaxMode,
@@ -63,6 +60,19 @@ const Parser = struct {
         return error.Syntax;
     }
 
+    /// Take one logical line. A normal line closes the open rule first.
+    pub fn feed(p: *Parser, ll: lexer.LogicalLine) Error!void {
+        assert(ll.line > 0);
+        switch (ll.kind) {
+            .recipe => try p.addRecipe(ll),
+            .normal => {
+                try p.closeRule();
+                try p.parseLine(ll);
+            },
+        }
+        assert(ll.kind == .recipe or p.open_rule == null or p.recipes.items.len <= 1);
+    }
+
     fn addRecipe(p: *Parser, ll: lexer.LogicalLine) Error!void {
         assert(ll.kind == .recipe);
         assert(p.open_rule != null);
@@ -73,7 +83,7 @@ const Parser = struct {
         p.open_rule.?.has_recipe = true;
     }
 
-    fn closeRule(p: *Parser) Error!void {
+    pub fn closeRule(p: *Parser) Error!void {
         var rule = p.open_rule orelse return;
         assert(rule.targets.len > 0);
         rule.recipes = try p.recipes.toOwnedSlice(p.arena);
@@ -206,9 +216,18 @@ pub fn recipeLine(text: []const u8, line: u32) ast.RecipeLine {
 /// Return the directive word when the line starts with an unsupported directive.
 fn directiveName(text: []const u8) ?[]const u8 {
     assert(text.len > 0);
+    const word = leadingDirective(text, &unsupported_directives);
+    assert(word == null or word.?.len > 0);
+    return word;
+}
+
+/// Return the first word of `text` when it is one of `words` and the line is a
+/// directive. `include = x` and `export: y` are a variable and a target.
+pub fn leadingDirective(text: []const u8, words: []const []const u8) ?[]const u8 {
+    assert(words.len > 0);
     const word_end = std.mem.indexOfAny(u8, text, " \t(") orelse text.len;
     const word = text[0..word_end];
-    for (unsupported_directives) |d| {
+    for (words) |d| {
         if (!std.mem.eql(u8, word, d)) continue;
         // `include = x` and `export: y` define a variable and a target, not a directive.
         const rest = std.mem.trimStart(u8, text[word_end..], " \t");

@@ -19,6 +19,12 @@ pub const limits = struct {
     pub const names_per_line_max: u32 = 65_536;
     /// Arguments of one function call, for example `$(call f,a,b)`.
     pub const function_args_max: u8 = 16;
+    /// Nested conditionals (`ifeq` inside `ifeq`).
+    pub const conditional_depth_max: u32 = 256;
+    /// Open sources: the input file, included files and `$(eval)` texts.
+    pub const source_depth_max: u32 = 64;
+    /// Logical lines that one invocation reads, over all sources.
+    pub const read_lines_max: u32 = 4_000_000;
 };
 
 pub const SyntaxMode = enum {
@@ -63,6 +69,8 @@ pub const Origin = enum(u8) {
     environment = 1,
     file = 2,
     command_line = 3,
+    /// An `override` assignment in the input file. It wins over the command line.
+    override = 4,
     /// The variables of `foreach`, `let` and `call`. They shadow other definitions.
     automatic = 5,
 
@@ -73,6 +81,7 @@ pub const Origin = enum(u8) {
             .environment => "environment",
             .file => "file",
             .command_line => "command line",
+            .override => "override",
             .automatic => "automatic",
         };
     }
@@ -103,6 +112,8 @@ pub const Assignment = struct {
     /// The unexpanded value text.
     value: []const u8,
     line: u32,
+    /// Declared with `override`: the assignment wins over the command line.
+    override: bool = false,
 };
 
 /// A rule as the parser reads it. Target and prerequisite text is unexpanded.

@@ -14,7 +14,8 @@ feature outside this subset. A silent misparse is worse than an error
 | Assignments | `=`, `:=`, `::=`, `?=`, `+=`, command-line overrides |
 | Rules | Explicit rules, pattern rules, order-only prerequisites, inline `; recipe` text |
 | Automatic variables | `$@`, `$<`, `$^`, `$+`, `$*`, `$?` and their `D` and `F` forms |
-| Functions | All GNU Make functions except `eval` and `guile` ([Functions](../functions/)), substitution references |
+| Functions | All GNU Make functions except `guile` ([Functions](../functions/)), substitution references |
+| Directives | `ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif`, `define`, `override`, `undefine` ([Conditionals](../../guides/conditionals/)) |
 | Variables | `MAKE`, `MAKEFLAGS`, `MAKELEVEL`, `SHELL` |
 | Recipe prefixes | `@`, `-`, `+` |
 | Options | `-f`, `-C`, `-j`, `-n` |
@@ -42,10 +43,9 @@ These features stop the build with `file:line`:
 | Feature | Error |
 |---|---|
 | `include`, `-include` | `unsupported directive` |
-| `ifeq`, `ifneq`, `ifdef`, `ifndef`, `else`, `endif` | `unsupported directive` |
-| `define`, `endef` | `unsupported directive` |
-| `export`, `unexport`, `override`, `vpath` | `unsupported directive` |
-| `$(eval ...)` and `$(guile ...)` | `unsupported function` |
+| `export`, `unexport`, `vpath`, `load` | `unsupported directive` |
+| `$(guile ...)` | `unsupported function` |
+| `$(eval ...)` in a recipe | `$(eval ...) in a recipe is not supported` |
 | Double-colon rules (`a:: b`) | Parse error |
 | Target-specific variables (`a: CC = x`) | Parse error |
 | Shell assignments (`X != cmd`) | Parse error |
@@ -59,6 +59,7 @@ directive.
 - **Cycles.** A circular dependency is an error. GNU Make drops the edge with a warning.
 - **Modern-mode deletion.** Modern mode deletes a partial file target by default. See [Syntax Modes](../../guides/syntax-modes/).
 - **Recursive variable errors.** The error shows the line that uses the variable. GNU Make shows the line that defines it.
+- **Eval timing.** An eval takes effect after the statement that calls it, not inside the same expansion ([ADR-0012](../../project/decisions/#adr-0012-a-reader-evaluates-each-statement-while-it-reads)).
 - **Intermediate files.** GNU Make deletes a file that a chain of pattern rules made. zmake keeps it.
 - **Platforms.** zmake supports Linux. The jobserver needs `/proc`.
 

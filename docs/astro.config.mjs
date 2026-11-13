@@ -40,6 +40,7 @@ export default defineConfig({
 						{ label: 'Syntax Modes', slug: 'docs/guides/syntax-modes' },
 						{ label: 'Tasks & Phony Inference', slug: 'docs/guides/tasks-and-phony-inference' },
 						{ label: 'Pattern Rules & Variables', slug: 'docs/guides/pattern-rules' },
+						{ label: 'Conditionals & define', slug: 'docs/guides/conditionals' },
 						{ label: 'Parallel Builds & Jobserver', slug: 'docs/guides/parallel-builds' },
 						{ label: 'Migrating from GNU Make', slug: 'docs/guides/migrating' },
 					],

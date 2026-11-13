@@ -29,6 +29,9 @@ pub const Lexer = struct {
     line: u32 = 0,
     /// Modern mode: the space indent of the open recipe block.
     block_indent: ?usize = null,
+    /// When not 0, every line reports this number. A `$(eval)` text reports
+    /// the line of the statement that called `eval`.
+    fixed_line: u32 = 0,
 
     pub fn init(arena: std.mem.Allocator, source: []const u8, mode: ast.SyntaxMode, filename: []const u8) Lexer {
         assert(source.len <= ast.limits.input_file_bytes_max);
@@ -50,7 +53,7 @@ pub const Lexer = struct {
             if (in_rule) {
                 if (try lx.recipePrefix(phys, start_line, diag)) |prefix_len| {
                     const text = try lx.joinRecipe(phys[prefix_len..]);
-                    return .{ .kind = .recipe, .text = text, .line = start_line };
+                    return .{ .kind = .recipe, .text = text, .line = lx.reported(start_line) };
                 }
             }
             const trimmed = std.mem.trimStart(u8, phys, " \t");
@@ -59,10 +62,34 @@ pub const Lexer = struct {
             const text = try lx.joinNormal(phys);
             assert(lx.line >= start_line);
             if (std.mem.trim(u8, text, " \t").len == 0) continue;
-            return .{ .kind = .normal, .text = text, .line = start_line };
+            return .{ .kind = .normal, .text = text, .line = lx.reported(start_line) };
         }
         diag.set("{s}: *** more than {d} lines.  Stop.", .{ lx.filename, ast.limits.input_lines_max });
         return error.Syntax;
+    }
+
+    fn reported(lx: *const Lexer, line: u32) u32 {
+        assert(line > 0);
+        const n = if (lx.fixed_line > 0) lx.fixed_line else line;
+        assert(n > 0);
+        return n;
+    }
+
+    /// Return the next physical line as it is, for the body of `define`.
+    pub fn nextPhysical(lx: *Lexer) ?[]const u8 {
+        assert(lx.pos <= lx.source.len);
+        lx.block_indent = null;
+        const phys = lx.readPhysical();
+        assert(phys == null or phys.?.len <= lx.source.len);
+        return phys;
+    }
+
+    /// The number of the last line that the lexer read, for messages at the end.
+    pub fn lastLine(lx: *const Lexer) u32 {
+        assert(lx.pos <= lx.source.len);
+        const n = lx.reported(lx.line + 1);
+        assert(n > 0);
+        return n;
     }
 
     /// Read one physical line without its newline. Drop a trailing carriage return.

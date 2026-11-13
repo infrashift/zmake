@@ -33,17 +33,24 @@ const default_suffixes = [_][]const u8{
     ".ch",  ".web", ".sh", ".elc", ".el",
 };
 
-const Builder = struct {
+/// Collects the rules and the special targets while the statements arrive.
+/// The reader applies each statement at once; `load` replays a parsed file.
+pub const Builder = struct {
     db: Database,
     rules: std.ArrayList(ast.Rule) = .empty,
-    goal_from_target: ?[]const u8 = null,
-};
 
-pub fn load(ev: *eval.Evaluator, mk: ast.Makefile) Error!Database {
-    assert(mk.filename.len > 0);
-    ev.filename = mk.filename;
-    var b: Builder = .{ .db = .{ .mode = mk.mode, .filename = mk.filename, .rules = &.{} } };
-    for (mk.statements) |st| {
+    pub fn init(mode: ast.SyntaxMode, filename: []const u8) Builder {
+        assert(filename.len > 0);
+        const b: Builder = .{ .db = .{ .mode = mode, .filename = filename, .rules = &.{} } };
+        assert(b.rules.items.len == 0);
+        return b;
+    }
+
+    /// Apply one statement. An expression must expand to nothing here; the
+    /// reader reads a non-empty expansion again as input text instead.
+    pub fn apply(b: *Builder, ev: *eval.Evaluator, st: ast.Statement) Error!void {
+        assert(b.db.filename.len > 0);
+        const before = b.rules.items.len;
         switch (st) {
             .assignment => |a| {
                 ev.line = a.line;
@@ -51,7 +58,7 @@ pub fn load(ev: *eval.Evaluator, mk: ast.Makefile) Error!Database {
             },
             .rule => |r| {
                 ev.line = r.line;
-                try addRule(ev, &b, r);
+                try addRule(ev, b, r);
             },
             .expression => |e| {
                 ev.line = e.line;
@@ -59,28 +66,47 @@ pub fn load(ev: *eval.Evaluator, mk: ast.Makefile) Error!Database {
                 if (std.mem.trim(u8, value, fns.whitespace).len > 0) return ev.fail("missing separator", .{});
             },
         }
+        assert(b.rules.items.len >= before);
     }
-    b.db.rules = b.rules.items;
-    ev.line = 0;
-    if (ev.lookup(".DEFAULT_GOAL")) |v| {
-        const value = if (v.recursive) try ev.expand(v.value, null) else v.value;
-        var it = std.mem.tokenizeAny(u8, value, fns.whitespace);
-        if (it.next()) |goal| b.db.default_goal = goal;
+
+    /// Take the rules and resolve `.DEFAULT_GOAL`.
+    pub fn finish(b: *Builder, ev: *eval.Evaluator) Error!Database {
+        b.db.rules = b.rules.items;
+        ev.line = 0;
+        if (ev.lookup(".DEFAULT_GOAL")) |v| {
+            const value = if (v.recursive) try ev.expand(v.value, null) else v.value;
+            var it = std.mem.tokenizeAny(u8, value, fns.whitespace);
+            if (it.next()) |goal| b.db.default_goal = goal;
+        }
+        assert(b.db.rules.len == b.rules.items.len);
+        assert(b.db.default_goal == null or b.db.default_goal.?.len > 0);
+        return b.db;
     }
-    assert(b.db.rules.len <= mk.statements.len * ast.limits.names_per_line_max);
-    return b.db;
+};
+
+/// Replay the statements of a parsed input file. The executable uses the
+/// reader instead, which also handles conditionals and `define`.
+pub fn load(ev: *eval.Evaluator, mk: ast.Makefile) Error!Database {
+    assert(mk.filename.len > 0);
+    ev.filename = mk.filename;
+    var b: Builder = .init(mk.mode, mk.filename);
+    for (mk.statements) |st| try b.apply(ev, st);
+    const db = try b.finish(ev);
+    assert(db.rules.len <= mk.statements.len * ast.limits.names_per_line_max);
+    return db;
 }
 
 fn assign(ev: *eval.Evaluator, a: ast.Assignment) Error!void {
     assert(a.name.len > 0);
     const name = std.mem.trim(u8, try ev.expand(a.name, null), fns.whitespace);
     if (name.len == 0) return ev.fail("empty variable name", .{});
+    const origin: ast.Origin = if (a.override) .override else .file;
     switch (a.flavor) {
-        .simple => try ev.define(name, try ev.expand(a.value, null), false, .file),
-        .recursive => try ev.define(name, a.value, true, .file),
-        .conditional => if (ev.lookup(name) == null) try ev.define(name, a.value, true, .file),
+        .simple => try ev.define(name, try ev.expand(a.value, null), false, origin),
+        .recursive => try ev.define(name, a.value, true, origin),
+        .conditional => if (ev.lookup(name) == null) try ev.define(name, a.value, true, origin),
         .append => {
-            const old = ev.lookup(name) orelse return ev.define(name, a.value, true, .file);
+            const old = ev.lookup(name) orelse return ev.define(name, a.value, true, origin);
             const add = if (old.recursive) a.value else try ev.expand(a.value, null);
             const joined = if (old.value.len == 0)
                 add
@@ -88,7 +114,7 @@ fn assign(ev: *eval.Evaluator, a: ast.Assignment) Error!void {
                 old.value
             else
                 try std.mem.concat(ev.arena, u8, &.{ old.value, " ", add });
-            try ev.define(name, joined, old.recursive, .file);
+            try ev.define(name, joined, old.recursive, origin);
         },
     }
     assert(ev.lookup(name) != null);
