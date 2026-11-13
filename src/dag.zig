@@ -49,6 +49,8 @@ const Match = struct {
     rule: *const ast.Rule,
     stem: []const u8,
     prerequisites: []const []const u8,
+    /// The order-only prerequisites of the rule, with the stem applied.
+    order_only: []const []const u8,
 };
 
 const Color = enum(u2) { white, gray, black };
@@ -191,24 +193,26 @@ fn explicitNode(b: *Builder, name: []const u8, e: *const Explicit, match: ?Match
     var prereqs: []const []const u8 = e.prerequisites.items;
     var recipes: []const ast.RecipeLine = if (e.recipe) |r| r.recipes else &.{};
     var stem: []const u8 = "";
+    var order_only: []const []const u8 = e.order_only.items;
     var line = if (e.recipe) |r| r.source_line else e.line;
     if (match) |m| {
         // The pattern prerequisites come first, so `$<` is the pattern source.
         prereqs = try std.mem.concat(b.arena, []const u8, &.{ m.prerequisites, prereqs });
+        order_only = try std.mem.concat(b.arena, []const u8, &.{ m.order_only, order_only });
         recipes = m.rule.recipes;
         stem = m.stem;
         line = m.rule.source_line;
     }
     const kind = classifyNode(b, name, true, e.task, match != null, recipes);
     assert(line > 0);
-    return .{ .name = name, .kind = kind, .prerequisites = prereqs, .order_only = e.order_only.items, .recipes = recipes, .stem = stem, .line = line };
+    return .{ .name = name, .kind = kind, .prerequisites = prereqs, .order_only = order_only, .recipes = recipes, .stem = stem, .line = line };
 }
 
 fn patternNode(b: *Builder, name: []const u8, m: Match) Node {
     assert(m.rule.is_pattern and m.rule.has_recipe);
     const kind = classifyNode(b, name, true, false, true, m.rule.recipes);
     assert(kind == .file or kind == .explicit_phony);
-    return .{ .name = name, .kind = kind, .prerequisites = m.prerequisites, .order_only = &.{}, .recipes = m.rule.recipes, .stem = m.stem, .line = m.rule.source_line };
+    return .{ .name = name, .kind = kind, .prerequisites = m.prerequisites, .order_only = m.order_only, .recipes = m.rule.recipes, .stem = m.stem, .line = m.rule.source_line };
 }
 
 fn classifyNode(b: *Builder, name: []const u8, has_rule: bool, task: bool, from_pattern: bool, recipes: []const ast.RecipeLine) ast.TargetKind {
@@ -243,15 +247,7 @@ fn findPattern(b: *Builder, name: []const u8) Error!?Match {
     for (b.patterns.items) |rule| {
         const m = try matchRule(b, rule, name) orelse continue;
         if (best != null and m.stem.len >= best.?.stem.len) continue;
-        var viable = true;
-        for (m.prerequisites) |p| {
-            if (try known(b, p)) continue;
-            if (try findDirectPattern(b, p, rule) == null) {
-                viable = false;
-                break;
-            }
-        }
-        if (viable) best = m;
+        if (try viableChain(b, m, rule)) best = m;
     }
     assert(best == null or best.?.rule.is_pattern);
     return best;
@@ -266,10 +262,7 @@ fn findDirectPattern(b: *Builder, name: []const u8, skip: *const ast.Rule) Error
         if (rule == skip) continue;
         const m = try matchRule(b, rule, name) orelse continue;
         if (best != null and m.stem.len >= best.?.stem.len) continue;
-        const all_known = for (m.prerequisites) |p| {
-            if (!try known(b, p)) break false;
-        } else true;
-        if (all_known) best = m;
+        if (try allKnown(b, m.prerequisites) and try allKnown(b, m.order_only)) best = m;
     }
     assert(best == null or best.?.rule != skip);
     return best;
@@ -286,12 +279,43 @@ fn matchRule(b: *Builder, rule: *const ast.Rule, name: []const u8) Error!?Match 
         if (subject.len == 0) continue;
         const part = fns.matchPattern(pattern, subject) orelse continue;
         const stem = if (use_dir) try std.mem.concat(b.arena, u8, &.{ name[0 .. slash.? + 1], part }) else part;
-        const prereqs = try b.arena.alloc([]const u8, rule.prerequisites.len);
-        for (rule.prerequisites, prereqs) |p, *out| out.* = try fns.applyStem(b.arena, p, stem);
+        const prereqs = try applyStemAll(b, rule.prerequisites, stem);
+        const order_only = try applyStemAll(b, rule.order_only, stem);
         assert(prereqs.len == rule.prerequisites.len);
-        return .{ .rule = rule, .stem = stem, .prerequisites = prereqs };
+        return .{ .rule = rule, .stem = stem, .prerequisites = prereqs, .order_only = order_only };
     }
     return null;
+}
+
+fn applyStemAll(b: *Builder, names: []const []const u8, stem: []const u8) Error![]const []const u8 {
+    const out = try b.arena.alloc([]const u8, names.len);
+    for (names, out) |p, *slot| slot.* = try fns.applyStem(b.arena, p, stem);
+    assert(out.len == names.len);
+    assert(out.len == 0 or out[0].len > 0);
+    return out;
+}
+
+/// True when each prerequisite of `m`, normal and order-only, is known or can
+/// come from a second pattern rule. GNU Make also checks the order-only ones.
+fn viableChain(b: *Builder, m: Match, rule: *const ast.Rule) Error!bool {
+    assert(m.rule == rule);
+    for ([_][]const []const u8{ m.prerequisites, m.order_only }) |list| {
+        for (list) |p| {
+            assert(p.len > 0);
+            if (try known(b, p)) continue;
+            if (try findDirectPattern(b, p, rule) == null) return false;
+        }
+    }
+    return true;
+}
+
+fn allKnown(b: *Builder, names: []const []const u8) Error!bool {
+    assert(b.nodes.items.len <= ast.limits.graph_nodes_max);
+    for (names) |p| {
+        assert(p.len > 0);
+        if (!try known(b, p)) return false;
+    }
+    return true;
 }
 
 const Visit = struct { id: NodeId, next: u32 };
@@ -442,6 +466,24 @@ test "pattern rules: stem, explicit prerequisites and shortest stem" {
     const x_o = g.nodes[app.deps[2]];
     try testing.expectEqualStrings("lib/x", x_o.stem);
     try testing.expectEqual(@as(u32, 6), x_o.line);
+}
+
+test "pattern rules keep order-only prerequisites (ISSUE-007)" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    const a = arena.allocator();
+    var tmp = testing.tmpDir(.{});
+    defer tmp.cleanup();
+    try tmp.dir.createDirPath(testing.io, "src");
+    try tmp.dir.writeFile(testing.io, .{ .sub_path = "src/main.c", .data = "" });
+    const src = "app: obj/main.o\n\tcc -o $@ $^\nobj/%.o: src/%.c | obj %.dep\n\tcc -c $< -o $@\nobj:\n\tmkdir -p $@\n%.dep:\n\ttouch $@\n";
+    const g = try buildTest(a, tmp.dir, src, .legacy, &.{}, &diag);
+    try testing.expectEqualStrings("src/main.c obj main.dep obj/main.o app", try testNames(a, g));
+    const obj = g.nodes[g.nodes[g.goals[0]].deps[0]];
+    try testing.expectEqual(@as(usize, 2), obj.order_only.len);
+    try testing.expectEqualStrings("main.dep", obj.order_only[1]);
+    try testing.expectEqual(@as(usize, 1), obj.prerequisites.len);
 }
 
 test "modern mode classifies graph nodes" {

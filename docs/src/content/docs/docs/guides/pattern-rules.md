@@ -91,12 +91,11 @@ phony. zmake also accepts one level of chaining: a second pattern rule can make
 the prerequisite. A pattern without `/` matches the file part of a name, and
 the directory joins the stem.
 
-:::caution[Order-only prerequisites on pattern rules]
-zmake drops the order-only prerequisites of a pattern rule, for example
-`obj/%.o: src/%.c | obj`
-([ISSUE-007](https://github.com/infrashift/zmake/blob/main/.okfw/issues/issue-007-pattern-rules-drop-order-only-prerequisites--01a1d3419a7f.md)).
-Order-only prerequisites on explicit rules work. Until the fix, create the
-directory in the recipe with `mkdir -p $(@D)`, as in the example above.
+:::tip[Order-only prerequisites]
+A pattern rule can have order-only prerequisites, for example
+`obj/%.o: src/%.c | obj`. zmake makes `obj` first, but a newer `obj` does not
+make the object out of date. The order-only prerequisites must also exist or
+have a rule. Otherwise the pattern rule does not apply.
 :::
 
 ## Cycles

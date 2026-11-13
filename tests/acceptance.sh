@@ -184,5 +184,15 @@ if [ -n "$GNU_MAKE" ]; then
   expect_eq "ZMakefile default goal matches GNU Make" "$("$GNU_MAKE" -s -C "$ROOT" -f Makefile -n 2>&1)" "$("$ZMAKE" -C "$ROOT" -f ZMakefile -n 2>&1)"
 fi
 
+scenario "9. Pattern rules keep order-only prerequisites (ISSUE-007)"
+mkdir src && printf 'int main(void) { return 0; }\n' > src/main.c
+printf 'app: obj/main.o\n\t@echo link $@\nobj/%%.o: src/%%.c | obj\n\tcc -c $< -o $@\nobj:\n\tmkdir -p $@\n' > Makefile
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "dry run matches GNU Make" "$("$GNU_MAKE" -s -n 2>&1)" "$("$ZMAKE" -n 2>&1)"
+fi
+out=$("$ZMAKE" 2>&1); code=$?
+expect_eq "exit code 0" 0 "$code"
+expect_has "the order-only directory is made first" "mkdir -p obj" "$out"
+
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

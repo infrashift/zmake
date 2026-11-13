@@ -71,16 +71,71 @@ Tracking: [ISSUE-008](.okfw/issues/issue-008-modern-mode-zmakefile-for-the-zmake
 - [x] Acceptance scenario 8 compares each `ZMakefile` dry run with GNU Make on the `Makefile`
 - [x] Scenario 7 reads the `Makefile` with `-f Makefile`
 
+## Phase 8 — Pattern rules keep order-only prerequisites
+Tracking: [ISSUE-007](.okfw/issues/issue-007-pattern-rules-drop-order-only-prerequisites--01a1d3419a7f.md)
+- [x] A pattern rule keeps its order-only prerequisites; `%` expands with the stem
+- [x] Unit test and a GNU Make comparison in `tests/acceptance.sh`
+
+## Phase 9 — Text, control and file functions
+Tracking: [ISSUE-009](.okfw/issues/issue-009-text-control-and-file-functions--01a1d34ecd22.md)
+- [ ] Text and file name functions
+- [ ] `if`, `or`, `and`, `foreach`, `call`, `let`, `intcmp` on the frame stack
+- [ ] `value`, `origin`, `flavor`, `error`, `warning`, `info`, `file`
+
+## Phase 10 — Conditionals, define, override, undefine and eval
+Tracking: [ISSUE-010](.okfw/issues/issue-010-conditionals-define-override-undefine-and-eval--01a1d34ecd29.md)
+- [ ] A reader that evaluates each statement while it reads
+- [ ] Conditionals with an explicit nesting stack, also inside recipes
+- [ ] `define`/`endef`, `override`, `undefine`, read-time `$(eval)`
+
+## Phase 11 — include and MAKEFILE_LIST
+Tracking: [ISSUE-011](.okfw/issues/issue-011-include-and-makefile-list--01a1d34ecd30.md)
+- [ ] `include`, `-include`, `sinclude` on an explicit include stack
+- [ ] Per-file names in messages and recipe errors; `MAKEFILE_LIST`
+
+## Phase 12 — export and unexport
+Tracking: [ISSUE-012](.okfw/issues/issue-012-export-and-unexport--01a1d34ecd36.md)
+- [ ] `export`, `unexport`, `.EXPORT_ALL_VARIABLES`
+- [ ] The recipe environment gets the exported values
+
+## Phase 13 — vpath and VPATH
+Tracking: [ISSUE-013](.okfw/issues/issue-013-vpath-and-vpath--01a1d34ecd3c.md)
+- [ ] `VPATH` and `vpath` search for prerequisites
+- [ ] Automatic variables give the found path
+
+## Phase 14 — Target-specific and pattern-specific variables
+Tracking: [ISSUE-014](.okfw/issues/issue-014-target-specific-and-pattern-specific-variables--01a1d34ecd43.md)
+- [ ] `target: VAR = value` with all operators, `override`, `export`, `private`
+- [ ] Pattern-specific variables; inheritance by prerequisites
+
+## Phase 15 — Double-colon rules
+Tracking: [ISSUE-015](.okfw/issues/issue-015-double-colon-rules--01a1d34ecd4a.md)
+- [ ] Independent `::` rules per target, in file order
+
+## Phase 16 — Built-in variables, implicit rules and suffix rules
+Tracking: [ISSUE-016](.okfw/issues/issue-016-built-in-variables-implicit-rules-and-suffix-rules--01a1d34ecd51.md)
+- [ ] Built-in variables and implicit rules
+- [ ] Old-style suffix rules and `.SUFFIXES`
+- [ ] `-r` and `-R`
+
+## Phase 17 — The options -k, -q, -t and -B
+Tracking: [ISSUE-017](.okfw/issues/issue-017-the-options-k-q-t-and-b--01a1d34ecd58.md)
+- [ ] `-k`, `-q`, `-t`, `-B` and combined short options
+- [ ] The flags pass to sub-makes through `MAKEFLAGS`
+
+## Phase 18 — Quoted values in MAKEFLAGS
+Tracking: [ISSUE-018](.okfw/issues/issue-018-quoted-values-in-makeflags--01a1d34ecd5f.md)
+- [ ] Escape and unescape white space in `MAKEFLAGS` overrides
+
+## Phase 19 — Jobserver on macOS and the BSDs
+Tracking: [ISSUE-019](.okfw/issues/issue-019-jobserver-on-macos-and-the-bsds--01a1d34ecd67.md)
+- [ ] Portable token reads and pipe creation; cross-compile checks
+
 ## Acceptance scenarios
 1. **The `build/` directory (modern mode).** Create `./build` and a `ZMakefile` with a `build:` rule. `zmake build` runs the recipe.
 2. **Explicit task (modern mode).** Declare `@deploy: build` with 4-space indentation. `zmake deploy` runs `build`, then `deploy`.
 3. **Strict legacy compatibility.** A `Makefile` with `.PHONY: clean`, `CC := gcc`, `%.o: %.c`, `$@` and `$<` compiles only dirty objects.
 
 ## Follow-ups
-- `include`, conditionals, `define`, `export` and `vpath`
-- Built-in implicit rules, built-in variables such as `CC`, suffix rules, double-colon rules and target-specific variables
-- Functions other than `wildcard`, `shell`, `patsubst` and `subst`
-- `-k` (keep going), `-q`, `-t` and `-B`
-- Quoted values with spaces in `MAKEFLAGS` overrides
-- Fix [ISSUE-007](.okfw/issues/issue-007-pattern-rules-drop-order-only-prerequisites--01a1d3419a7f.md): pattern rules drop their order-only prerequisites
-- macOS and BSD support for the jobserver ([ADR-0002](.okfw/decisions/adr-0002-zig-0-17-1-standard-library-only-linux-first--01a1d30ae676.md))
+Phases 8 to 19 cover the earlier follow-ups. Outside the scope:
+- `$(guile ...)`, `.ONESHELL`, `.SECONDEXPANSION`, `--output-sync`, and remaking of included makefiles

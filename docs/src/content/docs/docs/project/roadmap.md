@@ -16,6 +16,7 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **5. Executor** | Modification time checks, `-jN` scheduler, GNU Make jobserver, acceptance suite | Done |
 | **6. Docs site** | This site, the landing-page demo, the GitHub Pages deploy | Done |
 | **7. Modern ZMakefile** | The zmake repo runs its own gates through a modern-mode `ZMakefile` | Done |
+| **8. Order-only fix** | Pattern rules keep their order-only prerequisites | Done |
 
 ## Follow-ups
 
@@ -29,6 +30,3 @@ error today:
 - Quoted values with spaces in `MAKEFLAGS` overrides
 - macOS and BSD support for the jobserver
 
-## Open bugs
-
-- Pattern rules drop their order-only prerequisites ([ISSUE-007](https://github.com/infrashift/zmake/blob/main/.okfw/issues/issue-007-pattern-rules-drop-order-only-prerequisites--01a1d3419a7f.md)).

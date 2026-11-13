@@ -59,7 +59,7 @@ directive.
 - **Cycles.** A circular dependency is an error. GNU Make drops the edge with a warning.
 - **Modern-mode deletion.** Modern mode deletes a partial file target by default. See [Syntax Modes](../../guides/syntax-modes/).
 - **Recursive variable errors.** The error shows the line that uses the variable. GNU Make shows the line that defines it.
-- **Order-only prerequisites on pattern rules.** zmake drops them ([ISSUE-007](https://github.com/infrashift/zmake/blob/main/.okfw/issues/issue-007-pattern-rules-drop-order-only-prerequisites--01a1d3419a7f.md)).
+- **Intermediate files.** GNU Make deletes a file that a chain of pattern rules made. zmake keeps it.
 - **Platforms.** zmake supports Linux. The jobserver needs `/proc`.
 
 ## Hard limits
