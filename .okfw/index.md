@@ -9,6 +9,7 @@ okf_version: "0.2"
 ## Subdirectories
 
 * [architecture/](architecture/)
+* [daily/](daily/)
 * [decisions/](decisions/)
 * [issues/](issues/)
 * [specs/](specs/)

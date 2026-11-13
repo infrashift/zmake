@@ -15,8 +15,6 @@ description: "Phase 3: variable flavors, immediate and deferred expansion, autom
 
 # ISSUE-003: Two-phase variable evaluator and target classification
 
-# ISSUE-003: Two-phase variable evaluator and target classification
-
 **Status/Phase:** Open · Phase 3
 
 ## Description

@@ -22,10 +22,10 @@ Loop: implement → `make lint test` → repeat until green → update the wiki 
 
 ## Phase 1 — Scaffolding, AST and input file discovery
 Tracking: [ISSUE-001](.okfw/issues/issue-001-scaffolding-ast-and-input-file-discovery--01a1d30ae68d.md)
-- [ ] `build.zig` with the steps `install`, `test` and `acceptance`; `build.zig.zon` pins Zig 0.17.1
-- [ ] `src/ast.zig`: `SyntaxMode`, `TargetKind`, `VariableFlavor`, `Variable`, `RecipeLine`, `Rule`, `Makefile`, hard limits
-- [ ] `src/main.zig`: input file discovery, mode selection and the CLI options
-- [ ] Unit tests for the AST and the discovery
+- [x] `build.zig` with the steps `install`, `test` and `acceptance`; `build.zig.zon` pins Zig 0.17.1
+- [x] `src/ast.zig`: `SyntaxMode`, `TargetKind`, `VariableFlavor`, `Variable`, `RecipeLine`, `Rule`, `Makefile`, hard limits
+- [x] `src/main.zig`: input file discovery, mode selection and the CLI options
+- [x] Unit tests for the AST and the discovery
 
 ## Phase 2 — Context-sensitive lexer and dual-mode parser
 Tracking: [ISSUE-002](.okfw/issues/issue-002-context-sensitive-lexer-and-dual-mode-parser--01a1d30ae694.md)

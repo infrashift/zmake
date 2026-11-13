@@ -12,8 +12,6 @@ description: "The zmake command line: options, input file discovery, variable ov
 
 # CLI contract
 
-# CLI contract
-
 **Status:** Draft. [ISSUE-001](/issues/issue-001-scaffolding-ast-and-input-file-discovery--01a1d30ae68d.md) and [ISSUE-005](/issues/issue-005-parallel-executor-and-gnu-make-jobserver--01a1d30ae6a7.md) build it in `src/main.zig`.
 
 ## Usage

@@ -13,8 +13,6 @@ description: "How zmake selects legacy or modern mode, which recipe indentation 
 
 # Syntax modes and target kinds
 
-# Syntax modes and target kinds
-
 **Status:** Draft. [ISSUE-002](/issues/issue-002-context-sensitive-lexer-and-dual-mode-parser--01a1d30ae694.md) and [ISSUE-003](/issues/issue-003-two-phase-variable-evaluator-and-target-classification--01a1d30ae69a.md) implement it. [ADR-0004](/decisions/adr-0004-modern-mode-declares-tasks-and-infers-phony-targets--01a1d30ae682.md) records the design.
 
 ## Mode selection

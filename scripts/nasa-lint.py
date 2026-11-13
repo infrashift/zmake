@@ -8,9 +8,11 @@ ADR-0003 adapts the rules to Zig. This script checks:
   R5  an average of 2 or more assertions per function
   R7  no swallowed errors (`catch {}`), no `catch unreachable`, no discarded call results
   R9  no function pointer types of our own (`*const fn`)
-Test blocks are exempt. Suppress one finding with a comment on the same line or
+Test blocks and test helpers (a name that starts with `test` or ends with `Test`)
+are exempt. Suppress one finding with a comment on the same line or
 the line above: `// nasa-lint: allow(R7) <reason>`.
-Run from the repository root: python3 -I scripts/nasa-lint.py
+Run from the repository root: python3 -I scripts/nasa-lint.py [--verbose]
+With --verbose, the script lists each function with fewer than 2 assertions.
 """
 import pathlib
 import re
@@ -27,6 +29,7 @@ ASSERT_RE = re.compile(r"\bassert\s*\(")
 LINE_RULES = [
     ("R2", re.compile(r"\bwhile\s*\(\s*true\s*\)"), "unbounded loop `while (true)`"),
     ("R7", re.compile(r"\bcatch\s*\{\s*\}"), "swallowed error `catch {}`"),
+    ("R7", re.compile(r"\belse\s*\|_\|\s*\{\s*\}"), "swallowed error `else |_| {}`"),
     ("R7", re.compile(r"\bcatch\s+unreachable\b"), "`catch unreachable` hides an error"),
     ("R7", re.compile(r"^\s*_\s*=\s*(?:try\s+)?[\w.]+\s*\("), "discarded call result `_ = f(...)`"),
     ("R9", re.compile(r"\*\s*const\s+fn\b|\*\s*fn\s*\("), "function pointer type"),
@@ -82,7 +85,7 @@ def scan_file(path):
     fns = []
     for i, c in enumerate(code):
         m = FN_RE.match(c)
-        if not m or i in test_lines:
+        if not m or i in test_lines or is_test_helper(m.group(1)):
             continue
         open_idx = body_open(code, i)
         if open_idx is None:
@@ -90,6 +93,10 @@ def scan_file(path):
         end = block_end(code, open_idx)
         fns.append({"name": m.group(1), "start": i, "end": end, "body": code[open_idx + 1:end]})
     return lines, code, test_lines, imports, fns
+
+
+def is_test_helper(name):
+    return name.startswith("test") or name.endswith("Test")
 
 
 def calls_of(fn, imports, local_names, file_name):
@@ -139,6 +146,7 @@ def main():
     root = pathlib.Path.cwd()
     errors, total_fns, total_asserts = [], 0, 0
     graph, where = {}, {}
+    verbose = "--verbose" in sys.argv[1:]
 
     def err(path, line, rule, msg):
         errors.append(f"{path.relative_to(root)}:{line + 1}: {rule}: {msg}")
@@ -154,7 +162,10 @@ def main():
         local = {f["name"] for f in fns}
         for f in fns:
             total_fns += 1
-            total_asserts += sum(len(ASSERT_RE.findall(c)) for c in f["body"])
+            n_asserts = sum(len(ASSERT_RE.findall(c)) for c in f["body"])
+            total_asserts += n_asserts
+            if verbose and n_asserts < MIN_ASSERT_AVG:
+                print(f"{path.relative_to(root)}:{f['start'] + 1}: info: fn {f['name']} has {n_asserts} assertion(s)")
             length = f["end"] - f["start"] + 1
             if length > MAX_FN_LINES and not suppressed(lines, f["start"], "R4"):
                 err(path, f["start"], "R4", f"fn {f['name']} has {length} lines (max {MAX_FN_LINES})")

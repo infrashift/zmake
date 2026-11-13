@@ -13,8 +13,6 @@ description: "Modern mode removes .PHONY boilerplate with @name/task syntax and 
 
 # ADR-0004: Modern mode declares tasks and infers phony targets
 
-# ADR-0004: Modern mode declares tasks and infers phony targets
-
 **Status:** Accepted
 **Date:** 2026-11-12
 **Source:** `PLAN.md` sections 1 and 4

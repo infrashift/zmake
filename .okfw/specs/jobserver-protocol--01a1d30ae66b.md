@@ -13,8 +13,6 @@ description: "The GNU Make compatible token protocol that zmake serves and joins
 
 # Jobserver protocol
 
-# Jobserver protocol
-
 **Status:** Draft. [ISSUE-005](/issues/issue-005-parallel-executor-and-gnu-make-jobserver--01a1d30ae6a7.md) implements it in `src/jobserver.zig`.
 
 ## Tokens

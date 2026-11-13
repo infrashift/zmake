@@ -16,8 +16,6 @@ description: "Phase 2: logical lines, recipe detection per mode, assignments, ru
 
 # ISSUE-002: Context-sensitive lexer and dual-mode parser
 
-# ISSUE-002: Context-sensitive lexer and dual-mode parser
-
 **Status/Phase:** Open · Phase 2
 
 ## Description

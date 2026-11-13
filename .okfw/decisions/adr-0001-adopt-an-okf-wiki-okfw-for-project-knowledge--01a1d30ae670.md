@@ -13,8 +13,6 @@ description: "An okfw-managed OKF wiki in .okfw/ holds zmake project knowledge: 
 
 # ADR-0001: Adopt an OKF wiki (okfw) for project knowledge
 
-# ADR-0001: Adopt an OKF wiki (okfw) for project knowledge
-
 **Status:** Accepted
 **Date:** 2026-11-12
 **Source:** User request, `CLAUDE.md`

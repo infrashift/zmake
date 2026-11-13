@@ -16,8 +16,6 @@ description: "Phase 5: out-of-date checks, recipe execution, -j scheduling, the 
 
 # ISSUE-005: Parallel executor and GNU Make jobserver
 
-# ISSUE-005: Parallel executor and GNU Make jobserver
-
 **Status/Phase:** Open · Phase 5
 
 ## Description

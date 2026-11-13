@@ -13,8 +13,6 @@ description: "zmake targets Zig 0.17.1 with no dependencies outside the standard
 
 # ADR-0002: Zig 0.17.1, standard library only, Linux first
 
-# ADR-0002: Zig 0.17.1, standard library only, Linux first
-
 **Status:** Accepted
 **Date:** 2026-11-12
 **Source:** `PLAN.md` section 1, user decision during planning

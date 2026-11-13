@@ -1,0 +1,10 @@
+//! zmake library root. The executable and the tests import the modules from here.
+
+pub const ast = @import("ast.zig");
+pub const cli = @import("cli.zig");
+pub const diag = @import("diag.zig");
+pub const Diagnostic = diag.Diagnostic;
+
+test {
+    @import("std").testing.refAllDecls(@This());
+}

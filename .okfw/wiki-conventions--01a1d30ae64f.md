@@ -12,13 +12,12 @@ description: "Layout, writing style and authoring rules for architecture notes, 
 
 # Wiki conventions
 
-# Wiki conventions
-
 This guide defines how the zmake OKF wiki (`.okfw/`) stores project knowledge.
 
 - Create concepts with `okfw create` or the okfw MCP `create` tool. Do not write frontmatter by hand.
 - Search before you write. Link to related concepts.
 - Keep one idea per concept. Give each concept a one-sentence `description`.
+- Do not start a `--body` with `# Title`. okfw writes the H1 from the title.
 
 ## Layout
 | Path | Type | Contents |

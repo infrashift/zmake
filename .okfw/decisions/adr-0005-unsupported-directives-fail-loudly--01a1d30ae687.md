@@ -13,8 +13,6 @@ description: "The parser rejects include, conditionals, define, export and vpath
 
 # ADR-0005: Unsupported directives fail loudly
 
-# ADR-0005: Unsupported directives fail loudly
-
 **Status:** Accepted
 **Date:** 2026-11-12
 **Source:** Implementation plan

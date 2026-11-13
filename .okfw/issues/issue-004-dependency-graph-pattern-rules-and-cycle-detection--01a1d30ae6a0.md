@@ -15,8 +15,6 @@ description: "Phase 4: goal resolution through explicit rules, pattern rules and
 
 # ISSUE-004: Dependency graph, pattern rules and cycle detection
 
-# ISSUE-004: Dependency graph, pattern rules and cycle detection
-
 **Status/Phase:** Open · Phase 4
 
 ## Description

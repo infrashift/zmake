@@ -12,8 +12,6 @@ description: "The zmake pipeline from input file to shell: modules, data flow, m
 
 # zmake architecture overview
 
-# zmake architecture overview
-
 **Status:** Draft. Phases 1–5 build it. See [ISSUE-001](/issues/issue-001-scaffolding-ast-and-input-file-discovery--01a1d30ae68d.md) to [ISSUE-005](/issues/issue-005-parallel-executor-and-gnu-make-jobserver--01a1d30ae6a7.md).
 
 ## Pipeline
@@ -26,7 +24,9 @@ input file → lexer → parser → AST → evaluator → DAG → executor → /
 ## Modules
 | Module | Responsibility |
 |---|---|
-| `src/main.zig` | Parses the arguments. Finds the input file. Selects the syntax mode. Prints errors and sets the exit code. |
+| `src/main.zig` | Calls the library modules in sequence. Prints errors and sets the exit code. |
+| `src/cli.zig` | Parses the options and `VAR=value` overrides. Selects the input file and its syntax mode. |
+| `src/diag.zig` | Holds a fixed-size error message. Zig errors carry no payload, so each module writes the text here. |
 | `src/ast.zig` | Holds the data types: `SyntaxMode`, `TargetKind`, `VariableFlavor`, `Variable`, `RecipeLine`, `Rule`, `Makefile`. |
 | `src/lexer.zig` | Splits the input file into logical lines. Joins continuations, strips comments and marks recipe lines. |
 | `src/parser.zig` | Turns logical lines into rules, assignments and special targets. Applies the mode-specific syntax. |

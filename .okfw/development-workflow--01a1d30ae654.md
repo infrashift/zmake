@@ -13,8 +13,6 @@ description: "The loop for each zmake phase: implement, lint, verify until green
 
 # Development workflow
 
-# Development workflow
-
 Every change follows this loop. Do not report or commit work while a gate fails.
 
 1. **Pick the phase.** Read `PLAN.md`. Take the first unchecked phase. Find its mirror issue with `okfw search --path issues --tag open`.
