@@ -626,5 +626,38 @@ expect_has "a static pattern rule gives the stem" "cc src/lib/str.c -> build/lib
 expect_has "a target outside the pattern gives a warning" "M2:2: target 'x.y' doesn't match the target pattern" "$out"
 expect_has "a target pattern without % stops" "M6:1: *** target pattern contains no '%'.  Stop." "$out"
 
+scenario "22. The version line (ISSUE-023)"
+# No input file here: -v and --version exit before zmake reads one.
+out=$("$ZMAKE" --version 2>"$PWD/err"); code=$?
+expect_eq "--version exits 0" "0" "$code"
+expect_eq "--version writes nothing to stderr" "" "$(cat err)"
+expect_eq "--version prints one line" "1" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')"
+if printf '%s\n' "$out" | grep -Eq '^zmake [0-9]+\.[0-9]+\.[0-9]+ \((([0-9a-f]{40}|[0-9a-f]{64})(-dirty)?|unknown)\)$'; then
+  pass "--version prints 'zmake VERSION (COMMIT)'"
+else
+  fail "--version line has the wrong form" "$out"
+fi
+version=$(sed -n 's/^ *\.version = "\(.*\)",$/\1/p' "$ROOT/build.zig.zon")
+expect_has "the version comes from build.zig.zon" "zmake $version (" "$out"
+git_head=$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)
+if [ -n "$git_head" ] && [[ "$out" != *"(unknown)" ]]; then
+  expect_has "the commit is the git HEAD of the build" "($git_head" "$out"
+fi
+expect_eq "-v prints the same line" "$out" "$("$ZMAKE" -v)"
+printf 'all:\n\t@echo ran; exit 3\n' > Makefile
+expect_eq "-v in a cluster with a goal runs no recipe" "$out|exit=0" "$("$ZMAKE" -nkv all 2>&1)|exit=$?"
+expect_eq "--version with a goal runs no recipe" "$out|exit=0" "$("$ZMAKE" all --version 2>&1)|exit=$?"
+mkdir -p g z
+cat > probe.sh <<'EOS'
+cd "$1" || exit 2
+for args in "-v" "--version" "-nv all" "-v nosuch" "-C nodir -v"; do
+  # shellcheck disable=SC2086
+  "$2" $args >/dev/null 2>err; echo "$args: exit=$? stderr=$(wc -c < err | tr -d ' ')"
+done
+EOS
+if [ -n "$GNU_MAKE" ]; then
+  expect_eq "exit codes and stderr match GNU Make" "$(bash probe.sh g "$GNU_MAKE")" "$(bash probe.sh z "$ZMAKE")"
+fi
+
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

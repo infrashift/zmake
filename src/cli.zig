@@ -104,6 +104,8 @@ pub const Options = struct {
     /// Null: the default of the system (`jobserver.default_style`).
     jobserver_style: ?JobserverStyle = null,
     help: bool = false,
+    /// `-v`, `--version`: print the version line and exit, as in GNU Make.
+    version: bool = false,
     overrides: []const Override = &.{},
     goals: []const []const u8 = &.{},
 };
@@ -128,6 +130,7 @@ pub const usage =
     \\  --modern      Use modern mode (ZMakefile syntax) for any input file.
     \\  --legacy      Use legacy mode (strict Make syntax) for any input file.
     \\  -h, --help    Print this help.
+    \\  -v, --version Print the version and the commit, then exit.
     \\
 ;
 
@@ -208,6 +211,8 @@ fn parseOption(opts: *Options, rest: []const []const u8, diag: *Diagnostic) Pars
     }
     if (std.mem.eql(u8, arg, "--help")) {
         opts.help = true;
+    } else if (std.mem.eql(u8, arg, "--version")) {
+        opts.version = true;
     } else if (std.mem.eql(u8, arg, "--modern")) {
         opts.mode = .modern;
     } else if (std.mem.eql(u8, arg, "--legacy")) {
@@ -240,6 +245,7 @@ fn parseShort(opts: *Options, rest: []const []const u8, diag: *Diagnostic) Parse
         const tail = arg[i + 1 ..];
         switch (c) {
             'h' => opts.help = true,
+            'v' => opts.version = true,
             'f', 'C' => {
                 const v = try optionValue(rest, if (tail.len > 0) tail else null, diag);
                 if (c == 'f') opts.file = v.value else opts.directory = v.value;
@@ -304,6 +310,16 @@ fn longOption(arg: []const u8, long: []const u8) ??[]const u8 {
     }
     assert(arg.len >= 2);
     return null;
+}
+
+/// The line that `--version` prints: `zmake VERSION (COMMIT)`. The build
+/// gives VERSION from `build.zig.zon` and COMMIT from git (ADR-0025).
+pub fn versionLine(arena: std.mem.Allocator, version: []const u8, commit: []const u8) error{OutOfMemory}![]const u8 {
+    assert(version.len > 0);
+    assert(commit.len > 0);
+    const line = try std.fmt.allocPrint(arena, "zmake {s} ({s})\n", .{ version, commit });
+    assert(line.len == "zmake  ()\n".len + version.len + commit.len);
+    return line;
 }
 
 fn eqlAny(arg: []const u8, names: []const []const u8) bool {
@@ -442,6 +458,27 @@ test "short option clusters and the MAKEFLAGS letters" {
     try testing.expectEqualStrings("all", with_goal.goals[0]);
     try testing.expectError(error.Usage, parseArgs(arena.allocator(), &.{"-kx"}, &diag));
     try testing.expectEqualStrings("unknown option '-x'", diag.message());
+}
+
+test "-v and --version select the version line" {
+    try testing.expect(!(try parseTest(&.{})).version);
+    try testing.expect((try parseTest(&.{"-v"})).version);
+    try testing.expect((try parseTest(&.{"--version"})).version);
+    const cluster = try parseTest(&.{ "-nv", "all" });
+    try testing.expect(cluster.version and cluster.flags.dry_run);
+    const before_j = try parseTest(&.{"-vj4"});
+    try testing.expect(before_j.version);
+    try testing.expectEqual(@as(u32, 4), before_j.jobs);
+    // `v` is not a MAKEFLAGS letter: a sub-make does not print the version.
+    var buf: [16]u8 = undefined;
+    try testing.expectEqualStrings("", (try parseTest(&.{"-v"})).flags.letters(&buf));
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    var diag: Diagnostic = .{};
+    try testing.expectError(error.Usage, parseArgs(arena.allocator(), &.{"--version=1"}, &diag));
+    try testing.expectEqualStrings("unknown option '--version=1'", diag.message());
+    const line = try versionLine(arena.allocator(), "0.1.0", "0123456789abcdef0123456789abcdef01234567-dirty");
+    try testing.expectEqualStrings("zmake 0.1.0 (0123456789abcdef0123456789abcdef01234567-dirty)\n", line);
 }
 
 test "parse errors" {

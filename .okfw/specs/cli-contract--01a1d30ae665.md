@@ -34,6 +34,9 @@ description: "The zmake command line: options, input file discovery, variable ov
 | `--modern` | Use modern mode for any input file. |
 | `--legacy` | Use legacy mode for any input file. |
 | `-h`, `--help` | Print the usage and exit. |
+| `-v`, `--version` | Print `zmake VERSION (COMMIT)` to stdout and exit 0 ([ADR-0025](/decisions/adr-0025-the-version-line-names-the-git-commit-of-the-build--01a1db9effa4.md)). |
+
+`-v` and `--version` act before zmake changes the directory or reads an input file. zmake ignores the targets and the other options, as GNU Make does. VERSION is `.version` from `build.zig.zon`. COMMIT is the full `git rev-parse HEAD` of the build, with `-dirty` for a change to a tracked file, or `unknown` without git.
 
 An argument with `=` sets a variable. A command-line variable overrides the input file and the environment.
 

@@ -31,6 +31,7 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **20. Static patterns** | Static pattern rules (`objs: %.o: %.c`) and `$\|` | Done |
 | **21. macOS acceptance** | The acceptance suite on macOS against GNU Make 4.3; exact-case file names | Done |
 | **22. FreeBSD tests** | The unit tests and the acceptance suite in a FreeBSD VM in CI | Done |
+| **23. Version line** | `-v` and `--version` print the version and the git commit of the build | Done |
 
 ## Follow-ups
 
