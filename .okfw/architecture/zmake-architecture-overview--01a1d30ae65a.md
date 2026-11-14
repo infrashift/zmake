@@ -24,7 +24,7 @@ input file → reader (lexer → parser → evaluator) → database → DAG → 
 ## Modules
 | Module | Responsibility |
 |---|---|
-| `src/main.zig` | Calls the library modules in sequence. Prints errors and sets the exit code. |
+| `src/main.zig` | Calls the library modules in sequence. Prints errors and sets the exit code. Prints the version line from the `build_options` module ([ADR-0025](/decisions/adr-0025-the-version-line-names-the-git-commit-of-the-build--01a1db9effa4.md)). |
 | `src/cli.zig` | Parses the options and `VAR=value` overrides. Selects the input file and its syntax mode. |
 | `src/diag.zig` | Holds a fixed-size error message. Zig errors carry no payload, so each module writes the text here. |
 | `src/ast.zig` | Holds the data types: `SyntaxMode`, `TargetKind`, `VariableFlavor`, `Variable`, `RecipeLine`, `Rule`, `Makefile`. |

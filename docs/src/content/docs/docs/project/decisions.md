@@ -189,3 +189,11 @@ GitHub has no FreeBSD runner. A CI job boots a FreeBSD 15.1 VM with the
 `vmactions/freebsd-vm` action, pinned to a commit. The VM gets Zig 0.17.1 and
 GNU Make 4.3 with pinned SHA-256 sums, and runs the unit tests and the
 acceptance suite.
+
+### ADR-0025: The version line names the git commit of the build
+
+`zmake -v` and `zmake --version` print `zmake VERSION (COMMIT)` and exit 0.
+VERSION comes from `build.zig.zon`. COMMIT is the full git commit at build
+time, with `-dirty` for a change to a tracked file, or `unknown` without git.
+A script can compare the commit with a pinned value. See
+[CLI](../../reference/cli/#version-line).

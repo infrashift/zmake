@@ -26,8 +26,31 @@ zmake [options] [VAR=value ...] [target ...]
 | `--modern` | Use modern mode for any input file. |
 | `--legacy` | Use legacy mode for any input file. |
 | `-h`, `--help` | Print the usage and exit. |
+| `-v`, `--version` | Print the version line and exit. |
 
 Short options can share one argument, for example `-kj4` or `-sB`.
+
+## Version line
+
+`zmake --version` and `zmake -v` write one line to standard output and exit
+with code 0. zmake reads no input file. It ignores the targets and the other
+options, as GNU Make does.
+
+```text
+zmake 0.1.0 (5f983eac74b7e97bed690ab8c13815461bfa89f6)
+```
+
+- The version comes from `.version` in `build.zig.zon`.
+- The commit is the output of `git rev-parse HEAD` when `zig build` runs.
+- A `-dirty` suffix shows that a tracked file had a change at build time. A new file that git does not track does not add the suffix.
+- A build without git or without a `.git` directory gives `unknown`, for example a build from a source tarball.
+
+A script can compare the commit with a pinned value:
+
+```sh
+commit=$(zmake --version | sed -n 's/^zmake [^ ]* (\(.*\))$/\1/p')
+[ "$commit" = "$pinned" ] || echo "zmake is not at $pinned"
+```
 
 An argument with `=` sets a variable. A command-line variable overrides the
 input file and the environment.

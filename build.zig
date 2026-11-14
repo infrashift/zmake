@@ -11,13 +11,21 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    // `zmake --version` prints the package version and the git commit (ADR-0025).
+    const build_options = b.addOptions();
+    build_options.addOption([]const u8, "version", @import("build.zig.zon").version);
+    build_options.addOption([]const u8, "commit", gitCommit(b));
+
     const exe = b.addExecutable(.{
         .name = "zmake",
         .root_module = b.createModule(.{
             .root_source_file = b.path("src/main.zig"),
             .target = target,
             .optimize = optimize,
-            .imports = &.{.{ .name = "zmake", .module = mod }},
+            .imports = &.{
+                .{ .name = "zmake", .module = mod },
+                .{ .name = "build_options", .module = build_options.createModule() },
+            },
         }),
     });
     b.installArtifact(exe);
@@ -46,4 +54,28 @@ pub fn build(b: *std.Build) void {
     acceptance.addArtifactArg(exe);
     acceptance.has_side_effects = true;
     b.step("acceptance", "Run the end-to-end scenarios against the binary").dependOn(&acceptance.step);
+}
+
+/// The commit of the work tree: `git rev-parse HEAD`, plus `-dirty` when a
+/// tracked file has a change. `unknown` when git or `.git` is not available,
+/// for example in a source tarball. The build never fails here.
+fn gitCommit(b: *std.Build) []const u8 {
+    // The result depends on the git state, which the configure cache cannot
+    // track. Run the configure phase on each `zig build`.
+    b.graph.poisonCache();
+    // Without this check, git finds a parent repository of an unpacked tarball.
+    b.root.access(b.graph.io, ".git", .{}) catch return "unknown";
+    const root = b.root.joinString(b.allocator, ".") catch @panic("OOM");
+    const head = switch (b.runFallible(&.{ "git", "-C", root, "rev-parse", "HEAD" }, .{ .stderr_behavior = .ignore })) {
+        .success => |out| std.mem.trim(u8, out, " \t\r\n"),
+        else => return "unknown",
+    };
+    if (head.len != 40 and head.len != 64) return "unknown";
+    for (head) |c| if (!std.ascii.isHex(c)) return "unknown";
+    const status = switch (b.runFallible(&.{ "git", "-C", root, "status", "--porcelain", "--untracked-files=no" }, .{ .stderr_behavior = .ignore })) {
+        .success => |out| out,
+        else => return "unknown",
+    };
+    if (status.len == 0) return head;
+    return b.fmt("{s}-dirty", .{head});
 }

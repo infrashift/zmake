@@ -56,7 +56,12 @@ zmake [options] [VAR=value ...] [target ...]
               The style of a new jobserver. Default: pipe on Linux, fifo elsewhere.
   --modern    Use modern mode for any input file.
   --legacy    Use legacy mode for any input file.
+  -h, --help  Print the usage and exit.
+  -v, --version
+              Print the version and the commit, then exit.
 ```
+
+`zmake --version` prints one line, for example `zmake 0.1.0 (5f983ea...)`. VERSION comes from `build.zig.zon`. COMMIT is the full git commit of the build. A `-dirty` suffix shows a change to a tracked file. A build outside a git work tree gives `unknown`.
 
 zmake serves and joins the GNU Make jobserver. A recursive `$(MAKE)` and a parent GNU Make share one pool of jobs. zmake builds for Linux, macOS and FreeBSD.
 

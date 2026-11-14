@@ -146,13 +146,19 @@ Tracking: [ISSUE-021](.okfw/issues/issue-021-acceptance-suite-on-macos--01a1d4db
 Tracking: [ISSUE-022](.okfw/issues/issue-022-test-runs-on-freebsd--01a1d4ee3b4d.md) · [ADR-0024](.okfw/decisions/adr-0024-ci-runs-the-tests-in-a-freebsd-vm--01a1d4ff5f9a.md)
 - [x] CI runs the unit tests and the acceptance suite in a FreeBSD VM
 
+## Phase 23 — Version line
+Tracking: [ISSUE-023](.okfw/issues/issue-023-version-line--01a1db9eee01.md) · [ADR-0025](.okfw/decisions/adr-0025-the-version-line-names-the-git-commit-of-the-build--01a1db9effa4.md)
+- [x] `-v` and `--version` print `zmake VERSION (COMMIT)` and exit 0 before zmake reads an input file
+- [x] `build.zig` gives the version from `build.zig.zon` and the git commit, with `-dirty` or `unknown`
+- [x] Unit tests and acceptance scenario 22
+
 ## Acceptance scenarios
 1. **The `build/` directory (modern mode).** Create `./build` and a `ZMakefile` with a `build:` rule. `zmake build` runs the recipe.
 2. **Explicit task (modern mode).** Declare `@deploy: build` with 4-space indentation. `zmake deploy` runs `build`, then `deploy`.
 3. **Strict legacy compatibility.** A `Makefile` with `.PHONY: clean`, `CC := gcc`, `%.o: %.c`, `$@` and `$<` compiles only dirty objects.
 
 ## Follow-ups
-Phases 8 to 22 cover the earlier follow-ups. Open:
+Phases 8 to 23 cover the earlier follow-ups. Open:
 - None. New follow-ups get an issue in `.okfw/issues/` and a line here.
 
 Outside the scope:

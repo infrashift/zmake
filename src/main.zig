@@ -5,6 +5,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Io = std.Io;
 const zmake = @import("zmake");
+const build_options = @import("build_options");
 
 pub fn main(init: std.process.Init) void {
     const code = run(init);
@@ -36,10 +37,14 @@ fn runChecked(init: std.process.Init) Reported!void {
         error.OutOfMemory => return report(io, "out of memory"),
     };
     assert(opts.jobs >= 1 and opts.jobs <= zmake.ast.limits.jobs_max);
-    if (opts.help) {
-        writeAll(io, Io.File.stdout(), zmake.cli.usage);
-        return;
+    // As in GNU Make: `-v` prints the version before the help, and both exit
+    // before zmake reads an input file.
+    if (opts.version) {
+        const line = zmake.cli.versionLine(arena, build_options.version, build_options.commit) catch return report(io, "out of memory");
+        writeAll(io, Io.File.stdout(), line);
     }
+    if (opts.help) writeAll(io, Io.File.stdout(), zmake.cli.usage);
+    if (opts.version or opts.help) return;
     if (opts.directory) |dir| {
         std.process.setCurrentPath(io, dir) catch |err| {
             diag.set("*** {s}: {s}.  Stop.", .{ dir, @errorName(err) });
@@ -252,4 +257,16 @@ fn reportUsage(io: Io, message: []const u8) Reported {
 fn writeAll(io: Io, file: Io.File, bytes: []const u8) void {
     assert(bytes.len > 0);
     file.writeStreamingAll(io, bytes) catch return;
+}
+
+test "the build gives the version and a commit" {
+    const testing = std.testing;
+    // `build.zig` copies `.version` from `build.zig.zon`, a semantic version.
+    const version = try std.SemanticVersion.parse(build_options.version);
+    try testing.expect(version.major > 0 or version.minor > 0);
+    const commit = build_options.commit;
+    const hash = if (std.mem.endsWith(u8, commit, "-dirty")) commit[0 .. commit.len - "-dirty".len] else commit;
+    if (std.mem.eql(u8, commit, "unknown")) return;
+    try testing.expect(hash.len == 40 or hash.len == 64);
+    for (hash) |c| try testing.expect(std.ascii.isHex(c));
 }

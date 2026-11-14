@@ -6,4 +6,5 @@
 
 * [2026-11-12 Thursday](2026-11-12-thursday--01a1d30f54cc.md)
 * [2026-11-13 Friday](2026-11-13-friday--01a1d2343800.md)
+* [2026-11-14 Saturday](2026-11-14-saturday--01a1db9f73f0.md)
 
