@@ -46,6 +46,7 @@ The user requires the Power of 10 rules where possible. The rules target C. A Ma
 - Test blocks and test helpers are exempt from R4 and R5. A test helper has a name that starts with `test` or ends with `Test`.
 - `nasa-lint.py --verbose` lists each function with fewer than two assertions.
 - Assertions check programmer errors only. zmake reports bad input with an error, not with an assertion.
+- `nasa-lint.py` is also the Zig oracle of semscope, and the two copies stay byte-identical. On 2026-11-17, semscope fixed the defects that the Zig standard library showed. R1 keys a function by its file path and its container, for example `Mutable.toFloat`, and resolves a plain call through the lexical scopes. Each line counts for the innermost function. The R7 rules read across lines. On zmake `src/`, the result did not change.
 
 ## Alternatives considered
 - **Recursive expansion with a depth counter.** Rejected: R1 forbids recursion. A depth counter does not make a call graph acyclic.
