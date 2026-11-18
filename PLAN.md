@@ -152,6 +152,12 @@ Tracking: [ISSUE-023](.okfw/issues/issue-023-version-line--01a1db9eee01.md) · [
 - [x] `build.zig` gives the version from `build.zig.zon` and the git commit, with `-dirty` or `unknown`
 - [x] Unit tests and acceptance scenario 22
 
+## Phase 24 — semscope in the lint target
+Tracking: [ISSUE-024](.okfw/issues/issue-024-semscope-in-the-lint-target--01a1ec7f6983.md) · [ADR-0026](.okfw/decisions/adr-0026-semscope-checks-the-power-of-10-rules--01a1ec7f697a.md)
+- [x] `make lint` and `zmake lint` run semscope with `nasa-p10` on `src/` when semscope is on the `PATH`, else `scripts/nasa-lint.py`
+- [x] `.semscope.cue` turns off NASA-P10-03 (the arena deviation of ADR-0003)
+- [x] Remove the `@ptrCast` of `src/jobserver.zig` that semscope found (R10)
+
 ## Acceptance scenarios
 1. **The `build/` directory (modern mode).** Create `./build` and a `ZMakefile` with a `build:` rule. `zmake build` runs the recipe.
 2. **Explicit task (modern mode).** Declare `@deploy: build` with 4-space indentation. `zmake deploy` runs `build`, then `deploy`.

@@ -44,8 +44,9 @@ The code follows the NASA/JPL Power of 10 rules, adapted to Zig
 - Write two or more `assert` calls per function on average.
 - Do not add function pointers, vtables or factories.
 
-`make lint` runs `scripts/nasa-lint.py`. A suppression needs a reason:
-`// nasa-lint: allow(R4) <reason>`.
+`make lint` runs semscope with the `nasa-p10` ruleset. Without semscope on
+the `PATH`, it runs `scripts/nasa-lint.py`. A suppression needs a reason:
+`// semscope: allow(NASA-P10-04) <reason>` or `// nasa-lint: allow(R4) <reason>`.
 
 ## Writing style
 

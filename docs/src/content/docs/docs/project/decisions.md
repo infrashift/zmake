@@ -197,3 +197,10 @@ VERSION comes from `build.zig.zon`. COMMIT is the full git commit at build
 time, with `-dirty` for a change to a tracked file, or `unknown` without git.
 A script can compare the commit with a pinned value. See
 [CLI](../../reference/cli/#version-line).
+
+### ADR-0026: semscope checks the Power of 10 rules
+
+`make lint` runs semscope with the `nasa-p10` ruleset on `src/`. semscope
+checks all ten rules. Without semscope on the `PATH`, the task runs
+`scripts/nasa-lint.py`, which checks six rules. CI uses this path until it can
+install semscope.

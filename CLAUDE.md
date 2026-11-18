@@ -26,7 +26,7 @@ zmake is a Make-compatible build tool in Zig. It ships as one static binary. It 
 `Makefile` (GNU Make) and `ZMakefile` (zmake, modern mode) have the same targets. Change both together: acceptance scenario 8 compares them ([ADR-0010](.okfw/decisions/adr-0010-keep-a-modern-mode-zmakefile-next-to-the-makefile--01a1d348f8d1.md)).
 
 Run these targets after every change:
-- `make lint` → `zig fmt --check` and `scripts/nasa-lint.py`
+- `make lint` → `zig fmt --check` and `semscope scan -r nasa-p10 -r .semscope.cue src`, or `scripts/nasa-lint.py` without semscope ([ADR-0026](.okfw/decisions/adr-0026-semscope-checks-the-power-of-10-rules--01a1ec7f697a.md))
 - `make test` → `zig build test`
 - `make build` → `zig build`
 - `make acceptance` → `zig build acceptance` (end-to-end scenarios against the binary)

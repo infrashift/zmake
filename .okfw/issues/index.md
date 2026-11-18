@@ -27,4 +27,5 @@
 * [ISSUE-021: Acceptance suite on macOS](issue-021-acceptance-suite-on-macos--01a1d4dbc5ce.md) - CI builds GNU Make 4.3 on macOS and runs the acceptance suite there; the script uses only portable commands.
 * [ISSUE-022: Test runs on FreeBSD](issue-022-test-runs-on-freebsd--01a1d4ee3b4d.md) - A CI job runs the unit tests and the acceptance suite in a FreeBSD VM, with pinned downloads and a pinned VM action.
 * [ISSUE-023: Version line](issue-023-version-line--01a1db9eee01.md) - zmake -v and zmake --version print zmake VERSION (COMMIT) and exit 0, so a script can check the commit of an installed binary.
+* [ISSUE-024: semscope in the lint target](issue-024-semscope-in-the-lint-target--01a1ec7f6983.md) - make lint runs semscope with the nasa-p10 ruleset when it is installed, and falls back to scripts/nasa-lint.py.
 

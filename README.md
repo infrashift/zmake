@@ -82,7 +82,7 @@ zmake stops with an error for features outside this list, for example `load`, `.
 ## Development
 Run `make check` or `zmake check`. GNU Make reads the `Makefile`. zmake reads the `ZMakefile`, which has the same targets in modern mode. The gates are:
 
-- `make lint`: `zig fmt --check` and `scripts/nasa-lint.py`, which checks the NASA Power of 10 rules
+- `make lint`: `zig fmt --check` and semscope, which checks the NASA Power of 10 rules. Without semscope on the `PATH`, `scripts/nasa-lint.py` checks six of the rules
 - `make test`: the unit tests and the mode tests
 - `make acceptance`: the end-to-end scenarios, with a comparison against GNU Make
 - `make cross`: builds for macOS and FreeBSD on arm64 and x86_64

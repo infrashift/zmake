@@ -2,6 +2,7 @@
 
 ZIG ?= zig
 PYTHON ?= python3
+SEMSCOPE ?= semscope
 ZIG_SOURCES := build.zig src tests
 
 .PHONY: all build test lint fmt acceptance cross wiki docs-style docs-demo docs-dev docs-build check
@@ -16,10 +17,10 @@ build:
 test:
 	$(ZIG) build test --summary all
 
-## lint: check the formatting and the Power of 10 rules
+## lint: check the formatting and the Power of 10 rules (semscope, else scripts/nasa-lint.py)
 lint:
 	$(ZIG) fmt --check $(ZIG_SOURCES)
-	$(PYTHON) -I scripts/nasa-lint.py
+	if command -v $(SEMSCOPE) >/dev/null 2>&1; then $(SEMSCOPE) scan -r nasa-p10 -r .semscope.cue --fail-level warning src; else echo "lint: $(SEMSCOPE) not found, so scripts/nasa-lint.py checks the rules"; $(PYTHON) -I scripts/nasa-lint.py; fi
 
 ## fmt: format the Zig sources in place
 fmt:
