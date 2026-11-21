@@ -30,6 +30,8 @@ zmake [options] [VAR=value ...] [target ...]
 
 Short options can share one argument, for example `-kj4` or `-sB`.
 
+`man zmake` shows the same options. See [Manual Pages](../man-pages/).
+
 ## Version line
 
 `zmake --version` and `zmake -v` write one line to standard output and exit

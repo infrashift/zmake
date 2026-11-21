@@ -8,4 +8,5 @@
 * [2026-11-13 Friday](2026-11-13-friday--01a1d2343800.md)
 * [2026-11-14 Saturday](2026-11-14-saturday--01a1db9f73f0.md)
 * [2026-11-17 Tuesday](2026-11-17-tuesday--01a1ebf491df.md)
+* [2026-11-19 Thursday](2026-11-19-thursday--01a1f11a6000.md)
 

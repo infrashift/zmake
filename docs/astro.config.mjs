@@ -53,6 +53,7 @@ export default defineConfig({
 					label: 'Reference',
 					items: [
 						{ label: 'CLI', slug: 'docs/reference/cli' },
+						{ label: 'Manual Pages', slug: 'docs/reference/man-pages' },
 						{ label: 'Functions', slug: 'docs/reference/functions' },
 						{ label: 'Compatibility', slug: 'docs/reference/compatibility' },
 						{ label: 'Make Targets', slug: 'docs/reference/make-targets' },

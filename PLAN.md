@@ -158,6 +158,14 @@ Tracking: [ISSUE-024](.okfw/issues/issue-024-semscope-in-the-lint-target--01a1ec
 - [x] `.semscope.cue` turns off NASA-P10-03 (the arena deviation of ADR-0003)
 - [x] Remove the `@ptrCast` of `src/jobserver.zig` that semscope found (R10)
 
+## Phase 25 — Man pages
+Tracking: [ISSUE-025](.okfw/issues/issue-025-man-pages--01a1f58f83e7.md) · [ADR-0027](.okfw/decisions/adr-0027-man-pages-are-mdoc-files-installed-under-the-prefix--01a1f58f63a3.md)
+- [x] `man/zmake.1` and `man/zmakefile.5` in mdoc
+- [x] `zig build -p PREFIX` installs them in `PREFIX/share/man`, so `-p ~/.local` needs no `MANPATH` change
+- [x] `make lint` checks the macros, and `scripts/ste-check.py` checks the text
+- [x] Acceptance scenario 23: the options of `--help` are in `zmake(1)`, and `man -w` finds both pages through `PATH`
+- [x] A Manual Pages page on the docs site; the install steps use `-p ~/.local`
+
 ## Acceptance scenarios
 1. **The `build/` directory (modern mode).** Create `./build` and a `ZMakefile` with a `build:` rule. `zmake build` runs the recipe.
 2. **Explicit task (modern mode).** Declare `@deploy: build` with 4-space indentation. `zmake deploy` runs `build`, then `deploy`.

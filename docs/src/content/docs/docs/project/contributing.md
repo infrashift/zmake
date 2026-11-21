@@ -8,6 +8,7 @@ description: The zmake development loop, the Power of 10 rules, the writing styl
 - Zig 0.17.1
 - GNU Make, for the acceptance comparison
 - Python 3, for the lint scripts
+- mandoc or groff, for the man page lint
 - `okfw`, for the project wiki
 - bun 1.3.9, for this site only
 
@@ -57,7 +58,20 @@ includes this site, the wiki, `README.md` and `PLAN.md`.
 - Keep a descriptive sentence at 25 words or fewer, and a procedural step at 20 or fewer.
 - Do not use words such as `should`, `will`, `just` or `simply`.
 
-`make docs-style` runs `scripts/ste-check.py` on every page.
+`make docs-style` runs `scripts/ste-check.py` on every page. It also checks
+the text of the man pages in `man/`.
+
+## Man pages
+
+`man/zmake.1` and `man/zmakefile.5` use the mdoc macros
+([ADR-0027](../decisions/#adr-0027-man-pages-are-mdoc-files-installed-under-the-prefix)).
+Update them in the same commit as the change:
+
+- A new or changed option of the command line changes `man/zmake.1`. Acceptance scenario 23 fails when `zmake --help` shows an option that `man/zmake.1` does not have.
+- A change to the modern-mode syntax changes `man/zmakefile.5`.
+
+`make lint` checks the macros. To read a page before you install it, run
+`man ./man/zmake.1`.
 
 ## The project wiki
 

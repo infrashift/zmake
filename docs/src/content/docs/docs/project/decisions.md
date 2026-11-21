@@ -204,3 +204,10 @@ A script can compare the commit with a pinned value. See
 checks all ten rules. Without semscope on the `PATH`, the task runs
 `scripts/nasa-lint.py`, which checks six rules. CI uses this path until it can
 install semscope.
+
+### ADR-0027: Man pages are mdoc files installed under the prefix
+
+The man pages `zmake(1)` and `zmakefile(5)` are mdoc files in `man/`. No tool
+generates them. `zig build` installs them in `share/man` under the prefix of
+the binary. The recommended prefix is `~/.local`. `man` on Linux, macOS and
+FreeBSD then finds the pages through `PATH`, with no `MANPATH` change.

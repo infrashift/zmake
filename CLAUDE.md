@@ -18,6 +18,7 @@ zmake is a Make-compatible build tool in Zig. It ships as one static binary. It 
 - `src/root.zig` exports the library modules for the tests.
 - `src/` holds the modules: `ast`, `lexer`, `parser`, `eval`, `dag`, `executor`, `jobserver`. `dircache` checks the exact case of file names on macOS.
 - `tests/` holds the mode tests (`legacy_test.zig`, `modern_test.zig`) and `acceptance.sh`.
+- `man/` holds the mdoc man pages `zmake.1` and `zmakefile.5`. `zig build -p PREFIX` installs them in `PREFIX/share/man` ([ADR-0027](.okfw/decisions/adr-0027-man-pages-are-mdoc-files-installed-under-the-prefix--01a1f58f63a3.md)). A change to an option or to the modern syntax changes the pages too.
 - `docs/` holds the Astro Starlight site. `docs/src/content/docs/docs/` holds the pages. `docs/src/assets/` holds the logo.
 - `.github/workflows/docs-release.yml` deploys the site to https://infrashift.github.io/zmake/.
 - `scripts/` holds the lint scripts: `nasa-lint.py` (Power of 10) and `ste-check.py` (ASD-STE100).
@@ -26,7 +27,7 @@ zmake is a Make-compatible build tool in Zig. It ships as one static binary. It 
 `Makefile` (GNU Make) and `ZMakefile` (zmake, modern mode) have the same targets. Change both together: acceptance scenario 8 compares them ([ADR-0010](.okfw/decisions/adr-0010-keep-a-modern-mode-zmakefile-next-to-the-makefile--01a1d348f8d1.md)).
 
 Run these targets after every change:
-- `make lint` → `zig fmt --check` and `semscope scan -r nasa-p10 -r .semscope.cue src`, or `scripts/nasa-lint.py` without semscope ([ADR-0026](.okfw/decisions/adr-0026-semscope-checks-the-power-of-10-rules--01a1ec7f697a.md))
+- `make lint` → `zig fmt --check` and `semscope scan -r nasa-p10 -r .semscope.cue src`, or `scripts/nasa-lint.py` without semscope ([ADR-0026](.okfw/decisions/adr-0026-semscope-checks-the-power-of-10-rules--01a1ec7f697a.md)), and the man pages with mandoc or groff
 - `make test` → `zig build test`
 - `make build` → `zig build`
 - `make acceptance` → `zig build acceptance` (end-to-end scenarios against the binary)

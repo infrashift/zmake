@@ -10,16 +10,21 @@ macOS and FreeBSD. CI tests it on all three systems.
 
 1. Install Zig 0.17.1 from [ziglang.org](https://ziglang.org/download/).
 2. Clone the repository: `git clone https://github.com/infrashift/zmake`.
-3. In the `zmake` directory, run `zig build --release`.
-4. Copy `zig-out/bin/zmake` to a directory on your `PATH`.
+3. In the `zmake` directory, run `zig build --release -p ~/.local`.
+4. Put `~/.local/bin` on your `PATH`.
 
 `zig build --release` makes a `ReleaseSafe` binary. The assertions and the Zig
 safety checks stay active in the shipped binary.
 
-Check the binary:
+`-p ~/.local` installs the binary in `~/.local/bin` and the man pages in
+`~/.local/share/man`. `man` finds the pages with no change to `MANPATH`. See
+[Manual Pages](../reference/man-pages/).
+
+Check the binary and the man page:
 
 ```sh
 zmake --help
+man zmake
 ```
 
 ## Your first ZMakefile
@@ -82,3 +87,4 @@ See [Compatibility](../reference/compatibility/) for the full list.
 - [Syntax Modes](../guides/syntax-modes/): how zmake selects the mode.
 - [Tasks and Phony Inference](../guides/tasks-and-phony-inference/): the modern-mode rules.
 - [CLI](../reference/cli/): every option and exit code.
+- [Manual Pages](../reference/man-pages/): `man zmake` and `man 5 zmakefile`.

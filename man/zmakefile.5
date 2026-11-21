@@ -1,0 +1,189 @@
+.\" zmakefile(5): the input file of zmake in legacy mode and in modern mode.
+.\" Keep in sync with docs/src/content/docs/docs/guides/syntax-modes.md and
+.\" guides/tasks-and-phony-inference.md (ADR-0027).
+.Dd November 19, 2026
+.Dt ZMAKEFILE 5
+.Os zmake
+.Sh NAME
+.Nm ZMakefile ,
+.Nm Make.zig.mk
+.Nd input file of zmake in modern mode and in legacy mode
+.Sh DESCRIPTION
+.Xr zmake 1
+reads each input file in one of two modes.
+Both modes use the same expansion, the same pattern rules and the same executor.
+.Pp
+.Em Legacy mode
+keeps strict POSIX and GNU Make semantics.
+.Em Modern mode
+removes the
+.Ic .PHONY
+boilerplate and accepts recipe lines that start with spaces.
+Modern mode still reads
+.Ic .PHONY ,
+so a Makefile snippet works in a
+.Pa ZMakefile
+with no change.
+.Ss Mode selection
+.Xr zmake 1
+applies the first rule that matches:
+.Bl -enum
+.It
+Use
+.Fl -modern
+or
+.Fl -legacy
+when the command line gives one.
+.It
+Otherwise, use the basename of the
+.Fl f
+file.
+.Pa ZMakefile
+and
+.Pa Make.zig.mk
+select modern mode.
+Any other name selects legacy mode.
+.It
+Otherwise, search the directory in this order:
+.Pa ZMakefile ,
+.Pa Make.zig.mk ,
+.Pa GNUmakefile ,
+.Pa makefile ,
+.Pa Makefile .
+.El
+.Ss Recipe lines
+In legacy mode, a recipe line starts with a tab.
+A line with spaces after a rule gives the error
+.Ql missing separator .
+.Pp
+In modern mode, a recipe line starts with a tab, or with two or more spaces.
+The first indented line sets the indent of the block.
+.Xr zmake 1
+removes that indent from each line of the block.
+A non-blank line at column 0 ends the block.
+Blank lines and comment lines do not end the block.
+A recipe line with less indent than the block is an error.
+Put variable assignments at column 0.
+.Ss Tasks
+In modern mode,
+.Ic @name:
+and
+.Ic task name:
+declare a task.
+A task always runs its recipe.
+.Xr zmake 1
+never examines the disk for a task.
+In a rule with several targets, each target carries
+.Ql @ ,
+or none does.
+In legacy mode,
+.Ql @name
+and
+.Ql task
+are ordinary target names.
+.Ss Target kinds
+In modern mode,
+.Xr zmake 1
+applies the first rule that matches:
+.Bl -enum
+.It
+A task, or a target that
+.Ic .PHONY
+names, is a phony target.
+.It
+A name with
+.Ql /
+or
+.Ql \&. ,
+a pattern rule, or a recipe that refers to
+.Ql $@
+gives a file target.
+.It
+Any other target with a rule is an inferred phony target.
+.El
+.Pp
+A name with no rule is always a file.
+The scan for
+.Ql $@
+also matches
+.Ql $(@) ,
+.Ql ${@} ,
+.Ql $(@D) ,
+.Ql $(@F) ,
+.Ql ${@D}
+and
+.Ql ${@F} .
+.Pp
+In legacy mode, a target is phony when
+.Ic .PHONY
+names it.
+Any other target is a file.
+.Ss Collision warning
+An inferred phony target can have the same name as a file or a directory.
+.Xr zmake 1
+then runs the recipe and prints a warning.
+Declare the target as a task, for example
+.Ic @test: ,
+to remove the warning.
+.Ss Partial files
+After a failed recipe, legacy mode keeps a partial file target, unless
+.Ic .DELETE_ON_ERROR
+is a target.
+Modern mode deletes the partial file, unless
+.Ic .PRECIOUS
+names it.
+.Ss Directives
+Both modes accept
+.Ic ifeq ,
+.Ic ifneq ,
+.Ic ifdef ,
+.Ic ifndef ,
+.Ic else ,
+.Ic endif ,
+.Ic define ,
+.Ic override ,
+.Ic undefine ,
+.Ic include ,
+.Ic -include ,
+.Ic sinclude ,
+.Ic export ,
+.Ic unexport
+and
+.Ic vpath .
+.Xr zmake 1
+stops with an error for a feature that it does not support.
+.Sh FILES
+.Bl -tag -width Ds
+.It Pa ZMakefile , Pa Make.zig.mk
+Input files in modern mode.
+.It Pa GNUmakefile , Pa makefile , Pa Makefile
+Input files in legacy mode.
+.El
+.Sh EXAMPLES
+A
+.Pa ZMakefile
+with a task, an inferred phony target and two file targets:
+.Bd -literal -offset indent
+build:              # inferred phony target
+    $(CC) -o app main.c
+
+app: main.c         # the recipe refers to $@: a file
+    $(CC) -o $@ main.c
+
+app.tar: app        # the name has a dot: a file
+    tar -cf $@ app
+
+@deploy: app.tar    # a task
+    ./deploy.sh app.tar
+.Ed
+.Sh SEE ALSO
+.Xr make 1 ,
+.Xr zmake 1
+.Pp
+The guides
+.Dq Syntax Modes
+and
+.Dq Tasks and Phony Inference
+at
+.Lk https://infrashift.github.io/zmake/
+give more examples.

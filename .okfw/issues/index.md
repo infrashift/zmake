@@ -28,4 +28,5 @@
 * [ISSUE-022: Test runs on FreeBSD](issue-022-test-runs-on-freebsd--01a1d4ee3b4d.md) - A CI job runs the unit tests and the acceptance suite in a FreeBSD VM, with pinned downloads and a pinned VM action.
 * [ISSUE-023: Version line](issue-023-version-line--01a1db9eee01.md) - zmake -v and zmake --version print zmake VERSION (COMMIT) and exit 0, so a script can check the commit of an installed binary.
 * [ISSUE-024: semscope in the lint target](issue-024-semscope-in-the-lint-target--01a1ec7f6983.md) - make lint runs semscope with the nasa-p10 ruleset when it is installed, and falls back to scripts/nasa-lint.py.
+* [ISSUE-025: Man pages](issue-025-man-pages--01a1f58f83e7.md) - zmake ships zmake(1) and zmakefile(5), and zig build -p ~/.local installs them where man finds them on Linux, macOS and FreeBSD.
 

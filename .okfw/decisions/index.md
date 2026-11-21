@@ -30,4 +30,5 @@
 * [ADR-0024: CI runs the tests in a FreeBSD VM](adr-0024-ci-runs-the-tests-in-a-freebsd-vm--01a1d4ff5f9a.md) - A CI job boots a FreeBSD 15.1 VM with vmactions/freebsd-vm pinned to a commit and runs the unit tests and the acceptance suite against GNU Make 4.3 there.
 * [ADR-0025: The version line names the git commit of the build](adr-0025-the-version-line-names-the-git-commit-of-the-build--01a1db9effa4.md) - zmake -v and --version print zmake VERSION (COMMIT); build.zig takes VERSION from build.zig.zon and COMMIT from git, with -dirty or unknown.
 * [ADR-0026: semscope checks the Power of 10 rules](adr-0026-semscope-checks-the-power-of-10-rules--01a1ec7f697a.md) - make lint runs semscope with the nasa-p10 ruleset on src/ when semscope is installed, and scripts/nasa-lint.py when it is not.
+* [ADR-0027: Man pages are mdoc files installed under the prefix](adr-0027-man-pages-are-mdoc-files-installed-under-the-prefix--01a1f58f63a3.md) - zmake(1) and zmakefile(5) are hand-written mdoc files in man/ that zig build installs in PREFIX/share/man, so a ~/.local prefix needs no MANPATH change.
 

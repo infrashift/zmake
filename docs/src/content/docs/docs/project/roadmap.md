@@ -32,6 +32,8 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **21. macOS acceptance** | The acceptance suite on macOS against GNU Make 4.3; exact-case file names | Done |
 | **22. FreeBSD tests** | The unit tests and the acceptance suite in a FreeBSD VM in CI | Done |
 | **23. Version line** | `-v` and `--version` print the version and the git commit of the build | Done |
+| **24. semscope** | `make lint` checks the ten Power of 10 rules with semscope | Done |
+| **25. Man pages** | `zmake(1)` and `zmakefile(5)`, installed under the `zig build` prefix | Done |
 
 ## Follow-ups
 

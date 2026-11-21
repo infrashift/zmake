@@ -34,8 +34,13 @@ Modern mode still reads `.PHONY`, so Makefile snippets work with no change.
 
 ## Build
 1. Install Zig 0.17.1.
-2. Run `zig build --release` for a `ReleaseSafe` binary. Assertions stay active.
-3. Copy `zig-out/bin/zmake` to a directory on your `PATH`.
+2. Run `zig build --release -p ~/.local` for a `ReleaseSafe` binary. Assertions stay active.
+3. Put `~/.local/bin` on your `PATH`.
+
+The `-p ~/.local` prefix installs `bin/zmake` and the man pages in
+`share/man`. Then `man zmake` and `man 5 zmakefile` work with no change to
+`MANPATH`, because `man` searches the `share/man` directory next to each `bin`
+directory on the `PATH`. See [Manual Pages](https://infrashift.github.io/zmake/docs/reference/man-pages/).
 
 ## Usage
 ```text
