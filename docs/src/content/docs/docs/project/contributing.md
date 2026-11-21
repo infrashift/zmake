@@ -73,6 +73,24 @@ Update them in the same commit as the change:
 `make lint` checks the macros. To read a page before you install it, run
 `man ./man/zmake.1`.
 
+## Release a version
+
+A push of a tag `vX.Y.Z` makes a draft release
+([ADR-0028](../decisions/#adr-0028-a-tag-push-builds-the-release-archives-on-linux)).
+
+1. Set the version in `build.zig.zon`.
+2. Add a `## X.Y.Z` section to `CHANGELOG.md`. The release notes come from this section.
+3. Run `make check`. Merge the change to `main`.
+4. Run `make dist` on a clean work tree. Look at the archives in `zig-out/dist`.
+5. Tag the merge commit on `main`: `git tag -a vX.Y.Z -m "zmake X.Y.Z"`.
+6. Push the tag: `git push origin vX.Y.Z`.
+7. Read the draft release on GitHub. Publish it.
+
+The workflow runs every CI gate on the tagged commit. Then it builds the
+archives on Linux and runs each archive on a native runner. A tag with a
+`-`, for example `v0.2.0-rc.1`, makes a draft pre-release. The part before the
+`-` must be the version in `build.zig.zon`.
+
 ## The project wiki
 
 The OKF wiki in `.okfw/` holds the architecture, the specs, the decisions and

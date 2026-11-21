@@ -5,12 +5,14 @@ name: CI
 # documentation style) (ADR-0021). macOS runs the unit tests, the acceptance
 # suite against GNU Make 4.3 built from source, and a smoke test of the fifo
 # jobserver (ADR-0023). A FreeBSD VM runs the unit tests and the acceptance
-# suite (ADR-0024).
+# suite (ADR-0024). The release workflow calls this workflow on the tagged
+# commit before it builds the release archives (ADR-0028).
 on:
   push:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read

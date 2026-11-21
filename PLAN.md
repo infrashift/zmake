@@ -166,6 +166,13 @@ Tracking: [ISSUE-025](.okfw/issues/issue-025-man-pages--01a1f58f83e7.md) · [ADR
 - [x] Acceptance scenario 23: the options of `--help` are in `zmake(1)`, and `man -w` finds both pages through `PATH`
 - [x] A Manual Pages page on the docs site; the install steps use `-p ~/.local`
 
+## Phase 26 — Release 0.1.0
+Tracking: [ISSUE-026](.okfw/issues/issue-026-release-0-1-0--01a1fe97d0d1.md) · [ADR-0028](.okfw/decisions/adr-0028-a-tag-push-builds-the-release-archives-on-linux--01a1fe97af71.md)
+- [x] `make dist` builds the linux-amd64, linux-arm64 and macos-arm64 archives and `SHA256SUMS` in `zig-out/dist`
+- [x] A `v*` tag runs `.github/workflows/release.yml`: the CI gates, `make dist`, a check on each native runner, an attestation and a draft release
+- [x] `CHANGELOG.md` gives the release notes
+- [x] Getting Started and the README tell how to install a release; Contributing tells how to make one
+
 ## Acceptance scenarios
 1. **The `build/` directory (modern mode).** Create `./build` and a `ZMakefile` with a `build:` rule. `zmake build` runs the recipe.
 2. **Explicit task (modern mode).** Declare `@deploy: build` with 4-space indentation. `zmake deploy` runs `build`, then `deploy`.

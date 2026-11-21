@@ -32,6 +32,25 @@ app.tar: app
 
 Modern mode still reads `.PHONY`, so Makefile snippets work with no change.
 
+## Install
+The [releases page](https://github.com/infrashift/zmake/releases) has an
+archive for Linux on x86_64 (`linux-amd64`), Linux on arm64 (`linux-arm64`)
+and macOS on Apple silicon (`macos-arm64`). Each archive holds `bin/zmake` and
+the man pages under `share/man`.
+
+```sh
+v=0.1.0
+a=zmake-v$v-linux-amd64
+curl -fsSLO https://github.com/infrashift/zmake/releases/download/v$v/$a.tar.gz
+curl -fsSLO https://github.com/infrashift/zmake/releases/download/v$v/SHA256SUMS
+shasum -a 256 -c SHA256SUMS --ignore-missing
+tar -xzf $a.tar.gz && mkdir -p ~/.local && cp -R $a/bin $a/share ~/.local/
+```
+
+Put `~/.local/bin` on your `PATH`. The macOS binary has no notarization. After
+a download with a browser, run `xattr -d com.apple.quarantine bin/zmake`. See
+[Getting Started](https://infrashift.github.io/zmake/docs/getting-started/).
+
 ## Build
 1. Install Zig 0.17.1.
 2. Run `zig build --release -p ~/.local` for a `ReleaseSafe` binary. Assertions stay active.

@@ -3,10 +3,11 @@
 ZIG ?= zig
 PYTHON ?= python3
 SEMSCOPE ?= semscope
+VERSION ?=
 ZIG_SOURCES := build.zig src tests
 MAN_PAGES := man/zmake.1 man/zmakefile.5
 
-.PHONY: all build test lint fmt acceptance cross wiki docs-style docs-demo docs-dev docs-build check
+.PHONY: all build test lint fmt acceptance cross wiki docs-style docs-demo docs-dev docs-build check dist
 
 all: check
 
@@ -65,3 +66,7 @@ docs-build:
 
 ## check: run every gate
 check: lint test acceptance cross wiki docs-style
+
+## dist: build the release archives and SHA256SUMS in zig-out/dist (ADR-0028)
+dist:
+	ZIG=$(ZIG) sh scripts/dist.sh $(VERSION)

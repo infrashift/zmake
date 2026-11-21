@@ -32,7 +32,7 @@ MAN_PUNCT = re.compile(r"(\s+[.,:;)])+$")
 
 
 def files(root):
-    yield from (root / n for n in ("README.md", "PLAN.md", "CLAUDE.md") if (root / n).exists())
+    yield from (root / n for n in ("README.md", "PLAN.md", "CLAUDE.md", "CHANGELOG.md") if (root / n).exists())
     yield from sorted((root / "man").glob("*.[0-9]"))
     yield from sorted((root / "docs/src/content/docs").rglob("*.md*"))
     for p in sorted((root / ".okfw").rglob("*.md")):

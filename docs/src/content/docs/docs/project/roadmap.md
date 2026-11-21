@@ -34,6 +34,7 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **23. Version line** | `-v` and `--version` print the version and the git commit of the build | Done |
 | **24. semscope** | `make lint` checks the ten Power of 10 rules with semscope | Done |
 | **25. Man pages** | `zmake(1)` and `zmakefile(5)`, installed under the `zig build` prefix | Done |
+| **26. Release 0.1.0** | Release archives for Linux (amd64, arm64) and macOS (arm64) from a tag push | Done |
 
 ## Follow-ups
 

@@ -38,6 +38,7 @@ target that is missing from one file fails `make acceptance`.
 | `make docs-demo` | Run zmake on `docs/src/demo/ZMakefile` and write the landing-page output |
 | `make docs-dev` | Serve this site with live reload (bun) |
 | `make docs-build` | Build this site into `docs/dist`, the same build as the Pages deploy |
+| `make dist` | `scripts/dist.sh`: the release archives and `SHA256SUMS` in `zig-out/dist`. `VERSION=X.Y.Z` sets the version in the names. Needs a clean work tree |
 
 Before a commit, run `make check` or `zmake check`. When you change the site, also run
 `make docs-build`. Fix each failure and run the gates again until all pass.
