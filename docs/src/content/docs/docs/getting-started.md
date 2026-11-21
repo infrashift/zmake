@@ -115,11 +115,12 @@ zmake reads a `Makefile` in legacy mode, with GNU Make semantics:
 zmake -C path/to/project -j8
 ```
 
-zmake stops with an error when the `Makefile` uses a feature outside its scope,
-for example `include` or `ifeq`:
+zmake reads conditionals, `include`, `define`, `vpath` and the GNU Make
+functions. It stops with an error when the `Makefile` uses a feature outside
+its scope, for example `.ONESHELL`:
 
 ```text
-Makefile:7: *** unsupported directive 'ifeq'.  Stop.
+Makefile:4: *** special target '.ONESHELL' is not supported.  Stop.
 ```
 
 See [Compatibility](../reference/compatibility/) for the full list.
