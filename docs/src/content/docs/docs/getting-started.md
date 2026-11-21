@@ -35,6 +35,10 @@ names the workflow run that built the archive:
 gh attestation verify $a.tar.gz --repo infrashift/zmake
 ```
 
+This command needs `gh` 2.49 or later. Some Linux distributions package an
+older `gh`. Run `gh --version` to see your version. To get a newer version,
+see the [GitHub CLI install page](https://github.com/cli/cli#installation).
+
 The Linux binaries are static. They need no libc.
 
 :::note[macOS]
