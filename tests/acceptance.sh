@@ -659,5 +659,28 @@ if [ -n "$GNU_MAKE" ]; then
   expect_eq "exit codes and stderr match GNU Make" "$(bash probe.sh g "$GNU_MAKE")" "$(bash probe.sh z "$ZMAKE")"
 fi
 
+scenario "23. Man pages (ISSUE-025)"
+# Each option of --help has an entry in zmake(1). mdoc writes -f as `Fl f` and
+# --modern as `Fl -modern`.
+missing=""
+for opt in $("$ZMAKE" --help | tr ' ,.' '\n\n\n' | grep -E '^--?[A-Za-z][A-Za-z-]*$' | sort -u); do
+  grep -Eq "Fl ${opt#-}([ ,]|\$)" "$ROOT/man/zmake.1" || missing="$missing $opt"
+done
+expect_eq "zmake(1) documents each option of --help" "" "$missing"
+# man derives the manpath from PATH when MANPATH is unset: for PREFIX/bin it
+# searches PREFIX/share/man. This is why ~/.local works (ADR-0027).
+if command -v man >/dev/null 2>&1; then
+  mkdir -p prefix/bin prefix/share/man/man1 prefix/share/man/man5
+  cp "$ZMAKE" prefix/bin/zmake
+  cp "$ROOT/man/zmake.1" prefix/share/man/man1/
+  cp "$ROOT/man/zmakefile.5" prefix/share/man/man5/
+  out=$(unset MANPATH; PATH="$PWD/prefix/bin:$PATH" man -w zmake 2>&1)
+  expect_has "man finds zmake(1) through PATH" "/prefix/share/man/man1/zmake.1" "$out"
+  out=$(unset MANPATH; PATH="$PWD/prefix/bin:$PATH" man -w 5 zmakefile 2>&1)
+  expect_has "man finds zmakefile(5) through PATH" "/prefix/share/man/man5/zmakefile.5" "$out"
+else
+  printf '  skip man is not installed\n'
+fi
+
 printf '\nacceptance: %d passed, %d failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

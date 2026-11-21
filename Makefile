@@ -2,9 +2,12 @@
 
 ZIG ?= zig
 PYTHON ?= python3
+SEMSCOPE ?= semscope
+VERSION ?=
 ZIG_SOURCES := build.zig src tests
+MAN_PAGES := man/zmake.1 man/zmakefile.5
 
-.PHONY: all build test lint fmt acceptance cross wiki docs-style docs-demo docs-dev docs-build check
+.PHONY: all build test lint fmt acceptance cross wiki docs-style docs-demo docs-dev docs-build check dist
 
 all: check
 
@@ -16,10 +19,11 @@ build:
 test:
 	$(ZIG) build test --summary all
 
-## lint: check the formatting and the Power of 10 rules
+## lint: check the formatting, the Power of 10 rules (semscope, else scripts/nasa-lint.py) and the man pages
 lint:
 	$(ZIG) fmt --check $(ZIG_SOURCES)
-	$(PYTHON) -I scripts/nasa-lint.py
+	if command -v $(SEMSCOPE) >/dev/null 2>&1; then $(SEMSCOPE) scan -r nasa-p10 -r .semscope.cue --fail-level warning src; else echo "lint: $(SEMSCOPE) not found, so scripts/nasa-lint.py checks the rules"; $(PYTHON) -I scripts/nasa-lint.py; fi
+	for page in $(MAN_PAGES); do if command -v mandoc >/dev/null 2>&1; then mandoc -T lint -W warning "$$page" || exit 1; else out=$$(groff -mandoc -ww -z "$$page" 2>&1); [ -z "$$out" ] || { echo "$$page: $$out"; exit 1; }; fi; done
 
 ## fmt: format the Zig sources in place
 fmt:
@@ -62,3 +66,7 @@ docs-build:
 
 ## check: run every gate
 check: lint test acceptance cross wiki docs-style
+
+## dist: build the release archives and SHA256SUMS in zig-out/dist (ADR-0028)
+dist:
+	ZIG=$(ZIG) sh scripts/dist.sh $(VERSION)

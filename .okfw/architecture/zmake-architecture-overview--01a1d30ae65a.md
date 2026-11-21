@@ -51,5 +51,16 @@ The scheduler runs on the main thread. It owns the node state and the evaluator.
 - **Immediate:** the parser expands `:=` values, target names and prerequisite lists when it reads the line.
 - **Deferred:** the evaluator expands `=` values and recipe lines before the executor runs them.
 
+## Install layout
+`zig build -p PREFIX` installs three files. The man page sources are in `man/` ([ADR-0027](/decisions/adr-0027-man-pages-are-mdoc-files-installed-under-the-prefix--01a1f58f63a3.md)).
+
+| Source | Installed path |
+|---|---|
+| `src/main.zig` and the modules | `PREFIX/bin/zmake` |
+| `man/zmake.1` | `PREFIX/share/man/man1/zmake.1` |
+| `man/zmakefile.5` | `PREFIX/share/man/man5/zmakefile.5` |
+
+With `PREFIX/bin` on the `PATH` and no `MANPATH`, `man` searches `PREFIX/share/man` on Linux, macOS and FreeBSD. The recommended prefix is `~/.local`.
+
 ## Related
 [Syntax modes and target kinds](/specs/syntax-modes-and-target-kinds--01a1d30ae660.md) · [CLI contract](/specs/cli-contract--01a1d30ae665.md) · [Jobserver protocol](/specs/jobserver-protocol--01a1d30ae66b.md)

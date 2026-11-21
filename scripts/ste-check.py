@@ -21,10 +21,19 @@ BANNED_RE = re.compile(r"\b(" + "|".join(re.escape(b) for b in BANNED) + r")\b",
 PASSIVE_RE = re.compile(r"\b(is|are|was|were|be|been|being)\s+\w+ed\b", re.I)
 SENTENCE_END = re.compile(r"(?<=[.!?])\s+(?=\S)")
 STEP_RE = re.compile(r"^\d+\.\s")
+# An mdoc macro name: two letters, the first in upper case (Fl, Ar, Nm, Ns...).
+MAN_MACRO = re.compile(r"\b[A-Z][a-z]\b")
+MAN_SKIP = ('.\\"', ".Dd", ".Dt", ".Os", ".Dl")
+MAN_BREAK = ("Sh", "Ss", "Pp", "It", "Bl", "El")
+# Macros whose arguments are code: a line with one of them reads as CODE, as
+# inline code does in markdown.
+MAN_CODE = ("Fl", "Ar", "Cm", "Ic", "Ql", "Pa", "Va", "Ev", "Lk", "Xr", "Op")
+MAN_PUNCT = re.compile(r"(\s+[.,:;)])+$")
 
 
 def files(root):
-    yield from (root / n for n in ("README.md", "PLAN.md", "CLAUDE.md") if (root / n).exists())
+    yield from (root / n for n in ("README.md", "PLAN.md", "CLAUDE.md", "CHANGELOG.md") if (root / n).exists())
+    yield from sorted((root / "man").glob("*.[0-9]"))
     yield from sorted((root / "docs/src/content/docs").rglob("*.md*"))
     for p in sorted((root / ".okfw").rglob("*.md")):
         rel = p.relative_to(root / ".okfw")
@@ -87,6 +96,38 @@ def check_paragraph(path, start, para, report):
         report("warning", path, start, f"possible passive voice: {m.group(0)!r}")
 
 
+def man_text(text):
+    """Turn an mdoc man page into plain paragraphs, one output line per input line.
+
+    Blank out the comments, the header, the literal blocks and the headings,
+    so that the line numbers stay the same. Drop the macro names. A line of a
+    code macro becomes CODE, with its closing punctuation. A list item becomes
+    "- CODE." so that it starts a paragraph and ends a sentence.
+    """
+    out, literal = [], False
+    for raw in text.split("\n"):
+        if raw.startswith(".Bd"):
+            literal = True
+        elif raw.startswith(".Ed"):
+            literal = False
+        line = raw.replace("\\&", "")
+        name, _, rest = line[1:].partition(" ")
+        if literal or raw.startswith(MAN_SKIP + (".Bd", ".Ed")):
+            line = ""
+        elif line.startswith(".") and name == "It":
+            line = "- CODE."
+        elif line.startswith(".") and name in MAN_BREAK:
+            line = ""
+        elif line.startswith(".") and name in MAN_CODE + ("Nm",):
+            m = MAN_PUNCT.search(rest)
+            word = "zmake" if name == "Nm" else "CODE"
+            line = word + (m.group(0).replace(" ", "") if m else "")
+        elif line.startswith("."):
+            line = MAN_MACRO.sub("", rest)
+        out.append(line.strip())
+    return "\n".join(out)
+
+
 def check(path, text, report):
     if path.name == "CLAUDE.md":
         text = text.split("<!-- BEGIN okfw -->")[0]
@@ -113,7 +154,8 @@ def main():
         print(f"{path.relative_to(root)}:{line}: {level}: {msg}")
 
     for p in files(root):
-        check(p, p.read_text(encoding="utf-8"), report)
+        text = p.read_text(encoding="utf-8")
+        check(p, man_text(text) if p.parent.name == "man" else text, report)
     print(f"ste-check: {counts['error']} error(s), {counts['warning']} warning(s)")
     return 1 if counts["error"] else 0
 

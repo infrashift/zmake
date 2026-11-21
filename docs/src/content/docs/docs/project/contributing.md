@@ -8,6 +8,7 @@ description: The zmake development loop, the Power of 10 rules, the writing styl
 - Zig 0.17.1
 - GNU Make, for the acceptance comparison
 - Python 3, for the lint scripts
+- mandoc or groff, for the man page lint
 - `okfw`, for the project wiki
 - bun 1.3.9, for this site only
 
@@ -44,8 +45,9 @@ The code follows the NASA/JPL Power of 10 rules, adapted to Zig
 - Write two or more `assert` calls per function on average.
 - Do not add function pointers, vtables or factories.
 
-`make lint` runs `scripts/nasa-lint.py`. A suppression needs a reason:
-`// nasa-lint: allow(R4) <reason>`.
+`make lint` runs semscope with the `nasa-p10` ruleset. Without semscope on
+the `PATH`, it runs `scripts/nasa-lint.py`. A suppression needs a reason:
+`// semscope: allow(NASA-P10-04) <reason>` or `// nasa-lint: allow(R4) <reason>`.
 
 ## Writing style
 
@@ -56,7 +58,38 @@ includes this site, the wiki, `README.md` and `PLAN.md`.
 - Keep a descriptive sentence at 25 words or fewer, and a procedural step at 20 or fewer.
 - Do not use words such as `should`, `will`, `just` or `simply`.
 
-`make docs-style` runs `scripts/ste-check.py` on every page.
+`make docs-style` runs `scripts/ste-check.py` on every page. It also checks
+the text of the man pages in `man/`.
+
+## Man pages
+
+`man/zmake.1` and `man/zmakefile.5` use the mdoc macros
+([ADR-0027](../decisions/#adr-0027-man-pages-are-mdoc-files-installed-under-the-prefix)).
+Update them in the same commit as the change:
+
+- A new or changed option of the command line changes `man/zmake.1`. Acceptance scenario 23 fails when `zmake --help` shows an option that `man/zmake.1` does not have.
+- A change to the modern-mode syntax changes `man/zmakefile.5`.
+
+`make lint` checks the macros. To read a page before you install it, run
+`man ./man/zmake.1`.
+
+## Release a version
+
+A push of a tag `vX.Y.Z` makes a draft release
+([ADR-0028](../decisions/#adr-0028-a-tag-push-builds-the-release-archives-on-linux)).
+
+1. Set the version in `build.zig.zon`.
+2. Add a `## X.Y.Z` section to `CHANGELOG.md`. The release notes come from this section.
+3. Run `make check`. Merge the change to `main`.
+4. Run `make dist` on a clean work tree. Look at the archives in `zig-out/dist`.
+5. Tag the merge commit on `main`: `git tag -a vX.Y.Z -m "zmake X.Y.Z"`.
+6. Push the tag: `git push origin vX.Y.Z`.
+7. Read the draft release on GitHub. Publish it.
+
+The workflow runs every CI gate on the tagged commit. Then it builds the
+archives on Linux and runs each archive on a native runner. A tag with a
+`-`, for example `v0.2.0-rc.1`, makes a draft pre-release. The part before the
+`-` must be the version in `build.zig.zon`.
 
 ## The project wiki
 

@@ -6,7 +6,7 @@ tags:
   - "spec"
   - "cli"
 created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T21:54:29-06:00"
+timestamp: "2026-11-19T14:46:46-06:00"
 description: "The zmake command line: options, input file discovery, variable overrides, messages and exit codes."
 ---
 
@@ -70,3 +70,7 @@ zmake uses the GNU Make message forms:
 | 0 | Success. |
 | 1 | Under `-q`: a goal is not up to date. |
 | 2 | A usage error, a parse error, a missing rule, a cycle or a failed recipe line. |
+
+
+## Man page
+`man/zmake.1` documents this contract as `zmake(1)` ([ADR-0027](/decisions/adr-0027-man-pages-are-mdoc-files-installed-under-the-prefix--01a1f58f63a3.md)). A change to an option, the environment or the exit codes changes the page in the same commit. Acceptance scenario 23 fails when `zmake --help` shows an option that the page does not have.

@@ -160,7 +160,7 @@ fn writeByte(fd: posix.fd_t, byte: u8) Error!void {
     assert(fd >= 0);
     var budget: u32 = 100;
     while (budget > 0) : (budget -= 1) {
-        const rc = posix.system.write(fd, @ptrCast(&byte), 1);
+        const rc = posix.system.write(fd, (&byte)[0..1], 1);
         switch (posix.errno(rc)) {
             .SUCCESS => return,
             .INTR, .AGAIN => continue,

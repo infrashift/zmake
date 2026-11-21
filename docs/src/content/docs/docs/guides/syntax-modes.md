@@ -7,6 +7,9 @@ zmake reads each input file in one of two modes. **Legacy mode** keeps strict
 POSIX and GNU Make semantics. **Modern mode** removes the `.PHONY` boilerplate
 and accepts recipe lines that start with spaces.
 
+`man 5 zmakefile` gives a summary of this page and of
+[Tasks and Phony Inference](../tasks-and-phony-inference/).
+
 ## Mode selection
 
 zmake applies the first rule that matches:

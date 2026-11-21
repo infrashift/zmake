@@ -14,10 +14,11 @@ The `ZMakefile` declares each target as a task, with no `.PHONY` list:
 ## check: run every gate
 @check: lint test acceptance wiki docs-style
 
-## lint: check the formatting and the Power of 10 rules
+## lint: check the formatting, the Power of 10 rules (semscope, else scripts/nasa-lint.py) and the man pages
 @lint:
     $(ZIG) fmt --check $(ZIG_SOURCES)
-    $(PYTHON) -I scripts/nasa-lint.py
+    if command -v $(SEMSCOPE) >/dev/null 2>&1; then $(SEMSCOPE) scan -r nasa-p10 -r .semscope.cue --fail-level warning src; else echo "lint: $(SEMSCOPE) not found, so scripts/nasa-lint.py checks the rules"; $(PYTHON) -I scripts/nasa-lint.py; fi
+    for page in $(MAN_PAGES); do if command -v mandoc >/dev/null 2>&1; then mandoc -T lint -W warning "$$page" || exit 1; else out=$$(groff -mandoc -ww -z "$$page" 2>&1); [ -z "$$out" ] || { echo "$$page: $$out"; exit 1; }; fi; done
 ```
 
 The acceptance suite compares the dry run of each target in both files. A
@@ -27,7 +28,7 @@ target that is missing from one file fails `make acceptance`.
 |---|---|
 | `make build` | `zig build` → `zig-out/bin/zmake` |
 | `make test` | `zig build test`: the unit tests and the mode tests |
-| `make lint` | `zig fmt --check` and `scripts/nasa-lint.py` (Power of 10) |
+| `make lint` | `zig fmt --check` and semscope (Power of 10), or `scripts/nasa-lint.py` without semscope. Also checks the man pages in `man/` with `mandoc -T lint`, or with `groff -ww` without mandoc |
 | `make fmt` | `zig fmt` on the Zig sources |
 | `make acceptance` | `zig build acceptance`: end-to-end scenarios against the binary and GNU Make |
 | `make cross` | Builds for macOS and FreeBSD on arm64 and x86_64 |
@@ -37,6 +38,7 @@ target that is missing from one file fails `make acceptance`.
 | `make docs-demo` | Run zmake on `docs/src/demo/ZMakefile` and write the landing-page output |
 | `make docs-dev` | Serve this site with live reload (bun) |
 | `make docs-build` | Build this site into `docs/dist`, the same build as the Pages deploy |
+| `make dist` | `scripts/dist.sh`: the release archives and `SHA256SUMS` in `zig-out/dist`. `VERSION=X.Y.Z` sets the version in the names. Needs a clean work tree |
 
 Before a commit, run `make check` or `zmake check`. When you change the site, also run
 `make docs-build`. Fix each failure and run the gates again until all pass.

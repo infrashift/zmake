@@ -197,3 +197,27 @@ VERSION comes from `build.zig.zon`. COMMIT is the full git commit at build
 time, with `-dirty` for a change to a tracked file, or `unknown` without git.
 A script can compare the commit with a pinned value. See
 [CLI](../../reference/cli/#version-line).
+
+### ADR-0026: semscope checks the Power of 10 rules
+
+`make lint` runs semscope with the `nasa-p10` ruleset on `src/`. semscope
+checks all ten rules. Without semscope on the `PATH`, the task runs
+`scripts/nasa-lint.py`, which checks six rules. CI uses this path until it can
+install semscope.
+
+### ADR-0027: Man pages are mdoc files installed under the prefix
+
+The man pages `zmake(1)` and `zmakefile(5)` are mdoc files in `man/`. No tool
+generates them. `zig build` installs them in `share/man` under the prefix of
+the binary. The recommended prefix is `~/.local`. `man` on Linux, macOS and
+FreeBSD then finds the pages through `PATH`, with no `MANPATH` change.
+
+### ADR-0028: A tag push builds the release archives on Linux
+
+A push of a tag `vX.Y.Z` runs `.github/workflows/release.yml`. The workflow
+runs every CI gate on the tagged commit. Then `make dist` cross-builds three
+archives on Linux: `linux-amd64` and `linux-arm64` (static binaries) and
+`macos-arm64` (an ad-hoc signature). A native runner unpacks and runs each
+archive. The last job makes a build-provenance attestation and a draft
+release with `SHA256SUMS`. A person publishes the draft. The macOS binary has
+no Developer ID signature and no notarization. A later release can add them.

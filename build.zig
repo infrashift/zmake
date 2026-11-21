@@ -29,6 +29,10 @@ pub fn build(b: *std.Build) void {
         }),
     });
     b.installArtifact(exe);
+    // The man pages go under the same prefix as bin/zmake. With a prefix of
+    // ~/.local, `man` finds ~/.local/share/man through PATH (ADR-0027).
+    b.installFile("man/zmake.1", "share/man/man1/zmake.1");
+    b.installFile("man/zmakefile.5", "share/man/man5/zmakefile.5");
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());

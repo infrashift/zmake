@@ -7,7 +7,7 @@ tags:
   - "syntax"
   - "phony"
 created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T21:54:29-06:00"
+timestamp: "2026-11-19T14:46:46-06:00"
 description: "How zmake selects legacy or modern mode, which recipe indentation each mode accepts, and how it classifies each target."
 ---
 
@@ -80,3 +80,7 @@ A pattern prerequisite is viable when it exists, has an explicit rule or is phon
 When an `inferred_phony` target has the same name as a file or directory, zmake runs the recipe. It also prints this warning:
 
 `zmake: warning: target 'test' shadows existing path './test'; prefix with '@test:' to silence`
+
+
+## Man page
+`man/zmakefile.5` gives a summary of this spec as `zmakefile(5)`: the mode selection, the recipe indentation, tasks, the target kinds and the collision warning ([ADR-0027](/decisions/adr-0027-man-pages-are-mdoc-files-installed-under-the-prefix--01a1f58f63a3.md)). A change to the modern-mode syntax changes the page in the same commit.

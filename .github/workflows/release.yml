@@ -1,0 +1,179 @@
+name: Release
+
+# A push of a tag vX.Y.Z makes a draft GitHub release (ADR-0028):
+#   1. ci:      every CI gate on the tagged commit (ci.yml).
+#   2. dist:    `make dist` on Linux cross-builds the linux-amd64,
+#               linux-arm64 and macos-arm64 archives and SHA256SUMS.
+#   3. verify:  each archive runs on a native runner of its platform.
+#   4. release: a build-provenance attestation, then a draft release with the
+#               notes from CHANGELOG.md. A person publishes the draft.
+# A tag with a "-" (for example v0.1.0-rc.1) makes a draft pre-release.
+# To run again for a tag: gh workflow run release.yml --ref vX.Y.Z
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Not the ci- group of ci.yml: a shared group stops the called workflow.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  ZIG_VERSION: 0.17.1
+
+jobs:
+  ci:
+    name: CI
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/ci.yml
+
+  dist:
+    name: make dist
+    needs: ci
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install Zig
+        env:
+          ZIG_SHA256: 3581863e3cbcfd0fce0efc682ce7e9e93da96668a977791d356a26d2a7e9b17a
+        run: |
+          curl -fsSL -o zig.tar.xz "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz"
+          echo "${ZIG_SHA256}  zig.tar.xz" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/zig"
+          tar -xJf zig.tar.xz -C "$RUNNER_TEMP/zig" --strip-components=1
+          rm zig.tar.xz
+          echo "$RUNNER_TEMP/zig" >> "$GITHUB_PATH"
+
+      - name: make dist
+        run: make dist VERSION="${GITHUB_REF_NAME#v}"
+
+      - name: Upload the archives
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: |
+            zig-out/dist/*.tar.gz
+            zig-out/dist/SHA256SUMS
+          if-no-files-found: error
+
+  verify:
+    name: verify (${{ matrix.name }})
+    needs: dist
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            name: linux-amd64
+          - runner: ubuntu-24.04-arm
+            name: linux-arm64
+          - runner: macos-latest
+            name: macos-arm64
+    steps:
+      - name: Download the archives
+        uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+
+      - name: Check the archive
+        env:
+          NAME: ${{ matrix.name }}
+          COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          archive="zmake-v${version}-${NAME}.tar.gz"
+          cd dist
+          grep " ${archive}\$" SHA256SUMS > one.sum
+          if command -v sha256sum > /dev/null 2>&1; then sha256sum -c one.sum; else shasum -a 256 -c one.sum; fi
+          tar -xzf "$archive"
+          dir="$PWD/zmake-v${version}-${NAME}"
+          zm="$dir/bin/zmake"
+          for f in bin/zmake share/man/man1/zmake.1 share/man/man5/zmakefile.5 LICENSE README.md; do
+            test -f "$dir/$f"
+          done
+
+          line=$("$zm" --version)
+          echo "$line"
+          test "$line" = "zmake ${version%%-*} (${COMMIT})"
+
+          file "$zm"
+          case "$NAME" in
+            linux-*) file "$zm" | grep -q 'statically linked' ;;
+            macos-*) codesign -v "$zm"; codesign -dv "$zm" 2>&1 | grep -q 'Signature=adhoc' ;;
+          esac
+
+          if command -v man > /dev/null 2>&1; then
+            man -M "$dir/share/man" -w zmake
+            man -M "$dir/share/man" -w 5 zmakefile
+          fi
+
+          work=$(mktemp -d)
+          cd "$work"
+          printf '.PHONY: hello\nhello:\n\t@echo legacy-ok\n' > Makefile
+          test "$("$zm")" = legacy-ok
+          rm Makefile
+          mkdir build
+          printf 'build:\n    @echo modern-ok\n' > ZMakefile
+          test "$("$zm" build)" = modern-ok
+          echo "verify: ${archive} is good"
+
+  release:
+    name: draft release
+    needs: verify
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Download the archives
+        uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist
+
+      # Users check an archive with:
+      #   gh attestation verify ARCHIVE --repo infrashift/zmake
+      - name: Attest the build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/*.tar.gz
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          awk -v head="## ${version%%-*}" '$0 == head { on = 1; next } on && /^## / { exit } on' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "CHANGELOG.md has no section '## ${version%%-*}'" >&2
+            exit 1
+          fi
+          cat notes.md
+
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          flags=(--draft)
+          case "$GITHUB_REF_NAME" in *-*) flags+=(--prerelease) ;; esac
+          gh release create "$GITHUB_REF_NAME" "${flags[@]}" --verify-tag \
+            --title "zmake ${GITHUB_REF_NAME#v}" --notes-file notes.md \
+            dist/*.tar.gz dist/SHA256SUMS

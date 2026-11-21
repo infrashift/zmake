@@ -1,0 +1,214 @@
+.\" zmake(1): the zmake command line. Keep in sync with src/cli.zig and
+.\" docs/src/content/docs/docs/reference/cli.md (ADR-0027).
+.Dd November 19, 2026
+.Dt ZMAKE 1
+.Os zmake
+.Sh NAME
+.Nm zmake
+.Nd Make-compatible build tool with a legacy mode and a modern mode
+.Sh SYNOPSIS
+.Nm
+.Op Ar options
+.Op Ar VAR Ns = Ns Ar value ...
+.Op Ar target ...
+.Sh DESCRIPTION
+.Nm
+reads an input file and builds the targets on the command line.
+It reads the input file in one of two modes.
+.Pp
+.Em Legacy mode
+keeps strict POSIX and GNU Make semantics.
+A target is a file unless
+.Ic .PHONY
+names it.
+A recipe line starts with a tab.
+.Pp
+.Em Modern mode
+removes the
+.Ic .PHONY
+boilerplate.
+.Ic @name:
+and
+.Ic task name:
+declare a task.
+.Nm
+infers a phony target from a bare name.
+A recipe line starts with a tab or with two or more spaces.
+.Pp
+.Xr zmakefile 5
+describes the two modes and the syntax of the input file.
+.Pp
+An argument with
+.Ql =
+sets a variable.
+A command-line variable overrides the input file and the environment.
+.Sh OPTIONS
+Short options can share one argument, for example
+.Fl kj4
+or
+.Fl sB .
+.Bl -tag -width Ds
+.It Fl f Ar FILE , Fl -file Ns = Ns Ar FILE
+Read
+.Ar FILE
+as the input file.
+The basename selects the mode.
+.It Fl C Ar DIR , Fl -directory Ns = Ns Ar DIR
+Change to
+.Ar DIR
+before
+.Nm
+reads the input file.
+.It Fl j Ar N , Fl j Ns Ar N , Fl -jobs Ns = Ns Ar N
+Run up to
+.Ar N
+jobs at the same time.
+.It Fl n , Fl -dry-run , Fl -just-print
+Print the recipe lines.
+Do not run them.
+.It Fl r , Fl -no-builtin-rules
+Do not use the built-in implicit rules.
+.It Fl R , Fl -no-builtin-variables
+Do not define the built-in variables.
+This option sets
+.Fl r
+too.
+.It Fl k , Fl -keep-going
+After a failure, build the other targets that do not need the failed target.
+.It Fl q , Fl -question
+Run nothing.
+The exit status is 0 when the goals are up to date, else 1.
+.It Fl t , Fl -touch
+Set the time of each out-of-date file target to now.
+Run no recipe.
+.It Fl B , Fl -always-make
+Treat every target as out of date.
+.It Fl s , Fl -silent , Fl -quiet
+Do not echo the recipe lines.
+.It Fl -jobserver-style Ns = Ns Cm fifo | pipe
+Set the style of a new jobserver.
+The default is
+.Cm pipe
+on Linux and
+.Cm fifo
+on the other systems.
+.It Fl -modern
+Use modern mode for any input file.
+.It Fl -legacy
+Use legacy mode for any input file.
+.It Fl h , Fl -help
+Print the usage and exit.
+.It Fl v , Fl -version
+Print the version line and exit.
+.Nm
+reads no input file.
+.El
+.Ss Input file discovery
+Without
+.Fl f ,
+.Nm
+searches the directory in this order:
+.Pa ZMakefile ,
+.Pa Make.zig.mk ,
+.Pa GNUmakefile ,
+.Pa makefile ,
+.Pa Makefile .
+.Pa ZMakefile
+and
+.Pa Make.zig.mk
+select modern mode.
+The other names select legacy mode.
+.Fl -modern
+and
+.Fl -legacy
+override the file name.
+.Ss Default goal
+With no target on the command line,
+.Nm
+builds
+.Va .DEFAULT_GOAL .
+Without
+.Va .DEFAULT_GOAL ,
+it builds the first target that does not start with
+.Ql \&.
+and is not a pattern.
+.Ss Recipe lines
+Each recipe line runs in its own
+.Ql /bin/sh -c .
+A line can start with these prefixes:
+.Bl -tag -width Ds
+.It Ic @
+Do not echo the line.
+.It Ic -
+Ignore a failure of the line.
+.It Ic +
+Run the line also under
+.Fl n .
+.El
+.Sh ENVIRONMENT
+.Bl -tag -width Ds
+.It Ev MAKEFLAGS
+.Nm
+reads the flags of a parent make: the
+.Cm B , k , n , q , r , R , s
+and
+.Cm t
+flags,
+.Fl j Ns Ar N ,
+.Fl -jobserver-auth ,
+.Fl -jobserver-fds
+and the
+.Ql -- VAR=value
+overrides.
+Each recipe line gets
+.Ev MAKEFLAGS
+with the same forms.
+.It Ev MAKELEVEL
+Each recipe line gets the value of the parent plus one.
+.It Ev SHELL
+.Nm
+ignores
+.Ev SHELL
+from the environment.
+Set
+.Va SHELL
+in the input file to change the shell.
+.El
+.Sh EXIT STATUS
+.Bl -tag -width Ds
+.It 0
+Success.
+.It 1
+Under
+.Fl q :
+a goal is not up to date.
+.It 2
+A usage error, a parse error, a missing rule, a cycle or a failed recipe line.
+.El
+.Sh EXAMPLES
+Build the default goal with four jobs:
+.Dl $ zmake -j4
+.Pp
+Show the recipe lines of the target
+.Ar deploy
+and run nothing:
+.Dl $ zmake -n deploy
+.Pp
+Read a file with any name in modern mode:
+.Dl $ zmake -f build.mk --modern
+.Pp
+Print the version and the git commit of the build:
+.Dl $ zmake --version
+.Sh SEE ALSO
+.Xr make 1 ,
+.Xr zmakefile 5
+.Pp
+The full documentation is at
+.Lk https://infrashift.github.io/zmake/
+.Sh STANDARDS
+In legacy mode,
+.Nm
+follows POSIX
+.Xr make 1
+and a defined subset of GNU Make 4.3.
+It stops with an error for each feature outside this subset.

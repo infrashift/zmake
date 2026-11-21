@@ -18,15 +18,17 @@ zmake is a Make-compatible build tool in Zig. It ships as one static binary. It 
 - `src/root.zig` exports the library modules for the tests.
 - `src/` holds the modules: `ast`, `lexer`, `parser`, `eval`, `dag`, `executor`, `jobserver`. `dircache` checks the exact case of file names on macOS.
 - `tests/` holds the mode tests (`legacy_test.zig`, `modern_test.zig`) and `acceptance.sh`.
+- `man/` holds the mdoc man pages `zmake.1` and `zmakefile.5`. `zig build -p PREFIX` installs them in `PREFIX/share/man` ([ADR-0027](.okfw/decisions/adr-0027-man-pages-are-mdoc-files-installed-under-the-prefix--01a1f58f63a3.md)). A change to an option or to the modern syntax changes the pages too.
 - `docs/` holds the Astro Starlight site. `docs/src/content/docs/docs/` holds the pages. `docs/src/assets/` holds the logo.
 - `.github/workflows/docs-release.yml` deploys the site to https://infrashift.github.io/zmake/.
-- `scripts/` holds the lint scripts: `nasa-lint.py` (Power of 10) and `ste-check.py` (ASD-STE100).
+- `.github/workflows/release.yml` builds the release archives for a `v*` tag. `CHANGELOG.md` holds the release notes.
+- `scripts/` holds the lint scripts `nasa-lint.py` (Power of 10) and `ste-check.py` (ASD-STE100), and `dist.sh` (the release archives).
 
 ## Verification & Workflow Commands (HOW)
 `Makefile` (GNU Make) and `ZMakefile` (zmake, modern mode) have the same targets. Change both together: acceptance scenario 8 compares them ([ADR-0010](.okfw/decisions/adr-0010-keep-a-modern-mode-zmakefile-next-to-the-makefile--01a1d348f8d1.md)).
 
 Run these targets after every change:
-- `make lint` → `zig fmt --check` and `scripts/nasa-lint.py`
+- `make lint` → `zig fmt --check` and `semscope scan -r nasa-p10 -r .semscope.cue src`, or `scripts/nasa-lint.py` without semscope ([ADR-0026](.okfw/decisions/adr-0026-semscope-checks-the-power-of-10-rules--01a1ec7f697a.md)), and the man pages with mandoc or groff
 - `make test` → `zig build test`
 - `make build` → `zig build`
 - `make acceptance` → `zig build acceptance` (end-to-end scenarios against the binary)
@@ -38,6 +40,7 @@ Run these targets after every change:
 - `tests/acceptance.sh` runs on Linux, macOS and FreeBSD: use no GNU-only options of `date`, `paste`, `sed` or `grep`
 - `make docs-build` → build the Starlight site (the same build as the Pages deploy)
 - `make docs-dev` → serve the site locally; `make docs-demo` → regenerate the landing-page demo output
+- `make dist` → `scripts/dist.sh`: the release archives (linux-amd64, linux-arm64, macos-arm64) and `SHA256SUMS` in `zig-out/dist`. A `v*` tag runs `.github/workflows/release.yml`, which makes a draft release ([ADR-0028](.okfw/decisions/adr-0028-a-tag-push-builds-the-release-archives-on-linux--01a1fe97af71.md))
 
 ## Mandatory Execution Rules
 1. **One phase at a time.** Read `PLAN.md`. Implement only the first unchecked phase. Follow the *Development workflow* guide in `.okfw/`.
