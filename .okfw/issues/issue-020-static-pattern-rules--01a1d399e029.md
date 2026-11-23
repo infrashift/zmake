@@ -1,15 +1,15 @@
 ---
-id: "01a1d399-e029-72be-975e-ccefd085b7b9"
+x-okfw-id: "01a1d399-e029-72be-975e-ccefd085b7b9"
 title: "ISSUE-020: Static pattern rules"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "follow-up"
   - "parser"
   - "closed"
-created: "2026-11-13T00:30:39-06:00"
-timestamp: "2026-11-13T06:07:39-06:00"
+x-okfw-created: "2026-11-13T00:30:39-06:00"
+x-okfw-timestamp: "2026-11-13T06:07:39-06:00"
 description: "Static pattern rules (objs: %.o: %.c) give one explicit rule per target; today zmake stops with a clear error."
 ---
 

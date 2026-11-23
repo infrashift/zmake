@@ -1,16 +1,16 @@
 ---
-id: "01a1d30a-e68d-7d67-b114-b737e130faed"
+x-okfw-id: "01a1d30a-e68d-7d67-b114-b737e130faed"
 title: "ISSUE-001: Scaffolding, AST and input file discovery"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-1"
   - "ast"
   - "cli"
   - "closed"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T21:59:19-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T21:59:19-06:00"
 description: "Phase 1: build.zig, the AST types, input file discovery, mode selection and the CLI options."
 ---
 

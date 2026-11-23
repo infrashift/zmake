@@ -1,15 +1,15 @@
 ---
-id: "01a1d34e-cd43-7d09-9397-e07163daa653"
+x-okfw-id: "01a1d34e-cd43-7d09-9397-e07163daa653"
 title: "ISSUE-014: Target-specific and pattern-specific variables"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-14"
   - "eval"
   - "closed"
-created: "2026-11-12T23:08:39-06:00"
-timestamp: "2026-11-12T23:59:04-06:00"
+x-okfw-created: "2026-11-12T23:08:39-06:00"
+x-okfw-timestamp: "2026-11-12T23:59:04-06:00"
 description: "Phase 14: target-specific and pattern-specific variables, inherited by prerequisites."
 ---
 

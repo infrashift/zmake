@@ -1,15 +1,15 @@
 ---
-id: "01a1d34e-cd4a-7bfd-ae01-c9c41da3386e"
+x-okfw-id: "01a1d34e-cd4a-7bfd-ae01-c9c41da3386e"
 title: "ISSUE-015: Double-colon rules"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-15"
   - "dag"
   - "closed"
-created: "2026-11-12T23:08:39-06:00"
-timestamp: "2026-11-13T00:04:18-06:00"
+x-okfw-created: "2026-11-12T23:08:39-06:00"
+x-okfw-timestamp: "2026-11-13T00:04:18-06:00"
 description: "Phase 15: double-colon rules, each with an independent recipe."
 ---
 

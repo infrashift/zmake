@@ -1,5 +1,7 @@
 ---
-okf_version: "0.2"
+okf_version: "0.3"
+description: "Design record for zmake, the Make-compatible Zig build tool: ADRs on modern mode, expansion, the jobserver and include semantics, plus specs and per-phase implementation issues."
+title: "zmake"
 ---
 
 # /

@@ -1,15 +1,15 @@
 ---
-id: "01a1d34e-cd29-798c-b3a4-f14c3caa9d03"
+x-okfw-id: "01a1d34e-cd29-798c-b3a4-f14c3caa9d03"
 title: "ISSUE-010: Conditionals, define, override, undefine and eval"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-10"
   - "reader"
   - "closed"
-created: "2026-11-12T23:08:39-06:00"
-timestamp: "2026-11-12T23:39:35-06:00"
+x-okfw-created: "2026-11-12T23:08:39-06:00"
+x-okfw-timestamp: "2026-11-12T23:39:35-06:00"
 description: "Phase 10: a reader that evaluates conditionals and multi-line definitions while it reads the input file."
 ---
 

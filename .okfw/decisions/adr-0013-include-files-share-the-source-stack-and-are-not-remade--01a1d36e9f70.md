@@ -1,13 +1,13 @@
 ---
-id: "01a1d36e-9f70-754a-88d9-5649bb50d84a"
+x-okfw-id: "01a1d36e-9f70-754a-88d9-5649bb50d84a"
 title: "ADR-0013: Include files share the source stack and are not remade"
 type: "ADR"
 tags:
   - "adr"
   - "reader"
   - "include"
-created: "2026-11-12T23:43:24-06:00"
-timestamp: "2026-11-12T23:43:24-06:00"
+x-okfw-created: "2026-11-12T23:43:24-06:00"
+x-okfw-timestamp: "2026-11-12T23:43:24-06:00"
 description: "include reads each file as a source on the reader stack with per-file messages; a missing file is reported after reading, and zmake does not remake included files."
 ---
 

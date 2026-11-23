@@ -1,16 +1,16 @@
 ---
-id: "01a1fe97-d0d1-7247-92e7-3e6daf1c9b49"
+x-okfw-id: "01a1fe97-d0d1-7247-92e7-3e6daf1c9b49"
 title: "ISSUE-026: Release 0.1.0"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-26"
   - "release"
   - "ci"
   - "closed"
-created: "2026-11-21T08:52:04-06:00"
-timestamp: "2026-11-21T08:54:35-06:00"
+x-okfw-created: "2026-11-21T08:52:04-06:00"
+x-okfw-timestamp: "2026-11-21T08:54:35-06:00"
 description: "zmake 0.1.0 ships as a draft GitHub release with static Linux amd64 and arm64 archives and a macOS arm64 archive, each with the man pages, SHA256SUMS and a provenance attestation."
 ---
 

@@ -1,13 +1,13 @@
 ---
-id: "01a1d30a-e654-7a1b-be44-47d87ee7f040"
+x-okfw-id: "01a1d30a-e654-7a1b-be44-47d87ee7f040"
 title: "Development workflow"
 type: "Guide"
 tags:
   - "conventions"
   - "workflow"
   - "meta"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T21:54:29-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T21:54:29-06:00"
 description: "The loop for each zmake phase: implement, lint, verify until green, update the wiki, then commit."
 ---
 

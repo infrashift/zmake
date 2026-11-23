@@ -1,15 +1,15 @@
 ---
-id: "01a1d34e-cd30-7007-88e4-a0de3bc256fb"
+x-okfw-id: "01a1d34e-cd30-7007-88e4-a0de3bc256fb"
 title: "ISSUE-011: include and MAKEFILE_LIST"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-11"
   - "reader"
   - "closed"
-created: "2026-11-12T23:08:39-06:00"
-timestamp: "2026-11-12T23:44:01-06:00"
+x-okfw-created: "2026-11-12T23:08:39-06:00"
+x-okfw-timestamp: "2026-11-12T23:44:01-06:00"
 description: "Phase 11: include, -include and sinclude, with an explicit include stack, and MAKEFILE_LIST."
 ---
 

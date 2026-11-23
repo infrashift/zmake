@@ -1,15 +1,15 @@
 ---
-id: "01a1d34e-cd51-7b49-9174-40eac5382897"
+x-okfw-id: "01a1d34e-cd51-7b49-9174-40eac5382897"
 title: "ISSUE-016: Built-in variables, implicit rules and suffix rules"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-16"
   - "rules"
   - "closed"
-created: "2026-11-12T23:08:39-06:00"
-timestamp: "2026-11-13T00:13:33-06:00"
+x-okfw-created: "2026-11-12T23:08:39-06:00"
+x-okfw-timestamp: "2026-11-13T00:13:33-06:00"
 description: "Phase 16: the GNU Make built-in variables and implicit rules, old-style suffix rules, and -r / -R."
 ---
 

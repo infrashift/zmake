@@ -1,16 +1,16 @@
 ---
-id: "01a1d4ee-3b4d-78b1-ba99-e5975ae1afd0"
+x-okfw-id: "01a1d4ee-3b4d-78b1-ba99-e5975ae1afd0"
 title: "ISSUE-022: Test runs on FreeBSD"
 type: "issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "follow-up"
   - "ci"
   - "platforms"
   - "closed"
-created: "2026-11-13T06:42:24-06:00"
-timestamp: "2026-11-13T07:01:08-06:00"
+x-okfw-created: "2026-11-13T06:42:24-06:00"
+x-okfw-timestamp: "2026-11-13T07:01:08-06:00"
 description: "A CI job runs the unit tests and the acceptance suite in a FreeBSD VM, with pinned downloads and a pinned VM action."
 ---
 

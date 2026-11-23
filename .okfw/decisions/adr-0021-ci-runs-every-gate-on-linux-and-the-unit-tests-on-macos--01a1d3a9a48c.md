@@ -1,13 +1,13 @@
 ---
-id: "01a1d3a9-a48c-7f0f-b693-1e63b2b8ea08"
+x-okfw-id: "01a1d3a9-a48c-7f0f-b693-1e63b2b8ea08"
 title: "ADR-0021: CI runs every gate on Linux and the unit tests on macOS"
 type: "ADR"
 tags:
   - "adr"
   - "ci"
   - "platforms"
-created: "2026-11-13T00:47:52-06:00"
-timestamp: "2026-11-13T00:47:52-06:00"
+x-okfw-created: "2026-11-13T00:47:52-06:00"
+x-okfw-timestamp: "2026-11-13T00:47:52-06:00"
 description: "A GitHub Actions workflow runs make check on Linux and the unit tests plus a fifo jobserver smoke test on macOS arm64 and x86_64, with pinned download checksums."
 ---
 

@@ -1,12 +1,12 @@
 ---
-id: "01a1d33e-ea33-71ff-8be9-906a74306e4e"
+x-okfw-id: "01a1d33e-ea33-71ff-8be9-906a74306e4e"
 title: "ADR-0009: Document zmake with Astro Starlight on GitHub Pages"
 type: "ADR"
 tags:
   - "adr"
   - "docs"
-created: "2026-11-12T22:51:18-06:00"
-timestamp: "2026-11-12T22:51:18-06:00"
+x-okfw-created: "2026-11-12T22:51:18-06:00"
+x-okfw-timestamp: "2026-11-12T22:51:18-06:00"
 description: "An Astro Starlight site in docs/, built with bun and deployed to GitHub Pages by GitHub Actions; the docs toolchain stays outside the zig build."
 ---
 

@@ -1,13 +1,13 @@
 ---
-id: "01a1d30a-e670-7b4a-a39c-67453ab63665"
+x-okfw-id: "01a1d30a-e670-7b4a-a39c-67453ab63665"
 title: "ADR-0001: Adopt an OKF wiki (okfw) for project knowledge"
 type: "ADR"
 tags:
   - "adr"
   - "process"
   - "okf"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T21:54:29-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T21:54:29-06:00"
 description: "An okfw-managed OKF wiki in .okfw/ holds zmake project knowledge: architecture, specs, ADRs, issues and daily notes."
 ---
 

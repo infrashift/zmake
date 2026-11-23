@@ -1,15 +1,15 @@
 ---
-id: "01a1d341-9a7f-7f16-abb8-66b2c0abccda"
+x-okfw-id: "01a1d341-9a7f-7f16-abb8-66b2c0abccda"
 title: "ISSUE-007: Pattern rules drop order-only prerequisites"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "bug"
   - "dag"
   - "closed"
-created: "2026-11-12T22:54:14-06:00"
-timestamp: "2026-11-12T23:10:26-06:00"
+x-okfw-created: "2026-11-12T22:54:14-06:00"
+x-okfw-timestamp: "2026-11-12T23:10:26-06:00"
 description: "A pattern rule loses its order-only prerequisites, so obj/%.o: src/%.c | obj never creates obj/."
 ---
 

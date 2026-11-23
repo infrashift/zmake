@@ -1,13 +1,13 @@
 ---
-id: "01a1d30a-e682-705b-bb8c-e82edab78880"
+x-okfw-id: "01a1d30a-e682-705b-bb8c-e82edab78880"
 title: "ADR-0004: Modern mode declares tasks and infers phony targets"
 type: "ADR"
 tags:
   - "adr"
   - "syntax"
   - "phony"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T21:54:29-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T21:54:29-06:00"
 description: "Modern mode removes .PHONY boilerplate with @name/task syntax and a bare-name heuristic, and runs a shadowed task with a warning."
 ---
 

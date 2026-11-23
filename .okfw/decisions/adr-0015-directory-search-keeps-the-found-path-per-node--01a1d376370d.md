@@ -1,13 +1,13 @@
 ---
-id: "01a1d376-370d-7d6c-b5cf-eeea7576bdbc"
+x-okfw-id: "01a1d376-370d-7d6c-b5cf-eeea7576bdbc"
 title: "ADR-0015: Directory search keeps the found path per node"
 type: "ADR"
 tags:
   - "adr"
   - "dag"
   - "vpath"
-created: "2026-11-12T23:51:42-06:00"
-timestamp: "2026-11-12T23:51:42-06:00"
+x-okfw-created: "2026-11-12T23:51:42-06:00"
+x-okfw-timestamp: "2026-11-12T23:51:42-06:00"
 description: "vpath and VPATH search for missing files; each graph node keeps the found path for automatic variables, and an out-of-date target rebuilds under its own name."
 ---
 

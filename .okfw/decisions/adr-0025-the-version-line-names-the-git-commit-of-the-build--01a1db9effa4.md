@@ -1,13 +1,13 @@
 ---
-id: "01a1db9e-ffa4-7254-b716-e2d510387392"
+x-okfw-id: "01a1db9e-ffa4-7254-b716-e2d510387392"
 title: "ADR-0025: The version line names the git commit of the build"
 type: "ADR"
 tags:
   - "adr"
   - "cli"
   - "build"
-created: "2026-11-14T13:53:12-06:00"
-timestamp: "2026-11-14T13:53:12-06:00"
+x-okfw-created: "2026-11-14T13:53:12-06:00"
+x-okfw-timestamp: "2026-11-14T13:53:12-06:00"
 description: "zmake -v and --version print zmake VERSION (COMMIT); build.zig takes VERSION from build.zig.zon and COMMIT from git, with -dirty or unknown."
 ---
 

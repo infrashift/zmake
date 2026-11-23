@@ -1,13 +1,13 @@
 ---
-id: "01a1d348-f8d1-73da-98e7-e9bddf071a18"
+x-okfw-id: "01a1d348-f8d1-73da-98e7-e9bddf071a18"
 title: "ADR-0010: Keep a modern-mode ZMakefile next to the Makefile"
 type: "ADR"
 tags:
   - "adr"
   - "modern-mode"
   - "dogfood"
-created: "2026-11-12T23:02:17-06:00"
-timestamp: "2026-11-12T23:02:17-06:00"
+x-okfw-created: "2026-11-12T23:02:17-06:00"
+x-okfw-timestamp: "2026-11-12T23:02:17-06:00"
 description: "The repo keeps a Makefile for GNU Make and a ZMakefile for zmake with the same targets; the acceptance suite compares their dry runs."
 ---
 

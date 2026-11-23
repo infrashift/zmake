@@ -1,15 +1,15 @@
 ---
-id: "01a1d30a-e69a-7665-b991-0ef5c11606b9"
+x-okfw-id: "01a1d30a-e69a-7665-b991-0ef5c11606b9"
 title: "ISSUE-003: Two-phase variable evaluator and target classification"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-3"
   - "eval"
   - "closed"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T22:12:03-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T22:12:03-06:00"
 description: "Phase 3: variable flavors, immediate and deferred expansion, automatic variables, functions and the target kind classifier."
 ---
 
