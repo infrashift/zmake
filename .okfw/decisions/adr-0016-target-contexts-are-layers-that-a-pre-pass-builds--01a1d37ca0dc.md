@@ -1,5 +1,5 @@
 ---
-id: "01a1d37c-a0dc-78fd-8be3-d2e31f34493a"
+x-okfw-id: "01a1d37c-a0dc-78fd-8be3-d2e31f34493a"
 title: "ADR-0016: Target contexts are layers that a pre-pass builds"
 type: "ADR"
 tags:
@@ -7,8 +7,8 @@ tags:
   - "eval"
   - "executor"
   - "target-variables"
-created: "2026-11-12T23:58:42-06:00"
-timestamp: "2026-11-12T23:58:42-06:00"
+x-okfw-created: "2026-11-12T23:58:42-06:00"
+x-okfw-timestamp: "2026-11-12T23:58:42-06:00"
 description: "Each node inherits the variable layers of its first parent, minus private variables, plus its own layer; a pass from the goals down builds them, and the evaluator reads layers first."
 ---
 

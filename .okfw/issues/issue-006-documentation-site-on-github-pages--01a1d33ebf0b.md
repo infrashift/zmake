@@ -1,15 +1,15 @@
 ---
-id: "01a1d33e-bf0b-74d2-8d95-9d7c02e3e446"
+x-okfw-id: "01a1d33e-bf0b-74d2-8d95-9d7c02e3e446"
 title: "ISSUE-006: Documentation site on GitHub Pages"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-6"
   - "docs"
   - "closed"
-created: "2026-11-12T22:51:07-06:00"
-timestamp: "2026-11-12T22:58:15-06:00"
+x-okfw-created: "2026-11-12T22:51:07-06:00"
+x-okfw-timestamp: "2026-11-12T22:58:15-06:00"
 description: "Phase 6: an Astro Starlight site in docs/, published to GitHub Pages through GitHub Actions."
 ---
 

@@ -1,13 +1,13 @@
 ---
-id: "01a1d30a-e66b-73b1-a941-d1b04b5d16c5"
+x-okfw-id: "01a1d30a-e66b-73b1-a941-d1b04b5d16c5"
 title: "Jobserver protocol"
 type: "Spec"
 tags:
   - "spec"
   - "jobserver"
   - "parallel"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T21:54:29-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T21:54:29-06:00"
 description: "The GNU Make compatible token protocol that zmake serves and joins for parallel jobs."
 ---
 

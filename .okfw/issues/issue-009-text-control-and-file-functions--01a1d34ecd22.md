@@ -1,15 +1,15 @@
 ---
-id: "01a1d34e-cd22-7eb2-8a84-5076ded43cc8"
+x-okfw-id: "01a1d34e-cd22-7eb2-8a84-5076ded43cc8"
 title: "ISSUE-009: Text, control and file functions"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-9"
   - "functions"
   - "closed"
-created: "2026-11-12T23:08:39-06:00"
-timestamp: "2026-11-12T23:27:52-06:00"
+x-okfw-created: "2026-11-12T23:08:39-06:00"
+x-okfw-timestamp: "2026-11-12T23:27:52-06:00"
 description: "Phase 9: the GNU Make functions beyond subst, patsubst, wildcard and shell, on the frame stack without recursion."
 ---
 

@@ -1,13 +1,13 @@
 ---
-id: "01a1d381-05ef-768c-8b29-a252594267cd"
+x-okfw-id: "01a1d381-05ef-768c-8b29-a252594267cd"
 title: "ADR-0017: A double-colon target keeps one instance per rule"
 type: "ADR"
 tags:
   - "adr"
   - "dag"
   - "executor"
-created: "2026-11-13T00:03:30-06:00"
-timestamp: "2026-11-13T00:03:30-06:00"
+x-okfw-created: "2026-11-13T00:03:30-06:00"
+x-okfw-timestamp: "2026-11-13T00:03:30-06:00"
 description: "Each :: rule is an instance on its graph node; the executor decides and runs each due instance in file order in one job, and goals report when they finish."
 ---
 

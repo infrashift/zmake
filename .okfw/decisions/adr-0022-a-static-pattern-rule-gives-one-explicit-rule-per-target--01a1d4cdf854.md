@@ -1,13 +1,13 @@
 ---
-id: "01a1d4cd-f854-770b-8fff-dde256910ebc"
+x-okfw-id: "01a1d4cd-f854-770b-8fff-dde256910ebc"
 title: "ADR-0022: A static pattern rule gives one explicit rule per target"
 type: "ADR"
 tags:
   - "adr"
   - "parser"
   - "rules"
-created: "2026-11-13T06:07:10-06:00"
-timestamp: "2026-11-13T06:07:10-06:00"
+x-okfw-created: "2026-11-13T06:07:10-06:00"
+x-okfw-timestamp: "2026-11-13T06:07:10-06:00"
 description: "A static pattern rule (objs: %.o: %.c) expands at read time into one explicit rule per target with its stem; $| gives the order-only prerequisites."
 ---
 

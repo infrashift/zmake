@@ -1,5 +1,5 @@
 ---
-id: "01a1d4ec-d992-723d-aa03-46050d1ba081"
+x-okfw-id: "01a1d4ec-d992-723d-aa03-46050d1ba081"
 title: "ADR-0023: The acceptance suite runs on macOS against GNU Make 4.3"
 type: "ADR"
 tags:
@@ -7,8 +7,8 @@ tags:
   - "ci"
   - "platforms"
   - "macos"
-created: "2026-11-13T06:40:54-06:00"
-timestamp: "2026-11-13T06:40:54-06:00"
+x-okfw-created: "2026-11-13T06:40:54-06:00"
+x-okfw-timestamp: "2026-11-13T06:40:54-06:00"
 description: "The macOS CI jobs build GNU Make 4.3 from source and run the acceptance suite; on macOS zmake checks the exact case of file names through directory listings, as GNU Make does."
 ---
 

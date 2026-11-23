@@ -1,12 +1,12 @@
 ---
-id: "01a1d30a-e65a-79cc-94c7-fd6eda02e5d6"
+x-okfw-id: "01a1d30a-e65a-79cc-94c7-fd6eda02e5d6"
 title: "zmake architecture overview"
 type: "Architecture"
 tags:
   - "architecture"
   - "overview"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T21:54:29-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T21:54:29-06:00"
 description: "The zmake pipeline from input file to shell: modules, data flow, memory model and the two expansion phases."
 ---
 

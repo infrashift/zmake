@@ -1,5 +1,5 @@
 ---
-id: "01a1ec7f-697a-79d6-aced-cb08e86b0e4d"
+x-okfw-id: "01a1ec7f-697a-79d6-aced-cb08e86b0e4d"
 title: "ADR-0026: semscope checks the Power of 10 rules"
 type: "ADR"
 tags:
@@ -7,8 +7,8 @@ tags:
   - "lint"
   - "power-of-10"
   - "tooling"
-created: "2026-11-17T20:32:15-06:00"
-timestamp: "2026-11-17T20:32:15-06:00"
+x-okfw-created: "2026-11-17T20:32:15-06:00"
+x-okfw-timestamp: "2026-11-17T20:32:15-06:00"
 description: "make lint runs semscope with the nasa-p10 ruleset on src/ when semscope is installed, and scripts/nasa-lint.py when it is not."
 ---
 

@@ -1,13 +1,13 @@
 ---
-id: "01a1d30a-e687-7d24-9b97-623f1ab16cd4"
+x-okfw-id: "01a1d30a-e687-7d24-9b97-623f1ab16cd4"
 title: "ADR-0005: Unsupported directives fail loudly"
 type: "ADR"
 tags:
   - "adr"
   - "parser"
   - "compatibility"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T21:54:29-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T21:54:29-06:00"
 description: "The parser rejects include, conditionals, define, export and vpath with a file:line error instead of a silent misparse."
 ---
 

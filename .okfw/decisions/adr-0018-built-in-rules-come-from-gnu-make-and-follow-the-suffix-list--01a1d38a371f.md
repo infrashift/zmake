@@ -1,13 +1,13 @@
 ---
-id: "01a1d38a-371f-7551-8663-c702ef6ff35b"
+x-okfw-id: "01a1d38a-371f-7551-8663-c702ef6ff35b"
 title: "ADR-0018: Built-in rules come from GNU Make and follow the suffix list"
 type: "ADR"
 tags:
   - "adr"
   - "database"
   - "builtins"
-created: "2026-11-13T00:13:33-06:00"
-timestamp: "2026-11-13T00:13:33-06:00"
+x-okfw-created: "2026-11-13T00:13:33-06:00"
+x-okfw-timestamp: "2026-11-13T00:13:33-06:00"
 description: "Generated built-in variables and rules from GNU Make 4.3; rules follow .SUFFIXES and come after file rules; a two-pass pattern search and match-anything limits as in GNU Make."
 ---
 

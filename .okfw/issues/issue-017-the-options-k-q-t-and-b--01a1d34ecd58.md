@@ -1,15 +1,15 @@
 ---
-id: "01a1d34e-cd58-7b4b-a0cf-be318067e367"
+x-okfw-id: "01a1d34e-cd58-7b4b-a0cf-be318067e367"
 title: "ISSUE-017: The options -k, -q, -t and -B"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-17"
   - "cli"
   - "closed"
-created: "2026-11-12T23:08:39-06:00"
-timestamp: "2026-11-13T00:20:06-06:00"
+x-okfw-created: "2026-11-12T23:08:39-06:00"
+x-okfw-timestamp: "2026-11-13T00:20:06-06:00"
 description: "Phase 17: keep going, question, touch and always-make, and combined short options."
 ---
 
