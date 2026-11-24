@@ -37,7 +37,8 @@ The [releases page](https://github.com/infrashift/zmake/releases) has an
 archive for Linux on x86_64 (`linux-amd64`), Linux on arm64 (`linux-arm64`)
 and macOS on Apple silicon (`macos-arm64`). Each archive holds `bin/zmake` and
 the man pages under `share/man`. Releases after 0.1.0 also have a zip archive
-for Windows on x86_64 (`windows-amd64`) with `bin/zmake.exe`.
+for Windows on x86_64 (`windows-amd64`) with `bin/zmake.exe`. The Windows
+binary is new and experimental.
 
 ```sh
 v=0.1.0
@@ -91,7 +92,7 @@ zmake [options] [VAR=value ...] [target ...]
 
 zmake serves and joins the GNU Make jobserver. A recursive `$(MAKE)` and a parent GNU Make share one pool of jobs. zmake builds for Linux, macOS, FreeBSD and Windows on x86_64.
 
-On Windows, zmake runs each recipe line in `sh.exe -c`. Run zmake from Git Bash or MSYS2, or put an `sh.exe` on the `PATH`. zmake reads `C:/dir/file` and `dir\file` names.
+Windows support is new and experimental. On Windows, zmake runs each recipe line in `sh.exe -c`. Run zmake from Git Bash or MSYS2, or put an `sh.exe` on the `PATH`. zmake reads `C:/dir/file` and `dir\file` names. See [Windows (Experimental)](https://infrashift.github.io/zmake/docs/guides/windows/).
 
 ## Compatibility
 zmake supports these GNU Make features:

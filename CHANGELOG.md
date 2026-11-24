@@ -5,9 +5,12 @@ workflow copies the section into the notes of the GitHub release.
 
 ## Unreleased
 
-### Windows on x86_64
+### Windows on x86_64 (new, experimental)
 
-zmake builds and runs on Windows on x86_64 ([ADR-0029](https://infrashift.github.io/zmake/docs/project/decisions/#adr-0029-zmake-runs-on-windows-x86_64-with-shexe-and-a-semaphore-jobserver)).
+zmake builds and runs on Windows on x86_64. Windows support is new and
+experimental. CI runs the unit tests and a smoke test on Windows, but not the
+acceptance suite. A later release can change the Windows behavior. See
+[Windows (Experimental)](https://infrashift.github.io/zmake/docs/guides/windows/) ([ADR-0029](https://infrashift.github.io/zmake/docs/project/decisions/#adr-0029-zmake-runs-on-windows-x86_64-with-shexe-and-a-semaphore-jobserver)).
 
 - Each recipe line runs in `sh.exe -c`. Windows finds `sh.exe` through `PATH`, for example the one of Git for Windows or MSYS2.
 - `\` also separates the parts of a name. `C:/` and `C:\` start an absolute name. A rule can name `C:/out/app.exe` as a target. `;` separates the directories of `VPATH` and `vpath`.

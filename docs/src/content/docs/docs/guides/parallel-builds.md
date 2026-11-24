@@ -78,7 +78,7 @@ zmake: warning: jobserver unavailable: using -j1.  Add '+' to parent make rule.
 |---|---|---|
 | Linux | A pipe (`R,W`), which GNU Make 4.3 children understand | Pipe and fifo |
 | macOS, FreeBSD | A named fifo (`fifo:PATH`), as in GNU Make 4.4 | Fifo. A pipe pool gives `-j1` and a warning |
-| Windows | A named semaphore (`gmake_semaphore_PID`), as in GNU Make for Windows | Semaphore. A pipe or fifo pool gives `-j1` and a warning |
+| Windows (experimental) | A named semaphore (`gmake_semaphore_PID`), as in GNU Make for Windows | Semaphore. A pipe or fifo pool gives `-j1` and a warning |
 
 `--jobserver-style=fifo`, `--jobserver-style=pipe` or `--jobserver-style=sem`
 selects the style of a new pool. A style that the system does not have stops

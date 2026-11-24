@@ -46,6 +46,11 @@ export default defineConfig({
 						{ label: 'Directory Search', slug: 'docs/guides/vpath' },
 						{ label: 'Target-Specific Variables', slug: 'docs/guides/target-variables' },
 						{ label: 'Parallel Builds & Jobserver', slug: 'docs/guides/parallel-builds' },
+						{
+							label: 'Windows (Experimental)',
+							slug: 'docs/guides/windows',
+							badge: { text: 'New', variant: 'tip' },
+						},
 						{ label: 'Migrating from GNU Make', slug: 'docs/guides/migrating' },
 					],
 				},
