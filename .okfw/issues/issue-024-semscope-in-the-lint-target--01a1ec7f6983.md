@@ -1,15 +1,15 @@
 ---
-id: "01a1ec7f-6983-76d6-92e6-b7d7857daa3a"
+x-okfw-id: "01a1ec7f-6983-76d6-92e6-b7d7857daa3a"
 title: "ISSUE-024: semscope in the lint target"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-24"
   - "lint"
   - "closed"
-created: "2026-11-17T20:32:15-06:00"
-timestamp: "2026-11-17T20:32:15-06:00"
+x-okfw-created: "2026-11-17T20:32:15-06:00"
+x-okfw-timestamp: "2026-11-17T20:32:15-06:00"
 description: "make lint runs semscope with the nasa-p10 ruleset when it is installed, and falls back to scripts/nasa-lint.py."
 ---
 

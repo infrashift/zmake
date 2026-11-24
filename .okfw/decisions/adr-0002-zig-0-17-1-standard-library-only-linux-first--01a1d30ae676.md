@@ -1,13 +1,13 @@
 ---
-id: "01a1d30a-e676-7686-be81-d87471a0c77f"
+x-okfw-id: "01a1d30a-e676-7686-be81-d87471a0c77f"
 title: "ADR-0002: Zig 0.17.1, standard library only, Linux first"
 type: "ADR"
 tags:
   - "adr"
   - "toolchain"
   - "zig"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T21:54:29-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T21:54:29-06:00"
 description: "zmake targets Zig 0.17.1 with no dependencies outside the standard library, and supports Linux first."
 ---
 

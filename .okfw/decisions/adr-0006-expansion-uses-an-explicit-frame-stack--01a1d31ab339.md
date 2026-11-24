@@ -1,13 +1,13 @@
 ---
-id: "01a1d31a-b339-71f3-9a6e-f9b5136e1b54"
+x-okfw-id: "01a1d31a-b339-71f3-9a6e-f9b5136e1b54"
 title: "ADR-0006: Expansion uses an explicit frame stack"
 type: "ADR"
 tags:
   - "adr"
   - "eval"
   - "safety"
-created: "2026-11-12T22:11:44-06:00"
-timestamp: "2026-11-12T22:11:44-06:00"
+x-okfw-created: "2026-11-12T22:11:44-06:00"
+x-okfw-timestamp: "2026-11-12T22:11:44-06:00"
 description: "Variable and function expansion runs on a fixed-size frame stack instead of recursion, to satisfy Power of 10 rule R1."
 ---
 

@@ -1,15 +1,15 @@
 ---
-id: "01a1d34e-cd3c-7ee3-bb7b-857cd541af3c"
+x-okfw-id: "01a1d34e-cd3c-7ee3-bb7b-857cd541af3c"
 title: "ISSUE-013: vpath and VPATH"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-13"
   - "dag"
   - "closed"
-created: "2026-11-12T23:08:39-06:00"
-timestamp: "2026-11-12T23:51:42-06:00"
+x-okfw-created: "2026-11-12T23:08:39-06:00"
+x-okfw-timestamp: "2026-11-12T23:51:42-06:00"
 description: "Phase 13: directory search for prerequisites through VPATH and the vpath directive."
 ---
 

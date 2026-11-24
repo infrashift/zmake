@@ -1,5 +1,5 @@
 ---
-id: "01a1d4ff-5f9a-7bec-84a9-a159066ad500"
+x-okfw-id: "01a1d4ff-5f9a-7bec-84a9-a159066ad500"
 title: "ADR-0024: CI runs the tests in a FreeBSD VM"
 type: "ADR"
 tags:
@@ -7,8 +7,8 @@ tags:
   - "ci"
   - "platforms"
   - "freebsd"
-created: "2026-11-13T07:01:08-06:00"
-timestamp: "2026-11-13T07:01:08-06:00"
+x-okfw-created: "2026-11-13T07:01:08-06:00"
+x-okfw-timestamp: "2026-11-13T07:01:08-06:00"
 description: "A CI job boots a FreeBSD 15.1 VM with vmactions/freebsd-vm pinned to a commit and runs the unit tests and the acceptance suite against GNU Make 4.3 there."
 ---
 

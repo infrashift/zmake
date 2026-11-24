@@ -1,16 +1,16 @@
 ---
-id: "01a1d30a-e694-70e2-9feb-c5b29fdf8ea2"
+x-okfw-id: "01a1d30a-e694-70e2-9feb-c5b29fdf8ea2"
 title: "ISSUE-002: Context-sensitive lexer and dual-mode parser"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-2"
   - "lexer"
   - "parser"
   - "closed"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T22:04:11-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T22:04:11-06:00"
 description: "Phase 2: logical lines, recipe detection per mode, assignments, rules, pattern rules, special targets and task syntax."
 ---
 

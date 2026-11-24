@@ -1,15 +1,15 @@
 ---
-id: "01a1d30a-e6a0-7c26-96b4-6b7e174f0eb7"
+x-okfw-id: "01a1d30a-e6a0-7c26-96b4-6b7e174f0eb7"
 title: "ISSUE-004: Dependency graph, pattern rules and cycle detection"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-4"
   - "dag"
   - "closed"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T22:15:10-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T22:15:10-06:00"
 description: "Phase 4: goal resolution through explicit rules, pattern rules and files, cycle detection with line numbers, topological order."
 ---
 

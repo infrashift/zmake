@@ -1,13 +1,13 @@
 ---
-id: "01a1d35f-6009-75f9-b738-6f0b303d67c7"
+x-okfw-id: "01a1d35f-6009-75f9-b738-6f0b303d67c7"
 title: "ADR-0011: Lazy functions use staged calls on the frame stack"
 type: "ADR"
 tags:
   - "adr"
   - "eval"
   - "functions"
-created: "2026-11-12T23:26:45-06:00"
-timestamp: "2026-11-12T23:26:45-06:00"
+x-okfw-created: "2026-11-12T23:26:45-06:00"
+x-okfw-timestamp: "2026-11-12T23:26:45-06:00"
 description: "if, and, or, intcmp, foreach, let and call expand their arguments and bodies in stages on the explicit frame stack, with scoped variable bindings and no recursion."
 ---
 

@@ -50,8 +50,8 @@ jobs:
       # okfw validates the wiki in .okfw/ (`make wiki`).
       - name: Install okfw
         env:
-          OKFW_VERSION: v2026.10.2
-          OKFW_SHA256: 55f29183b5264e47c7a41861f6189b4d8b644ed14ba55be56fa20d98f4f64c4f
+          OKFW_VERSION: v2026.11.4
+          OKFW_SHA256: c97e634bec0d03465223f20880183a5d37857b9f4b25ca53171bb0925ad15417
         run: |
           name="okfw-${OKFW_VERSION}-linux-amd64"
           curl -fsSL -o okfw.tar.gz "https://github.com/infrashift/okf-wiki/releases/download/${OKFW_VERSION}/${name}.tar.gz"

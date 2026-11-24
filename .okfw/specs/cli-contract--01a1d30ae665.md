@@ -1,12 +1,12 @@
 ---
-id: "01a1d30a-e665-7b95-853a-a86d1d4f1843"
+x-okfw-id: "01a1d30a-e665-7b95-853a-a86d1d4f1843"
 title: "CLI contract"
 type: "Spec"
 tags:
   - "spec"
   - "cli"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-19T14:46:46-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-19T14:46:46-06:00"
 description: "The zmake command line: options, input file discovery, variable overrides, messages and exit codes."
 ---
 

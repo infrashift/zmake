@@ -1,13 +1,13 @@
 ---
-id: "01a1d30a-e660-720e-b2f1-8da726521244"
+x-okfw-id: "01a1d30a-e660-720e-b2f1-8da726521244"
 title: "Syntax modes and target kinds"
 type: "Spec"
 tags:
   - "spec"
   - "syntax"
   - "phony"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-19T14:46:46-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-19T14:46:46-06:00"
 description: "How zmake selects legacy or modern mode, which recipe indentation each mode accepts, and how it classifies each target."
 ---
 

@@ -1,15 +1,15 @@
 ---
-id: "01a1d34e-cd5f-7d5d-8942-912b44b1d2ad"
+x-okfw-id: "01a1d34e-cd5f-7d5d-8942-912b44b1d2ad"
 title: "ISSUE-018: Quoted values in MAKEFLAGS"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-18"
   - "jobserver"
   - "closed"
-created: "2026-11-12T23:08:39-06:00"
-timestamp: "2026-11-13T00:23:16-06:00"
+x-okfw-created: "2026-11-12T23:08:39-06:00"
+x-okfw-timestamp: "2026-11-13T00:23:16-06:00"
 description: "Phase 18: command-line variables with spaces survive the trip through MAKEFLAGS."
 ---
 

@@ -1,16 +1,16 @@
 ---
-id: "01a1d4db-c5ce-7213-a476-229fcd3fa503"
+x-okfw-id: "01a1d4db-c5ce-7213-a476-229fcd3fa503"
 title: "ISSUE-021: Acceptance suite on macOS"
 type: "issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "follow-up"
   - "ci"
   - "platforms"
   - "closed"
-created: "2026-11-13T06:22:15-06:00"
-timestamp: "2026-11-13T06:40:54-06:00"
+x-okfw-created: "2026-11-13T06:22:15-06:00"
+x-okfw-timestamp: "2026-11-13T06:40:54-06:00"
 description: "CI builds GNU Make 4.3 on macOS and runs the acceptance suite there; the script uses only portable commands."
 ---
 

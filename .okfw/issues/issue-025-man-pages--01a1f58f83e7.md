@@ -1,16 +1,16 @@
 ---
-id: "01a1f58f-83e7-7d3e-a1dc-b455402942e9"
+x-okfw-id: "01a1f58f-83e7-7d3e-a1dc-b455402942e9"
 title: "ISSUE-025: Man pages"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-25"
   - "docs"
   - "man"
   - "closed"
-created: "2026-11-19T14:46:25-06:00"
-timestamp: "2026-11-19T14:46:31-06:00"
+x-okfw-created: "2026-11-19T14:46:25-06:00"
+x-okfw-timestamp: "2026-11-19T14:46:31-06:00"
 description: "zmake ships zmake(1) and zmakefile(5), and zig build -p ~/.local installs them where man finds them on Linux, macOS and FreeBSD."
 ---
 
