@@ -5,7 +5,8 @@ name: CI
 # documentation style) (ADR-0021). macOS runs the unit tests, the acceptance
 # suite against GNU Make 4.3 built from source, and a smoke test of the fifo
 # jobserver (ADR-0023). A FreeBSD VM runs the unit tests and the acceptance
-# suite (ADR-0024). The release workflow calls this workflow on the tagged
+# suite (ADR-0024). Windows runs the unit tests and a smoke test of the
+# semaphore jobserver and the DOS file names (ADR-0029). The release workflow calls this workflow on the tagged
 # commit before it builds the release archives (ADR-0028).
 on:
   push:
@@ -154,6 +155,72 @@ jobs:
           grep -q -- '--jobserver-auth=fifo:' <<< "$out"
           test -z "$(ls zmake-jobserver-* 2> /dev/null || true)"
 
+  # Git Bash runs the steps. Its sh.exe runs the recipe lines of zmake.exe.
+  windows:
+    name: tests (Windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install Zig
+        env:
+          ZIG_SHA256: b03f477a1943673e02aca0f570e8030dffd536ce1f45cbc4d3326ec31159562e
+        run: |
+          curl -fsSL -o zig.zip "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-windows-${ZIG_VERSION}.zip"
+          echo "${ZIG_SHA256}  zig.zip" | sha256sum -c -
+          unzip -q zig.zip -d "$RUNNER_TEMP"
+          rm zig.zip
+          echo "$RUNNER_TEMP/zig-x86_64-windows-${ZIG_VERSION}" >> "$GITHUB_PATH"
+
+      - name: Tool versions
+        run: |
+          zig version
+          command -v sh.exe
+          bash --version | head -1
+
+      - name: Unit tests
+        run: zig build test --summary all
+
+      - name: Build
+        run: zig build --release
+
+      # zmake reads its own ZMakefile, runs four one-second jobs with -j4
+      # through the semaphore jobserver, and a recursive zmake joins the pool.
+      # Then zmake reads a rule with drive names and a name with `\`.
+      - name: Smoke test of the semaphore jobserver and the DOS file names
+        run: |
+          set -euo pipefail
+          zm="$PWD/zig-out/bin/zmake.exe"
+          "$zm" --version
+          "$zm" -n check > /dev/null
+          # RUNNER_TEMP has no 8.3 short names, so the two path forms match.
+          work="$(cygpath -u "$RUNNER_TEMP")/smoke"
+          mkdir -p "$work"
+          cd "$work"
+          printf '.PHONY: all a b c d\nall: a b c d\na b c d:\n\t@sleep 1\n' > Makefile
+          start=$(date +%s)
+          "$zm" -j4
+          end=$(date +%s)
+          echo "-j4: $((end - start)) s"
+          test $((end - start)) -le 3
+          mkdir sub
+          printf 'all:\n\t@printf "%%s\\n" "$$MAKEFLAGS"\n' > sub/Makefile
+          printf 'all:\n\t+@$(MAKE) -s -C sub\n' > Makefile
+          out=$("$zm" -j2)
+          echo "$out"
+          grep -q -- '--jobserver-auth=gmake_semaphore_' <<< "$out"
+          here=$(cygpath -m "$PWD")
+          printf 'all: %s/in.txt\n\t@echo $(abspath .) $(notdir a\\b.c) $(@D)\n%s/in.txt:\n\t@echo made > $@\n' "$here" "$here" > Makefile
+          out=$("$zm")
+          echo "$out"
+          test "$out" = "$here b.c ."
+          test "$(cat in.txt)" = made
   # GitHub has no FreeBSD runner. The action boots a FreeBSD VM in QEMU on a
   # Linux runner and copies the checkout into it. It is pinned to the commit of
   # its v1.5.9 tag (ADR-0024).

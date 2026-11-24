@@ -6,6 +6,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const Io = std.Io;
 const ast = @import("ast.zig");
+const fpath = @import("path.zig");
 
 pub const Error = error{ OutOfMemory, LimitExceeded, ShellFailed, Io };
 
@@ -116,7 +117,7 @@ pub fn dirOrFile(arena: std.mem.Allocator, text: []const u8, part: u8) error{Out
     var it = std.mem.tokenizeAny(u8, text, whitespace);
     while (it.next()) |word| {
         assert(word.len > 0);
-        const slash = std.mem.lastIndexOfScalar(u8, word, '/');
+        const slash = fpath.lastSep(fpath.dos, word);
         const piece = if (part == 'D')
             (if (slash) |s| (if (s == 0) "/" else word[0..s]) else ".")
         else
@@ -291,7 +292,7 @@ fn listMatches(arena: std.mem.Allocator, io: Io, dir: Io.Dir, base: []const u8, 
     return error.LimitExceeded;
 }
 
-/// `$(shell command)`: run the command with `/bin/sh -c`. Turn each newline of
+/// `$(shell command)`: run the command with `$(SHELL) -c`. Turn each newline of
 /// the output into a space. Drop the trailing newlines. The child's stderr goes
 /// to the stderr of zmake.
 pub fn shell(arena: std.mem.Allocator, io: Io, shell_path: []const u8, command: []const u8) Error![]const u8 {
@@ -379,5 +380,5 @@ test "wildcard lists sorted matches in subdirectories" {
 test "shell output joins lines" {
     var arena: std.heap.ArenaAllocator = .init(testing.allocator);
     defer arena.deinit();
-    try testing.expectEqualStrings("a b c", try shell(arena.allocator(), testing.io, "/bin/sh", "printf 'a\\nb\\nc\\n\\n'"));
+    try testing.expectEqualStrings("a b c", try shell(arena.allocator(), testing.io, fpath.default_shell, "printf 'a\\nb\\nc\\n\\n'"));
 }

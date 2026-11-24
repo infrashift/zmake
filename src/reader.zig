@@ -16,6 +16,7 @@ const parser = @import("parser.zig");
 const eval = @import("eval.zig");
 const database = @import("database.zig");
 const fns = @import("functions.zig");
+const fpath = @import("path.zig");
 const Diagnostic = @import("diag.zig").Diagnostic;
 
 pub const Error = error{ Syntax, Eval, OutOfMemory };
@@ -336,7 +337,7 @@ fn vpathLine(r: *Reader, text: []const u8, line: u32) Error!void {
     const value = std.mem.trim(u8, try r.ev.expand(text, null), ws);
     if (value.len == 0) return r.b.vpath(r.ev, null, &.{});
     const end = std.mem.indexOfAny(u8, value, ws) orelse value.len;
-    const dirs = try database.splitDirs(r.arena, value[end..]);
+    const dirs = try database.splitDirs(r.arena, fpath.dos, value[end..]);
     try r.b.vpath(r.ev, value[0..end], dirs);
     assert(end > 0);
 }

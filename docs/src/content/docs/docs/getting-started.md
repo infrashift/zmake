@@ -4,8 +4,9 @@ description: Install a zmake release or build zmake from source, then run a ZMak
 ---
 
 zmake has release archives for Linux on x86_64 and arm64, and for macOS on
-Apple silicon. On other systems, build zmake from source. CI tests zmake on
-Linux, macOS and FreeBSD.
+Apple silicon. Releases after 0.1.0 also have a zip archive for Windows on
+x86_64. On other systems, build zmake from source. CI tests zmake on Linux,
+macOS, FreeBSD and Windows.
 
 ## Install a release
 
@@ -50,6 +51,14 @@ Remove the flag before you copy the binary:
 ```sh
 xattr -d com.apple.quarantine $a/bin/zmake
 ```
+:::
+
+:::note[Windows]
+The `windows-amd64` archive is a zip file with `bin/zmake.exe`. zmake runs
+each recipe line in `sh.exe -c`, so a POSIX shell must be on the `PATH`. Git
+for Windows and MSYS2 have one. Run zmake from Git Bash or from an MSYS2
+shell. zmake reads names such as `C:/src/main.c` and `src\main.c`. It gives
+the shell names with `/`, for example in `$(MAKE)` and `$(abspath ...)`.
 :::
 
 ## Build from source

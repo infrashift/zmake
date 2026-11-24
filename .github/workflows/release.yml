@@ -3,7 +3,8 @@ name: Release
 # A push of a tag vX.Y.Z makes a draft GitHub release (ADR-0028):
 #   1. ci:      every CI gate on the tagged commit (ci.yml).
 #   2. dist:    `make dist` on Linux cross-builds the linux-amd64,
-#               linux-arm64 and macos-arm64 archives and SHA256SUMS.
+#               linux-arm64, macos-arm64 and windows-amd64 (zip) archives
+#               and SHA256SUMS (ADR-0029).
 #   3. verify:  each archive runs on a native runner of its platform.
 #   4. release: a build-provenance attestation, then a draft release with the
 #               notes from CHANGELOG.md. A person publishes the draft.
@@ -61,6 +62,7 @@ jobs:
           name: dist
           path: |
             zig-out/dist/*.tar.gz
+            zig-out/dist/*.zip
             zig-out/dist/SHA256SUMS
           if-no-files-found: error
 
@@ -68,16 +70,25 @@ jobs:
     name: verify (${{ matrix.name }})
     needs: dist
     runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
         include:
           - runner: ubuntu-24.04
             name: linux-amd64
+            ext: tar.gz
           - runner: ubuntu-24.04-arm
             name: linux-arm64
+            ext: tar.gz
           - runner: macos-latest
             name: macos-arm64
+            ext: tar.gz
+          - runner: windows-latest
+            name: windows-amd64
+            ext: zip
     steps:
       - name: Download the archives
         uses: actions/download-artifact@v8
@@ -88,18 +99,22 @@ jobs:
       - name: Check the archive
         env:
           NAME: ${{ matrix.name }}
+          EXT: ${{ matrix.ext }}
           COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
           version="${GITHUB_REF_NAME#v}"
-          archive="zmake-v${version}-${NAME}.tar.gz"
+          archive="zmake-v${version}-${NAME}.${EXT}"
           cd dist
           grep " ${archive}\$" SHA256SUMS > one.sum
           if command -v sha256sum > /dev/null 2>&1; then sha256sum -c one.sum; else shasum -a 256 -c one.sum; fi
-          tar -xzf "$archive"
+          case "$EXT" in
+            zip) unzip -q "$archive"; exe=zmake.exe ;;
+            *) tar -xzf "$archive"; exe=zmake ;;
+          esac
           dir="$PWD/zmake-v${version}-${NAME}"
-          zm="$dir/bin/zmake"
-          for f in bin/zmake share/man/man1/zmake.1 share/man/man5/zmakefile.5 LICENSE README.md; do
+          zm="$dir/bin/$exe"
+          for f in "bin/$exe" share/man/man1/zmake.1 share/man/man5/zmakefile.5 LICENSE README.md; do
             test -f "$dir/$f"
           done
 
@@ -107,13 +122,14 @@ jobs:
           echo "$line"
           test "$line" = "zmake ${version%%-*} (${COMMIT})"
 
-          file "$zm"
+          if command -v file > /dev/null 2>&1; then file "$zm"; fi
           case "$NAME" in
             linux-*) file "$zm" | grep -q 'statically linked' ;;
             macos-*) codesign -v "$zm"; codesign -dv "$zm" 2>&1 | grep -q 'Signature=adhoc' ;;
+            windows-*) test "$(head -c 2 "$zm")" = MZ ;;
           esac
 
-          if command -v man > /dev/null 2>&1; then
+          if [ "$EXT" != zip ] && command -v man > /dev/null 2>&1; then
             man -M "$dir/share/man" -w zmake
             man -M "$dir/share/man" -w 5 zmakefile
           fi
@@ -153,7 +169,9 @@ jobs:
       - name: Attest the build provenance
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: dist/*.tar.gz
+          subject-path: |
+            dist/*.tar.gz
+            dist/*.zip
 
       - name: Release notes from CHANGELOG.md
         run: |
@@ -176,4 +194,4 @@ jobs:
           case "$GITHUB_REF_NAME" in *-*) flags+=(--prerelease) ;; esac
           gh release create "$GITHUB_REF_NAME" "${flags[@]}" --verify-tag \
             --title "zmake ${GITHUB_REF_NAME#v}" --notes-file notes.md \
-            dist/*.tar.gz dist/SHA256SUMS
+            dist/*.tar.gz dist/*.zip dist/SHA256SUMS

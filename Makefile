@@ -33,12 +33,13 @@ fmt:
 acceptance:
 	$(ZIG) build acceptance
 
-## cross: build for macOS and FreeBSD on arm64 and x86_64 (ADR-0020)
+## cross: build for macOS and FreeBSD on arm64 and x86_64, and for Windows on x86_64 (ADR-0020, ADR-0029)
 cross:
 	$(ZIG) build -Dtarget=aarch64-macos --prefix zig-out/cross/aarch64-macos
 	$(ZIG) build -Dtarget=x86_64-macos --prefix zig-out/cross/x86_64-macos
 	$(ZIG) build -Dtarget=aarch64-freebsd --prefix zig-out/cross/aarch64-freebsd
 	$(ZIG) build -Dtarget=x86_64-freebsd --prefix zig-out/cross/x86_64-freebsd
+	$(ZIG) build -Dtarget=x86_64-windows --prefix zig-out/cross/x86_64-windows
 
 ## wiki: validate the OKF wiki
 wiki:

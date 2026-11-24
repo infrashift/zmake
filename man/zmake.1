@@ -85,13 +85,16 @@ Run no recipe.
 Treat every target as out of date.
 .It Fl s , Fl -silent , Fl -quiet
 Do not echo the recipe lines.
-.It Fl -jobserver-style Ns = Ns Cm fifo | pipe
+.It Fl -jobserver-style Ns = Ns Cm fifo | pipe | sem
 Set the style of a new jobserver.
 The default is
 .Cm pipe
-on Linux and
+on Linux,
+.Cm sem
+on Windows and
 .Cm fifo
 on the other systems.
+A style that the system does not have is an error.
 .It Fl -modern
 Use modern mode for any input file.
 .It Fl -legacy
@@ -134,7 +137,16 @@ it builds the first target that does not start with
 and is not a pattern.
 .Ss Recipe lines
 Each recipe line runs in its own
-.Ql /bin/sh -c .
+.Ql $(SHELL) -c .
+The default
+.Va SHELL
+is
+.Pa /bin/sh ,
+and
+.Pa sh.exe
+from
+.Ev PATH
+on Windows.
 A line can start with these prefixes:
 .Bl -tag -width Ds
 .It Ic @

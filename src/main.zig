@@ -103,7 +103,7 @@ fn execute(
         },
         .js = js,
         .diag = diag,
-        .shell = "/bin/sh",
+        .shell = zmake.path.default_shell,
     };
     defer if (js) |j| j.remove();
     const outcome = ex.run() catch |err| switch (err) {
@@ -128,7 +128,10 @@ fn setupJobserver(init: std.process.Init, opts: zmake.cli.Options, mf: zmake.job
         const style = opts.jobserver_style orelse zmake.jobserver.default_style;
         const tmp_dir = init.environ_map.get("TMPDIR") orelse "/tmp";
         js.* = zmake.jobserver.Jobserver.initServer(arena, opts.jobs, style, if (tmp_dir.len > 0) tmp_dir else "/tmp") catch |err| switch (err) {
-            error.Unsupported => return report(io, "--jobserver-style=pipe needs Linux; use --jobserver-style=fifo"),
+            error.Unsupported => {
+                const text = std.fmt.allocPrint(arena, "--jobserver-style={t} is not available on this system; use --jobserver-style={t}", .{ style, zmake.jobserver.default_style }) catch return report(io, "out of memory");
+                return report(io, text);
+            },
             else => return report(io, "cannot create the jobserver"),
         };
         return js;
@@ -180,7 +183,9 @@ fn warn(io: Io, message: []const u8) void {
 /// Define the variables in origin order, then read the input file.
 fn evaluate(ev: *zmake.eval.Evaluator, init: std.process.Init, opts: zmake.cli.Options, mf: zmake.jobserver.Makeflags, input: Input) Reported!zmake.database.Database {
     const io = init.io;
-    const make_path = std.process.executablePathAlloc(io, init.arena.allocator()) catch return report(io, "cannot find the zmake executable path");
+    const native_path = std.process.executablePathAlloc(io, init.arena.allocator()) catch return report(io, "cannot find the zmake executable path");
+    // A recipe gives `$(MAKE)` to the shell, which reads `\` as an escape (ADR-0029).
+    const make_path = zmake.path.forwardSlashes(init.arena.allocator(), zmake.path.dos, native_path) catch return report(io, "out of memory");
     assert(make_path.len > 0);
     ev.defineDefaults(make_path) catch return report(io, "out of memory");
     if (!opts.flags.no_builtin_variables) ev.defineBuiltins() catch return report(io, "out of memory");

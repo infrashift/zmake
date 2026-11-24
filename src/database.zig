@@ -9,6 +9,7 @@ const ast = @import("ast.zig");
 const fns = @import("functions.zig");
 const eval = @import("eval.zig");
 const builtin_rules = @import("builtin_rules.zig");
+const fpath = @import("path.zig");
 
 pub const Error = eval.Error;
 pub const StringSet = std.StringHashMapUnmanaged(void);
@@ -223,7 +224,7 @@ pub const Builder = struct {
         ev.line = 0;
         if (ev.lookup("VPATH")) |v| {
             const value = if (v.recursive) try ev.expand(v.value, null) else v.value;
-            b.db.vpath_dirs = try splitDirs(ev.arena, value);
+            b.db.vpath_dirs = try splitDirs(ev.arena, fpath.dos, value);
         }
         if (ev.lookup(".DEFAULT_GOAL")) |v| {
             const value = if (v.recursive) try ev.expand(v.value, null) else v.value;
@@ -248,10 +249,11 @@ pub fn load(ev: *eval.Evaluator, mk: ast.Makefile) Error!Database {
     return db;
 }
 
-/// Split a directory list on colons and white space, as GNU Make does.
-pub fn splitDirs(arena: std.mem.Allocator, text: []const u8) error{OutOfMemory}![]const []const u8 {
+/// Split a directory list on colons (semicolons on Windows) and white space, as GNU Make does.
+pub fn splitDirs(arena: std.mem.Allocator, dos_paths: bool, text: []const u8) error{OutOfMemory}![]const []const u8 {
     var out: std.ArrayList([]const u8) = .empty;
-    var it = std.mem.tokenizeAny(u8, text, ": \t\n");
+    // On Windows, `;` separates the directories, because `C:` holds a `:` (ADR-0029).
+    var it = std.mem.tokenizeAny(u8, text, if (dos_paths) "; \t\n" else ": \t\n");
     while (it.next()) |dir| {
         assert(dir.len > 0);
         try out.append(arena, dir);
@@ -339,7 +341,7 @@ fn addRule(ev: *eval.Evaluator, b: *Builder, r: ast.RuleDecl) Error!void {
 fn noteDefaultGoal(b: *Builder, first: []const u8) void {
     assert(first.len > 0);
     if (b.db.default_goal != null) return;
-    if (first[0] != '.' or std.mem.indexOfScalar(u8, first, '/') != null) b.db.default_goal = first;
+    if (first[0] != '.' or fpath.hasSep(fpath.dos, first)) b.db.default_goal = first;
     assert(b.db.default_goal == null or b.db.default_goal.?.len > 0);
 }
 
@@ -722,4 +724,16 @@ test "refers to target" {
     try testing.expect(!refersToTarget("echo $$@"));
     try testing.expect(!refersToTarget("echo $(CC) @"));
     try testing.expect(!refersToTarget("$"));
+}
+
+test "a directory list splits on : or, on Windows, on ;" {
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    const a = arena.allocator();
+    const posix_dirs = try splitDirs(a, false, "src:lib include");
+    try testing.expectEqual(@as(usize, 3), posix_dirs.len);
+    try testing.expectEqualStrings("lib", posix_dirs[1]);
+    const dos_dirs = try splitDirs(a, true, "C:/src;lib include");
+    try testing.expectEqual(@as(usize, 3), dos_dirs.len);
+    try testing.expectEqualStrings("C:/src", dos_dirs[0]);
 }

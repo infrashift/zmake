@@ -6,6 +6,7 @@
 const std = @import("std");
 const assert = std.debug.assert;
 const fns = @import("functions.zig");
+const fpath = @import("path.zig");
 
 const Allocator = std.mem.Allocator;
 const OutOfMemory = error{OutOfMemory};
@@ -118,7 +119,7 @@ pub fn namePart(arena: Allocator, text: []const u8, part: NamePart) OutOfMemory!
     var first = true;
     while (it.next()) |w| : (first = false) {
         assert(w.len > 0);
-        const slash = std.mem.lastIndexOfScalar(u8, w, '/');
+        const slash = fpath.lastSep(fpath.dos, w);
         const file_start = if (slash) |s| s + 1 else 0;
         const dot = std.mem.lastIndexOfScalar(u8, w[file_start..], '.');
         const piece: []const u8 = switch (part) {
@@ -170,25 +171,29 @@ pub fn join(arena: Allocator, a: []const u8, b: []const u8) OutOfMemory![]const 
 }
 
 /// `$(abspath names)`: each name as an absolute path without `.`, `..` or
-/// repeated slashes. `cwd` is the absolute working directory. No symlinks resolve.
-pub fn abspath(arena: Allocator, cwd: []const u8, text: []const u8) OutOfMemory![]const u8 {
-    assert(cwd.len > 0 and cwd[0] == '/');
+/// repeated slashes. `cwd` is the absolute working directory. No symlinks
+/// resolve. `dos_paths` selects the file name rules of Windows (ADR-0029).
+pub fn abspath(arena: Allocator, dos_paths: bool, cwd: []const u8, text: []const u8) OutOfMemory![]const u8 {
+    assert(fpath.isAbsolute(dos_paths, cwd));
     var out: std.ArrayList(u8) = .empty;
     var it = std.mem.tokenizeAny(u8, text, ws);
     while (it.next()) |w| {
         assert(w.len > 0);
-        const full = if (w[0] == '/') w else try std.mem.concat(arena, u8, &.{ cwd, "/", w });
-        try fns.appendWord(arena, &out, try normalize(arena, full));
+        const full = if (fpath.isAbsolute(dos_paths, w)) w else try std.mem.concat(arena, u8, &.{ cwd, "/", w });
+        try fns.appendWord(arena, &out, try normalize(arena, dos_paths, full));
     }
-    assert(out.items.len == 0 or out.items[0] == '/');
+    assert(out.items.len == 0 or fpath.isAbsolute(dos_paths, out.items));
     return out.items;
 }
 
-/// Collapse `.`, `..` and repeated slashes in an absolute path.
-fn normalize(arena: Allocator, path: []const u8) OutOfMemory![]const u8 {
-    assert(path.len > 0 and path[0] == '/');
+/// Collapse `.`, `..` and repeated slashes in an absolute path. Under the DOS
+/// rules, `/` replaces each `\`, and a drive name such as `C:` stays in front.
+fn normalize(arena: Allocator, dos_paths: bool, name: []const u8) OutOfMemory![]const u8 {
+    assert(fpath.isAbsolute(dos_paths, name));
+    const unified = try fpath.forwardSlashes(arena, dos_paths, name);
+    const drive: []const u8 = if (fpath.hasDrive(dos_paths, unified)) unified[0..2] else "";
     var parts: std.ArrayList([]const u8) = .empty;
-    var it = std.mem.tokenizeScalar(u8, path, '/');
+    var it = std.mem.tokenizeScalar(u8, unified[drive.len..], '/');
     while (it.next()) |comp| {
         if (std.mem.eql(u8, comp, ".")) continue;
         if (std.mem.eql(u8, comp, "..")) {
@@ -197,13 +202,14 @@ fn normalize(arena: Allocator, path: []const u8) OutOfMemory![]const u8 {
         }
         try parts.append(arena, comp);
     }
-    if (parts.items.len == 0) return "/";
+    if (parts.items.len == 0) return std.mem.concat(arena, u8, &.{ drive, "/" });
     var out: std.ArrayList(u8) = .empty;
+    try out.appendSlice(arena, drive);
     for (parts.items) |p| {
         try out.append(arena, '/');
         try out.appendSlice(arena, p);
     }
-    assert(out.items.len <= path.len);
+    assert(out.items.len <= name.len);
     return out.items;
 }
 
@@ -266,6 +272,8 @@ test "addprefix, addsuffix, join, abspath, escape" {
     try testing.expectEqualStrings("a.c b.c", try addAffix(a, ".c", "a b", true));
     try testing.expectEqualStrings("x/a x/b", try addAffix(a, "x/", "a b", false));
     try testing.expectEqualStrings("a1 b2 c", try join(a, "a b c", "1 2"));
-    try testing.expectEqualStrings("/w/b /w/c /x /", try abspath(a, "/w", "a/../b ./c /x/./y/.. .."));
+    try testing.expectEqualStrings("/w/b /w/c /x /", try abspath(a, false, "/w", "a/../b ./c /x/./y/.. .."));
+    try testing.expectEqualStrings("/w/C:/x", try abspath(a, false, "/w", "C:/x"));
+    try testing.expectEqualStrings("C:/w/b C:/x d:/ /y", try abspath(a, true, "C:/w", "a\\..\\b C:\\x\\. d:/.. \\y"));
     try testing.expectEqualStrings("a$$b,c", try escapeDollars(a, &.{ "a$b", "c" }));
 }

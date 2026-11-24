@@ -9,7 +9,8 @@
 #
 # Each archive holds bin/zmake, the man pages under share/man, LICENSE and
 # README.md, in a directory with the name of the archive. zig build installs
-# the binary and the man pages, so this script has no install logic.
+# the binary and the man pages, so this script has no install logic. The
+# Windows archive is a zip file with bin/zmake.exe (ADR-0029).
 set -eu
 
 ZIG=${ZIG:-zig}
@@ -40,14 +41,21 @@ out=zig-out/dist
 rm -rf "$out"
 mkdir -p "$out/stage"
 
-for pair in linux-amd64:x86_64-linux-musl linux-arm64:aarch64-linux-musl macos-arm64:aarch64-macos; do
+for pair in linux-amd64:x86_64-linux-musl linux-arm64:aarch64-linux-musl macos-arm64:aarch64-macos windows-amd64:x86_64-windows; do
   name=${pair%%:*}
   target=${pair#*:}
   dir="zmake-v$version-$name"
   echo "dist: $dir ($target)"
   "$ZIG" build --release -Dtarget="$target" -p "$out/stage/$dir"
   cp LICENSE README.md "$out/stage/$dir/"
-  tar -czf "$out/$dir.tar.gz" -C "$out/stage" "$dir"
+  case "$name" in
+    windows-*)
+      # The debug symbols stay out of the archive.
+      rm -f "$out/stage/$dir/bin/zmake.pdb"
+      (cd "$out/stage" && zip -qr "../$dir.zip" "$dir")
+      ;;
+    *) tar -czf "$out/$dir.tar.gz" -C "$out/stage" "$dir" ;;
+  esac
 done
 
 # The host can run the linux-amd64 binary in CI. Check its version line.
@@ -62,8 +70,8 @@ fi
 
 cd "$out"
 if command -v sha256sum > /dev/null 2>&1; then
-  sha256sum zmake-v"$version"-*.tar.gz > SHA256SUMS
+  sha256sum zmake-v"$version"-*.tar.gz zmake-v"$version"-*.zip > SHA256SUMS
 else
-  shasum -a 256 zmake-v"$version"-*.tar.gz > SHA256SUMS
+  shasum -a 256 zmake-v"$version"-*.tar.gz zmake-v"$version"-*.zip > SHA256SUMS
 fi
 cat SHA256SUMS

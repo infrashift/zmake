@@ -9,6 +9,7 @@ const Io = std.Io;
 const ast = @import("ast.zig");
 const fns = @import("functions.zig");
 const textfns = @import("textfns.zig");
+const fpath = @import("path.zig");
 const eval = @import("eval.zig");
 
 const Evaluator = eval.Evaluator;
@@ -84,10 +85,10 @@ fn applySystem(ev: *Evaluator, func: Func, r: []const []const u8) Error![]const 
     switch (func) {
         .wildcard => return fns.wildcard(a, ev.io, ev.dir, r[0]) catch |err| return functionError(ev, "wildcard", err),
         .shell => {
-            const sh = if (ev.lookup("SHELL")) |v| v.value else "/bin/sh";
+            const sh = if (ev.lookup("SHELL")) |v| v.value else fpath.default_shell;
             return fns.shell(a, ev.io, sh, r[0]) catch |err| return functionError(ev, "shell", err);
         },
-        .abspath => return textfns.abspath(a, try currentDir(ev), r[0]),
+        .abspath => return textfns.abspath(a, fpath.dos, try currentDir(ev), r[0]),
         .realpath => return realpath(ev, r[0]),
         .file => return fileFunction(ev, r),
         else => unreachable,
@@ -104,16 +105,18 @@ fn functionError(ev: *Evaluator, name: []const u8, err: fns.Error) Error {
 }
 
 /// The absolute working directory of the process, read once per evaluator.
+/// On Windows, `/` replaces each `\`, as in GNU Make.
 fn currentDir(ev: *Evaluator) Error![]const u8 {
     if (ev.cwd) |c| return c;
-    const path = std.process.currentPathAlloc(ev.io, ev.arena) catch |err| switch (err) {
+    const native = std.process.currentPathAlloc(ev.io, ev.arena) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => return ev.fail("cannot read the working directory: {s}", .{@errorName(err)}),
     };
-    assert(path.len > 0 and path[0] == '/');
-    ev.cwd = path;
+    const cwd = try fpath.forwardSlashes(ev.arena, fpath.dos, native);
+    assert(fpath.isAbsolute(fpath.dos, cwd));
+    ev.cwd = cwd;
     assert(ev.cwd != null);
-    return path;
+    return cwd;
 }
 
 /// `$(realpath names)`: the canonical path of each name that exists.
@@ -126,9 +129,9 @@ fn realpath(ev: *Evaluator, text: []const u8) Error![]const u8 {
             error.OutOfMemory => return error.OutOfMemory,
             else => continue,
         };
-        try fns.appendWord(ev.arena, &out, real);
+        try fns.appendWord(ev.arena, &out, try fpath.forwardSlashes(ev.arena, fpath.dos, real));
     }
-    assert(out.items.len == 0 or out.items[0] == '/');
+    assert(out.items.len == 0 or fpath.isAbsolute(fpath.dos, out.items));
     return out.items;
 }
 

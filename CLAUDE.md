@@ -9,14 +9,14 @@ zmake is a Make-compatible build tool in Zig. It ships as one static binary. It 
 ## Tech Stack (WHAT)
 - **Language:** Zig 0.17.1, pinned in `build.zig.zon` as `minimum_zig_version`. The toolchain lives in `~/.local/zig/`.
 - **Dependencies:** the Zig standard library only. Write an ADR before you add a dependency.
-- **Platform:** Linux, macOS and FreeBSD. CI runs `make check` on Linux, and the unit tests and the acceptance suite on macOS and in a FreeBSD VM. The jobserver uses a pipe on Linux and a named fifo elsewhere ([ADR-0020](.okfw/decisions/adr-0020-a-named-fifo-shares-the-jobserver-off-linux--01a1d399e000.md)).
+- **Platform:** Linux, macOS, FreeBSD and Windows on x86_64. CI runs `make check` on Linux, and the unit tests and the acceptance suite on macOS and in a FreeBSD VM. On Windows, CI runs the unit tests and a smoke test. The jobserver uses a pipe on Linux, a named semaphore on Windows and a named fifo elsewhere ([ADR-0020](.okfw/decisions/adr-0020-a-named-fifo-shares-the-jobserver-off-linux--01a1d399e000.md), [ADR-0029](.okfw/decisions/adr-0029-zmake-runs-on-windows-x86-64-with-sh-exe-and-a-semaphore-jobserver--01a20f301514.md)).
 - **Wiki:** okfw (`.okfw/`). See the okfw block below.
 - **Docs:** Astro Starlight in `docs/` (bun 1.3.9), deployed to GitHub Pages ([ADR-0009](.okfw/decisions/adr-0009-document-zmake-with-astro-starlight-on-github-pages--01a1d33eea33.md)).
 
 ## Layout
 - `src/main.zig` is a thin CLI entry point.
 - `src/root.zig` exports the library modules for the tests.
-- `src/` holds the modules: `ast`, `lexer`, `parser`, `eval`, `dag`, `executor`, `jobserver`. `dircache` checks the exact case of file names on macOS.
+- `src/` holds the modules: `ast`, `lexer`, `parser`, `eval`, `dag`, `executor`, `jobserver`. `dircache` checks the exact case of file names on macOS and Windows. `path` holds the file name rules of the host (DOS rules on Windows).
 - `tests/` holds the mode tests (`legacy_test.zig`, `modern_test.zig`) and `acceptance.sh`.
 - `man/` holds the mdoc man pages `zmake.1` and `zmakefile.5`. `zig build -p PREFIX` installs them in `PREFIX/share/man` ([ADR-0027](.okfw/decisions/adr-0027-man-pages-are-mdoc-files-installed-under-the-prefix--01a1f58f63a3.md)). A change to an option or to the modern syntax changes the pages too.
 - `docs/` holds the Astro Starlight site. `docs/src/content/docs/docs/` holds the pages. `docs/src/assets/` holds the logo.
@@ -32,7 +32,7 @@ Run these targets after every change:
 - `make test` → `zig build test`
 - `make build` → `zig build`
 - `make acceptance` → `zig build acceptance` (end-to-end scenarios against the binary)
-- `make cross` → build for macOS and FreeBSD on arm64 and x86_64
+- `make cross` → build for macOS and FreeBSD on arm64 and x86_64, and for Windows on x86_64
 - `make wiki` → `okfw validate --all && okfw validate --okf`
 - `make docs-style` → `scripts/ste-check.py`
 - `make check` → all of the gates above
@@ -40,7 +40,7 @@ Run these targets after every change:
 - `tests/acceptance.sh` runs on Linux, macOS and FreeBSD: use no GNU-only options of `date`, `paste`, `sed` or `grep`
 - `make docs-build` → build the Starlight site (the same build as the Pages deploy)
 - `make docs-dev` → serve the site locally; `make docs-demo` → regenerate the landing-page demo output
-- `make dist` → `scripts/dist.sh`: the release archives (linux-amd64, linux-arm64, macos-arm64) and `SHA256SUMS` in `zig-out/dist`. A `v*` tag runs `.github/workflows/release.yml`, which makes a draft release ([ADR-0028](.okfw/decisions/adr-0028-a-tag-push-builds-the-release-archives-on-linux--01a1fe97af71.md))
+- `make dist` → `scripts/dist.sh`: the release archives (linux-amd64, linux-arm64, macos-arm64, windows-amd64) and `SHA256SUMS` in `zig-out/dist`. A `v*` tag runs `.github/workflows/release.yml`, which makes a draft release ([ADR-0028](.okfw/decisions/adr-0028-a-tag-push-builds-the-release-archives-on-linux--01a1fe97af71.md))
 
 ## Mandatory Execution Rules
 1. **One phase at a time.** Read `PLAN.md`. Implement only the first unchecked phase. Follow the *Development workflow* guide in `.okfw/`.

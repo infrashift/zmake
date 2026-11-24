@@ -91,7 +91,8 @@ pub const Flags = struct {
 };
 
 /// `--jobserver-style`: how a new pool shares its tokens, as in GNU Make 4.4.
-pub const JobserverStyle = enum { pipe, fifo };
+/// `sem` is the named semaphore of Windows.
+pub const JobserverStyle = enum { pipe, fifo, sem };
 
 pub const Options = struct {
     file: ?[]const u8 = null,

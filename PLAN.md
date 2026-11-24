@@ -173,6 +173,14 @@ Tracking: [ISSUE-026](.okfw/issues/issue-026-release-0-1-0--01a1fe97d0d1.md) · 
 - [x] `CHANGELOG.md` gives the release notes
 - [x] Getting Started and the README tell how to install a release; Contributing tells how to make one
 
+## Phase 27 — Windows x86_64
+Tracking: [ISSUE-027](.okfw/issues/issue-027-windows-x86-64--01a20f300352.md) · [ADR-0029](.okfw/decisions/adr-0029-zmake-runs-on-windows-x86-64-with-sh-exe-and-a-semaphore-jobserver--01a20f301514.md)
+- [x] `src/path.zig`: the DOS file name rules for `dir`, `notdir`, `$(@D)`, `$(@F)`, `abspath`, `realpath`, pattern rules, `VPATH` and the exact-case check
+- [x] The parser skips the `:` of a drive name in a rule
+- [x] The default `SHELL` is `sh.exe` on Windows; `$(MAKE)` and the working directory use `/`
+- [x] A named-semaphore jobserver on Windows (`--jobserver-style=sem`, `gmake_semaphore_PID`)
+- [x] `make cross` builds for Windows; `make dist` adds a `windows-amd64` zip; CI runs the unit tests and a smoke test on Windows
+
 ## Acceptance scenarios
 1. **The `build/` directory (modern mode).** Create `./build` and a `ZMakefile` with a `build:` rule. `zmake build` runs the recipe.
 2. **Explicit task (modern mode).** Declare `@deploy: build` with 4-space indentation. `zmake deploy` runs `build`, then `deploy`.
@@ -180,7 +188,8 @@ Tracking: [ISSUE-026](.okfw/issues/issue-026-release-0-1-0--01a1fe97d0d1.md) · 
 
 ## Follow-ups
 Phases 8 to 23 cover the earlier follow-ups. Open:
-- None. New follow-ups get an issue in `.okfw/issues/` and a line here.
+- The acceptance suite on Windows (ADR-0029). It compares output with GNU Make 4.3 and uses POSIX tools.
+- New follow-ups get an issue in `.okfw/issues/` and a line here.
 
 Outside the scope:
 - `$(guile ...)`, `.ONESHELL`, `.SECONDEXPANSION`, `--output-sync`, and remaking of included makefiles

@@ -30,4 +30,5 @@
 * [ISSUE-024: semscope in the lint target](issue-024-semscope-in-the-lint-target--01a1ec7f6983.md) - make lint runs semscope with the nasa-p10 ruleset when it is installed, and falls back to scripts/nasa-lint.py.
 * [ISSUE-025: Man pages](issue-025-man-pages--01a1f58f83e7.md) - zmake ships zmake(1) and zmakefile(5), and zig build -p ~/.local installs them where man finds them on Linux, macOS and FreeBSD.
 * [ISSUE-026: Release 0.1.0](issue-026-release-0-1-0--01a1fe97d0d1.md) - zmake 0.1.0 ships as a draft GitHub release with static Linux amd64 and arm64 archives and a macOS arm64 archive, each with the man pages, SHA256SUMS and a provenance attestation.
+* [ISSUE-027: Windows x86_64](issue-027-windows-x86-64--01a20f300352.md) - zmake builds and runs on Windows x86_64 with sh.exe recipes, DOS file names and a named-semaphore jobserver.
 
