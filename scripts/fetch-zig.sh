@@ -6,17 +6,12 @@
 # FILE is the archive name, for example zig-x86_64-linux-0.17.1.tar.xz.
 # SHA256 is the checksum that the workflow pins. OUT is the output file.
 #
-# The script tries the community mirrors in a random order, then
+# The script gives fetch.sh the community mirrors in a random order, then
 # ziglang.org. The Zig project asks CI to use the mirrors and to keep the load
-# off ziglang.org. A mirror can be down or slow, so each source has a time
-# limit. The pinned checksum makes each source safe: a bad file fails the
-# check, and the script tries the next source.
+# off ziglang.org. fetch.sh checks the pinned checksum of each file.
 #
 # The mirror list is a copy of https://ziglang.org/download/community-mirrors.txt
 # from 2026-11-25. A stale entry only costs one failed attempt.
-#
-# The script runs on Linux, macOS, FreeBSD and Git Bash on Windows, so it
-# uses only POSIX sh, curl, awk and the checksum tool of the system.
 set -eu
 
 if [ $# -ne 3 ]; then
@@ -50,39 +45,15 @@ https://zig.bcr.ist
 https://zig.vortan.dev/zig
 https://pkg.alexrp.com/zig'
 
-sha256() {
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$1" | awk '{ print $1 }'
-  elif command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$1" | awk '{ print $1 }'
-  else
-    sha256 -q "$1"
-  fi
-}
-
-# The mirrors in a random order, then ziglang.org.
+# The mirrors in a random order, then ziglang.org. No URL has a space.
+# A new CI VM often gives the same PID on each run, so the seed also uses the
+# time. date +%s is not POSIX, but each CI system has it.
+seed=$(( $$ + $(date +%s) ))
 urls=$(printf '%s\n' "$mirrors" |
-  awk -v seed="$$" 'BEGIN { srand(seed) } { print rand() "\t" $0 }' |
+  awk -v seed="$seed" 'BEGIN { srand(seed) } { print rand() "\t" $0 }' |
   sort -n | cut -f2- |
   awk -v f="$file" '{ print $0 "/" f "?source=github-infrashift-zmake" }')
-urls="$urls
-https://ziglang.org/download/$version/$file"
 
-for url in $urls; do
-  rm -f "$out"
-  # Stop a source that sends less than 50 kB/s for 30 s, or takes 10 min.
-  if ! curl -fsSL --connect-timeout 15 --speed-limit 50000 --speed-time 30 \
-      --max-time 600 -o "$out" "$url"; then
-    echo "fetch-zig: $url failed" >&2
-    continue
-  fi
-  got=$(sha256 "$out")
-  if [ "$got" = "$want" ]; then
-    echo "fetch-zig: $file from $url"
-    exit 0
-  fi
-  echo "fetch-zig: $url gave checksum $got, not $want" >&2
-done
-rm -f "$out"
-echo "fetch-zig: no source gave $file with the pinned checksum" >&2
-exit 1
+# shellcheck disable=SC2086 # split the URL list on newlines
+exec sh "$(dirname "$0")/fetch.sh" "$want" "$out" $urls \
+  "https://ziglang.org/download/$version/$file"
