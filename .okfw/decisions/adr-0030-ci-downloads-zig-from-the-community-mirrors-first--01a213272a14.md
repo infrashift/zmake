@@ -23,7 +23,7 @@ Each CI job and the release `dist` job downloaded Zig from ziglang.org. On 2026-
 ## Decision
 - `scripts/fetch-zig.sh FILE SHA256 OUT` downloads a Zig archive. Each job that needs Zig calls it: Linux, macOS, Windows, the FreeBSD VM and the release `dist` job.
 - The script tries the community mirrors in a random order, then ziglang.org. The script keeps a copy of the mirror list (`https://ziglang.org/download/community-mirrors.txt`), so the list does not depend on ziglang.org.
-- Each source has a time limit. curl stops a source that is slower than 50 kB/s for 30 s, or that takes more than 10 minutes. Then the script tries the next source.
+- Each source has a time limit. curl stops a source that is slower than 50 kB/s for 30 s, or that takes more than 10 minutes. Then the script tries the next source. [ADR-0031](/decisions/adr-0031-ci-downloads-gnu-make-through-ftpmirror-gnu-org-with-a-mirror-fallback--01a213b3e649.md) makes the limits stricter.
 - The script checks the pinned SHA-256 of each file. A file with a different checksum goes to the next source. A mirror cannot change the archive.
 - The script uses POSIX sh, curl, awk and the checksum tool of the system (`sha256sum`, `shasum` or `sha256`). It runs on each CI system.
 

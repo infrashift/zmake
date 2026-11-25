@@ -249,4 +249,6 @@ The macOS jobs and the FreeBSD VM build GNU Make 4.3 from source.
 `scripts/fetch-gnu-make.sh` downloads the source archive from
 `ftpmirror.gnu.org`, then from `ftp.gnu.org`, then from five large GNU
 mirrors. `scripts/fetch.sh` tries each source and checks the pinned SHA-256,
-as for Zig. An outage of ftp.gnu.org does not stop CI.
+as for Zig. The first pass drops a source that sends less than 1 MB/s
+for 20 s. A second, slower pass runs only if no source is that fast. An
+outage of ftp.gnu.org does not stop CI.
