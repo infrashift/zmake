@@ -36,12 +36,12 @@ Modern mode still reads `.PHONY`, so Makefile snippets work with no change.
 The [releases page](https://github.com/infrashift/zmake/releases) has an
 archive for Linux on x86_64 (`linux-amd64`), Linux on arm64 (`linux-arm64`)
 and macOS on Apple silicon (`macos-arm64`). Each archive holds `bin/zmake` and
-the man pages under `share/man`. Releases after 0.1.0 also have a zip archive
+the man pages under `share/man`. From release 0.2.0, the releases also have a zip archive
 for Windows on x86_64 (`windows-amd64`) with `bin/zmake.exe`. The Windows
 binary is new and experimental.
 
 ```sh
-v=0.1.0
+v=0.2.0
 a=zmake-v$v-linux-amd64
 curl -fsSLO https://github.com/infrashift/zmake/releases/download/v$v/$a.tar.gz
 curl -fsSLO https://github.com/infrashift/zmake/releases/download/v$v/SHA256SUMS

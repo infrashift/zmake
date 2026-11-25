@@ -4,8 +4,8 @@ description: Install a zmake release or build zmake from source, then run a ZMak
 ---
 
 zmake has release archives for Linux on x86_64 and arm64, and for macOS on
-Apple silicon. Releases after 0.1.0 also have a zip archive for Windows on
-x86_64. The Windows binary is new and experimental. On other systems, build
+Apple silicon. From release 0.2.0, the releases also have a zip archive for
+Windows on x86_64. The Windows binary is new and experimental. On other systems, build
 zmake from source. CI tests zmake on Linux, macOS, FreeBSD and Windows.
 
 ## Install a release
@@ -19,7 +19,7 @@ zmake from source. CI tests zmake on Linux, macOS, FreeBSD and Windows.
 For example, on Linux on x86_64:
 
 ```sh
-v=0.1.0
+v=0.2.0
 a=zmake-v$v-linux-amd64
 curl -fsSLO https://github.com/infrashift/zmake/releases/download/v$v/$a.tar.gz
 curl -fsSLO https://github.com/infrashift/zmake/releases/download/v$v/SHA256SUMS
