@@ -41,8 +41,7 @@ jobs:
         env:
           ZIG_SHA256: 3581863e3cbcfd0fce0efc682ce7e9e93da96668a977791d356a26d2a7e9b17a
         run: |
-          curl -fsSL -o zig.tar.xz "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-linux-${ZIG_VERSION}.tar.xz"
-          echo "${ZIG_SHA256}  zig.tar.xz" | sha256sum -c -
+          sh scripts/fetch-zig.sh "zig-x86_64-linux-${ZIG_VERSION}.tar.xz" "$ZIG_SHA256" zig.tar.xz
           mkdir -p "$RUNNER_TEMP/zig"
           tar -xJf zig.tar.xz -C "$RUNNER_TEMP/zig" --strip-components=1
           rm zig.tar.xz
@@ -95,8 +94,7 @@ jobs:
           ZIG_TARGET: ${{ matrix.zig }}
           ZIG_SHA256: ${{ matrix.sha256 }}
         run: |
-          curl -fsSL -o zig.tar.xz "https://ziglang.org/download/${ZIG_VERSION}/zig-${ZIG_TARGET}-${ZIG_VERSION}.tar.xz"
-          echo "${ZIG_SHA256}  zig.tar.xz" | shasum -a 256 -c -
+          sh scripts/fetch-zig.sh "zig-${ZIG_TARGET}-${ZIG_VERSION}.tar.xz" "$ZIG_SHA256" zig.tar.xz
           mkdir -p "$RUNNER_TEMP/zig"
           tar -xJf zig.tar.xz -C "$RUNNER_TEMP/zig" --strip-components=1
           rm zig.tar.xz
@@ -172,8 +170,7 @@ jobs:
         env:
           ZIG_SHA256: b03f477a1943673e02aca0f570e8030dffd536ce1f45cbc4d3326ec31159562e
         run: |
-          curl -fsSL -o zig.zip "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-windows-${ZIG_VERSION}.zip"
-          echo "${ZIG_SHA256}  zig.zip" | sha256sum -c -
+          sh scripts/fetch-zig.sh "zig-x86_64-windows-${ZIG_VERSION}.zip" "$ZIG_SHA256" zig.zip
           unzip -q zig.zip -d "$RUNNER_TEMP"
           rm zig.zip
           echo "$RUNNER_TEMP/zig-x86_64-windows-${ZIG_VERSION}" >> "$GITHUB_PATH"
@@ -248,8 +245,7 @@ jobs:
             freebsd-version
             tools="$HOME/tools"
             mkdir -p "$tools/zig" "$tools/bin"
-            curl -fsSL -o /tmp/zig.tar.xz "https://ziglang.org/download/${ZIG_VERSION}/zig-x86_64-freebsd-${ZIG_VERSION}.tar.xz"
-            [ "$(sha256 -q /tmp/zig.tar.xz)" = "$ZIG_SHA256" ] || { echo "zig: checksum mismatch"; exit 1; }
+            sh scripts/fetch-zig.sh "zig-x86_64-freebsd-${ZIG_VERSION}.tar.xz" "$ZIG_SHA256" /tmp/zig.tar.xz
             tar -xJf /tmp/zig.tar.xz -C "$tools/zig" --strip-components=1
             # FreeBSD has BSD make. The acceptance suite compares bytes with
             # GNU Make 4.3, so build it from the GNU release.
