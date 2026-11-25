@@ -22,7 +22,7 @@ zmake is a Make-compatible build tool in Zig. It ships as one static binary. It 
 - `docs/` holds the Astro Starlight site. `docs/src/content/docs/docs/` holds the pages. `docs/src/assets/` holds the logo.
 - `.github/workflows/docs-release.yml` deploys the site to https://infrashift.github.io/zmake/.
 - `.github/workflows/release.yml` builds the release archives for a `v*` tag. `CHANGELOG.md` holds the release notes.
-- `scripts/` holds the lint scripts `nasa-lint.py` (Power of 10) and `ste-check.py` (ASD-STE100), and `dist.sh` (the release archives).
+- `scripts/` holds the lint scripts `nasa-lint.py` (Power of 10) and `ste-check.py` (ASD-STE100), and `dist.sh` (the release archives). `fetch-zig.sh` downloads Zig for CI from the community mirrors ([ADR-0030](.okfw/decisions/adr-0030-ci-downloads-zig-from-the-community-mirrors-first--01a213272a14.md)).
 
 ## Verification & Workflow Commands (HOW)
 `Makefile` (GNU Make) and `ZMakefile` (zmake, modern mode) have the same targets. Change both together: acceptance scenario 8 compares them ([ADR-0010](.okfw/decisions/adr-0010-keep-a-modern-mode-zmakefile-next-to-the-makefile--01a1d348f8d1.md)).

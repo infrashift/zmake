@@ -234,3 +234,11 @@ The parser skips the `:` of a drive name. zmake gives the shell names with
 also runs on Windows. `make dist` adds a `windows-amd64` zip archive. CI runs
 the unit tests and a smoke test on Windows. The acceptance suite does not run
 there yet.
+
+### ADR-0030: CI downloads Zig from the community mirrors first
+
+`scripts/fetch-zig.sh` downloads Zig for each CI job and for the release. It
+tries the Zig community mirrors in a random order, then ziglang.org. curl
+stops a slow source, and the script tries the next one. The script checks the
+pinned SHA-256 of each file, so a mirror cannot change the archive. A
+ziglang.org outage does not stop CI or a release.
