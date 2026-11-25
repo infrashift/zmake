@@ -59,7 +59,7 @@ jobs:
           echo "${OKFW_SHA256}  okfw.tar.gz" | sha256sum -c -
           tar -xzf okfw.tar.gz -C "$RUNNER_TEMP"
           rm okfw.tar.gz
-          echo "$RUNNER_TEMP/${name}" >> "$GITHUB_PATH"
+          echo "$RUNNER_TEMP/${name}/bin" >> "$GITHUB_PATH"
 
       - name: Tool versions
         run: |
