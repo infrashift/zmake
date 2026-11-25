@@ -46,8 +46,11 @@ https://zig.vortan.dev/zig
 https://pkg.alexrp.com/zig'
 
 # The mirrors in a random order, then ziglang.org. No URL has a space.
+# A new CI VM often gives the same PID on each run, so the seed also uses the
+# time. date +%s is not POSIX, but each CI system has it.
+seed=$(( $$ + $(date +%s) ))
 urls=$(printf '%s\n' "$mirrors" |
-  awk -v seed="$$" 'BEGIN { srand(seed) } { print rand() "\t" $0 }' |
+  awk -v seed="$seed" 'BEGIN { srand(seed) } { print rand() "\t" $0 }' |
   sort -n | cut -f2- |
   awk -v f="$file" '{ print $0 "/" f "?source=github-infrashift-zmake" }')
 
