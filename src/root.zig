@@ -3,6 +3,7 @@
 pub const ast = @import("ast.zig");
 pub const cli = @import("cli.zig");
 pub const diag = @import("diag.zig");
+pub const path = @import("path.zig");
 pub const lexer = @import("lexer.zig");
 pub const parser = @import("parser.zig");
 pub const functions = @import("functions.zig");

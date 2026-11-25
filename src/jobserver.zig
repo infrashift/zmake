@@ -6,7 +6,8 @@
 //! which share the open file description of the original descriptor. That
 //! needs Linux (ADR-0008). For a named fifo, zmake opens the path with
 //! `O_NONBLOCK`, which works on each POSIX system. On macOS and the BSDs, a
-//! server uses a fifo, as GNU Make 4.4 does (ADR-0020).
+//! server uses a fifo, as GNU Make 4.4 does (ADR-0020). On Windows, the pool
+//! is a named semaphore, as in GNU Make for Windows (ADR-0029).
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -19,9 +20,26 @@ const cli = @import("cli.zig");
 pub const Error = error{ Jobserver, Unsupported, OutOfMemory };
 
 const is_linux = builtin.os.tag == .linux;
+const is_windows = builtin.os.tag == .windows;
 
-/// The style of a new pool: a pipe on Linux, a named fifo elsewhere.
-pub const default_style: cli.JobserverStyle = if (is_linux) .pipe else .fifo;
+/// The style of a new pool: a pipe on Linux, a semaphore on Windows, a named
+/// fifo elsewhere.
+pub const default_style: cli.JobserverStyle = if (is_linux) .pipe else if (is_windows) .sem else .fifo;
+
+/// The semaphore calls of kernel32, a part of Windows, so this is no new
+/// dependency (ADR-0029). Zig analyzes them only for a Windows target.
+const win32 = struct {
+    const HANDLE = std.os.windows.HANDLE;
+    const BOOL = std.os.windows.BOOL;
+    const semaphore_all_access: u32 = 0x1F0003;
+    const wait_object_0: u32 = 0;
+    const wait_failed: u32 = 0xFFFF_FFFF;
+    extern "kernel32" fn CreateSemaphoreA(attributes: ?*anyopaque, initial: i32, maximum: i32, name: [*:0]const u8) callconv(.winapi) ?HANDLE;
+    extern "kernel32" fn OpenSemaphoreA(access: u32, inherit: BOOL, name: [*:0]const u8) callconv(.winapi) ?HANDLE;
+    extern "kernel32" fn WaitForSingleObject(handle: HANDLE, milliseconds: u32) callconv(.winapi) u32;
+    extern "kernel32" fn ReleaseSemaphore(handle: HANDLE, count: i32, previous: ?*i32) callconv(.winapi) BOOL;
+    extern "kernel32" fn GetCurrentProcessId() callconv(.winapi) u32;
+};
 
 /// `mkfifo` of the C library. zmake links the C library on each system except
 /// Linux, so this is the system call, not a new dependency (ADR-0002).
@@ -30,7 +48,8 @@ const libc_fifo = struct {
 };
 
 pub const Jobserver = struct {
-    /// The private non-blocking descriptor that zmake reads tokens from.
+    /// The private non-blocking descriptor that zmake reads tokens from. On
+    /// Windows, the handle of the semaphore.
     take_fd: posix.fd_t,
     /// The descriptor that zmake writes tokens back to.
     give_fd: posix.fd_t,
@@ -51,7 +70,8 @@ pub const Jobserver = struct {
         assert(tmp_dir.len > 0);
         return switch (style) {
             .pipe => if (is_linux) initPipeServer(arena, jobs) else error.Unsupported,
-            .fifo => initFifoServer(arena, jobs, tmp_dir),
+            .fifo => if (is_windows) error.Unsupported else initFifoServer(arena, jobs, tmp_dir),
+            .sem => if (is_windows) initSemaphoreServer(arena, jobs) else error.Unsupported,
         };
     }
 
@@ -69,9 +89,33 @@ pub const Jobserver = struct {
         return .{ .take_fd = fd, .give_fd = fd, .files = &.{}, .auth = auth, .fifo_path = path };
     }
 
-    /// Delete the fifo of a fifo server at the end of the run.
+    /// A named semaphore with `jobs - 1` tokens, as GNU Make makes on Windows.
+    /// A child opens it by the name in `--jobserver-auth`.
+    fn initSemaphoreServer(arena: std.mem.Allocator, jobs: u32) Error!Jobserver {
+        assert(is_windows and jobs > 1);
+        const name = try std.fmt.allocPrintSentinel(arena, "gmake_semaphore_{d}", .{win32.GetCurrentProcessId()}, 0);
+        const tokens: i32 = @intCast(jobs - 1);
+        const handle = win32.CreateSemaphoreA(null, tokens, tokens, name) orelse return error.Jobserver;
+        assert(name.len > "gmake_semaphore_".len);
+        return .{ .take_fd = handle, .give_fd = handle, .files = &.{}, .auth = name };
+    }
+
+    /// Join the semaphore pool of a parent make on Windows. A pipe or a fifo of
+    /// a POSIX parent cannot reach a Windows process.
+    fn initSemaphoreClient(arena: std.mem.Allocator, auth: []const u8) Error!?Jobserver {
+        assert(is_windows and auth.len > 0);
+        if (std.mem.startsWith(u8, auth, "fifo:") or std.mem.indexOfScalar(u8, auth, ',') != null) return error.Unsupported;
+        const name = try arena.dupeSentinel(u8, auth, 0);
+        const handle = win32.OpenSemaphoreA(win32.semaphore_all_access, .FALSE, name) orelse return null;
+        assert(name.len == auth.len);
+        return .{ .take_fd = handle, .give_fd = handle, .files = &.{}, .auth = auth };
+    }
+
+    /// Delete the fifo of a fifo server at the end of the run. A semaphore
+    /// goes away with the last process that holds it.
     pub fn remove(js: *Jobserver) void {
         assert(js.held_len <= js.held.len);
+        if (is_windows) return;
         const path = js.fifo_path orelse return;
         if (posix.errno(posix.system.unlinkat(posix.AT.FDCWD, path, 0)) != .SUCCESS) return;
         js.fifo_path = null;
@@ -96,6 +140,7 @@ pub const Jobserver = struct {
     /// open: the parent did not mark the recipe line with `+` or `$(MAKE)`.
     pub fn initClient(arena: std.mem.Allocator, auth: []const u8) Error!?Jobserver {
         assert(auth.len > 0);
+        if (is_windows) return initSemaphoreClient(arena, auth);
         if (std.mem.startsWith(u8, auth, "fifo:")) {
             const path = auth["fifo:".len..];
             const fd = posix.openat(posix.AT.FDCWD, path, .{ .ACCMODE = .RDWR, .NONBLOCK = true, .CLOEXEC = true }, 0) catch return null;
@@ -119,6 +164,14 @@ pub const Jobserver = struct {
     /// Take one token without blocking. Return false when the pool is empty.
     pub fn tryAcquire(js: *Jobserver) Error!bool {
         assert(js.held_len < js.held.len);
+        if (is_windows) {
+            const rc = win32.WaitForSingleObject(js.take_fd, 0);
+            if (rc == win32.wait_failed) return error.Jobserver;
+            if (rc != win32.wait_object_0) return false;
+            js.held[js.held_len] = '+';
+            js.held_len += 1;
+            return true;
+        }
         var byte: [1]u8 = undefined;
         const n = posix.read(js.take_fd, &byte) catch |err| switch (err) {
             error.WouldBlock => return false,
@@ -135,6 +188,10 @@ pub const Jobserver = struct {
     pub fn release(js: *Jobserver) Error!void {
         assert(js.held_len > 0);
         js.held_len -= 1;
+        if (is_windows) {
+            if (win32.ReleaseSemaphore(js.give_fd, 1, null) == .FALSE) return error.Jobserver;
+            return;
+        }
         try writeByte(js.give_fd, js.held[js.held_len]);
         assert(js.held_len < js.held.len);
     }
@@ -322,6 +379,7 @@ test "server pool hands out jobs - 1 tokens" {
 }
 
 test "fifo server: the portable style" {
+    if (is_windows) return error.SkipZigTest; // Windows has no fifo (ADR-0029).
     var arena: std.heap.ArenaAllocator = .init(testing.allocator);
     defer arena.deinit();
     var tmp = testing.tmpDir(.{});
@@ -346,7 +404,33 @@ test "pipe style off Linux is unsupported" {
     var arena: std.heap.ArenaAllocator = .init(testing.allocator);
     defer arena.deinit();
     try testing.expectError(error.Unsupported, Jobserver.initServer(arena.allocator(), 2, .pipe, "/tmp"));
-    try testing.expectEqual(cli.JobserverStyle.fifo, default_style);
+    try testing.expectEqual(if (is_windows) cli.JobserverStyle.sem else .fifo, default_style);
+}
+
+test "sem style off Windows is unsupported" {
+    if (is_windows) return error.SkipZigTest;
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    try testing.expectError(error.Unsupported, Jobserver.initServer(arena.allocator(), 2, .sem, "/tmp"));
+}
+
+test "semaphore server and client on Windows" {
+    if (!is_windows) return error.SkipZigTest;
+    var arena: std.heap.ArenaAllocator = .init(testing.allocator);
+    defer arena.deinit();
+    try testing.expectError(error.Unsupported, Jobserver.initServer(arena.allocator(), 2, .fifo, "C:/tmp"));
+    var js = try Jobserver.initServer(arena.allocator(), 3, .sem, "C:/tmp");
+    try testing.expect(std.mem.startsWith(u8, js.auth, "gmake_semaphore_"));
+    try testing.expect(try js.tryAcquire());
+    var client = (try Jobserver.initClient(arena.allocator(), js.auth)).?;
+    try testing.expect(try client.tryAcquire());
+    try testing.expect(!(try js.tryAcquire()));
+    try client.releaseAll();
+    try testing.expect(try js.tryAcquire());
+    try js.releaseAll();
+    js.remove();
+    try testing.expect((try Jobserver.initClient(arena.allocator(), "gmake_semaphore_none")) == null);
+    try testing.expectError(error.Unsupported, Jobserver.initClient(arena.allocator(), "3,4"));
 }
 
 test "client joins a pool through R,W" {

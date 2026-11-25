@@ -1,13 +1,13 @@
 ---
-id: "01a1d390-363b-7edb-9bfe-4ca59157649f"
+x-okfw-id: "01a1d390-363b-7edb-9bfe-4ca59157649f"
 title: "ADR-0019: Letter flags share one table for options and MAKEFLAGS"
 type: "ADR"
 tags:
   - "adr"
   - "cli"
   - "executor"
-created: "2026-11-13T00:20:06-06:00"
-timestamp: "2026-11-13T00:20:06-06:00"
+x-okfw-created: "2026-11-13T00:20:06-06:00"
+x-okfw-timestamp: "2026-11-13T00:20:06-06:00"
 description: "One table maps B k n q r R s t for options and MAKEFLAGS; -k fails dependents and goes on, -q exits 1 when out of date, -t sets file times."
 ---
 

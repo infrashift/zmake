@@ -64,9 +64,10 @@ directive.
 - **GPATH.** zmake does not support `GPATH`.
 - **Static pattern variables.** `objs: %.o: NAME = value` stops with `invalid target-specific variable`. GNU Make reads `NAME` as a prerequisite.
 - **`-q` and `-t`.** zmake does not run recipe lines with `+` or `$(MAKE)` under `-q` and `-t`. GNU Make runs them.
-- **File name case.** On macOS, the file system ignores case. As GNU Make does, zmake compares the exact case when it looks for the input file, a pattern prerequisite or a `vpath` file. `util.C` does not match `util.c` there.
+- **File name case.** On macOS and Windows, the file system ignores case. As GNU Make does, zmake compares the exact case when it looks for the input file, a pattern prerequisite or a `vpath` file. `util.C` does not match `util.c` there.
 - **Intermediate files.** GNU Make deletes a file that a chain of pattern rules made. zmake keeps it.
-- **Platforms.** zmake builds for Linux, macOS and FreeBSD. CI runs all tests on Linux, and the unit tests and the acceptance suite on macOS and FreeBSD. On macOS and FreeBSD, zmake cannot join a pipe jobserver of a parent and uses `-j1`.
+- **Platforms.** zmake builds for Linux, macOS, FreeBSD and Windows on x86_64. Windows support is new and experimental ([Windows](../../guides/windows/)). CI runs all tests on Linux, and the unit tests and the acceptance suite on macOS and FreeBSD. On Windows, CI runs the unit tests and a smoke test. On macOS and FreeBSD, zmake cannot join a pipe jobserver of a parent and uses `-j1`.
+- **Windows.** zmake runs each recipe line in `sh.exe -c`. It has no `cmd.exe` mode. As in GNU Make for Windows, `\` also separates the parts of a name, and a drive name such as `C:/` starts an absolute name. `;` separates the directories of `VPATH` and `vpath` ([ADR-0029](../../project/decisions/#adr-0029-zmake-runs-on-windows-x86_64-with-shexe-and-a-semaphore-jobserver)).
 
 ## Hard limits
 

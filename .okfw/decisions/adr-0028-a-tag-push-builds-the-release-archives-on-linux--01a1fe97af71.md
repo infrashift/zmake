@@ -1,5 +1,5 @@
 ---
-id: "01a1fe97-af71-7ebd-97e8-a535bd3425ad"
+x-okfw-id: "01a1fe97-af71-7ebd-97e8-a535bd3425ad"
 title: "ADR-0028: A tag push builds the release archives on Linux"
 type: "ADR"
 tags:
@@ -7,8 +7,8 @@ tags:
   - "release"
   - "ci"
   - "install"
-created: "2026-11-21T08:51:56-06:00"
-timestamp: "2026-11-21T08:51:56-06:00"
+x-okfw-created: "2026-11-21T08:51:56-06:00"
+x-okfw-timestamp: "2026-11-21T08:51:56-06:00"
 description: "A push of a vX.Y.Z tag runs the CI gates, cross-builds static Linux amd64 and arm64 and ad-hoc signed macOS arm64 archives with make dist, runs each on a native runner, and makes a draft release with SHA256SUMS and a provenance attestation."
 ---
 

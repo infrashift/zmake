@@ -16,6 +16,7 @@ const Io = std.Io;
 const ast = @import("ast.zig");
 const fns = @import("functions.zig");
 const textfns = @import("textfns.zig");
+const fpath = @import("path.zig");
 const builtins = @import("builtins.zig");
 const builtin_rules = @import("builtin_rules.zig");
 const parser = @import("parser.zig");
@@ -298,7 +299,7 @@ pub const Evaluator = struct {
     pub fn defineDefaults(ev: *Evaluator, make_path: []const u8) Error!void {
         assert(make_path.len > 0);
         try ev.define("MAKE", make_path, false, .default);
-        try ev.define("SHELL", "/bin/sh", false, .default);
+        try ev.define("SHELL", fpath.default_shell, false, .default);
         assert(ev.vars.count() >= 2);
     }
 

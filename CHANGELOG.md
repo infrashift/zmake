@@ -3,6 +3,22 @@
 Each release has a section with the version as its heading. The release
 workflow copies the section into the notes of the GitHub release.
 
+## Unreleased
+
+### Windows on x86_64 (new, experimental)
+
+zmake builds and runs on Windows on x86_64. Windows support is new and
+experimental. CI runs the unit tests and a smoke test on Windows, but not the
+acceptance suite. A later release can change the Windows behavior. See
+[Windows (Experimental)](https://infrashift.github.io/zmake/docs/guides/windows/) ([ADR-0029](https://infrashift.github.io/zmake/docs/project/decisions/#adr-0029-zmake-runs-on-windows-x86_64-with-shexe-and-a-semaphore-jobserver)).
+
+- Each recipe line runs in `sh.exe -c`. Windows finds `sh.exe` through `PATH`, for example the one of Git for Windows or MSYS2.
+- `\` also separates the parts of a name. `C:/` and `C:\` start an absolute name. A rule can name `C:/out/app.exe` as a target. `;` separates the directories of `VPATH` and `vpath`.
+- zmake gives the shell names with `/`: `$(MAKE)`, `$(abspath ...)`, `$(realpath ...)` and the working directory.
+- A new jobserver pool is a named semaphore, as in GNU Make for Windows. `--jobserver-style=sem` selects it.
+- zmake compares the exact case of file names, as on macOS.
+- The release has a `windows-amd64` zip archive with `bin/zmake.exe`.
+
 ## 0.1.0
 
 The first release of zmake. zmake is a Make-compatible build tool in one

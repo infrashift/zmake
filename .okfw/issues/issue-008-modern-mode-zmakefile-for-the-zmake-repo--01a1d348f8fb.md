@@ -1,15 +1,15 @@
 ---
-id: "01a1d348-f8fb-774a-807b-ab4d404af1f5"
+x-okfw-id: "01a1d348-f8fb-774a-807b-ab4d404af1f5"
 title: "ISSUE-008: Modern-mode ZMakefile for the zmake repo"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-7"
   - "modern-mode"
   - "closed"
-created: "2026-11-12T23:02:17-06:00"
-timestamp: "2026-11-12T23:02:17-06:00"
+x-okfw-created: "2026-11-12T23:02:17-06:00"
+x-okfw-timestamp: "2026-11-12T23:02:17-06:00"
 description: "Phase 7: a ZMakefile with the same targets as the Makefile, checked against GNU Make by the acceptance suite."
 ---
 

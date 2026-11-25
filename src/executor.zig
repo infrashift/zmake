@@ -1,5 +1,5 @@
 //! Executor. It decides which targets are out of date, expands their recipes
-//! (deferred phase) and runs each recipe line in its own `/bin/sh -c`.
+//! (deferred phase) and runs each recipe line in its own `$(SHELL) -c`.
 //!
 //! The scheduler runs on the main thread and owns all node state. A job runs
 //! the commands of one target. With `-j`, jobs run as concurrent `Io` tasks;
@@ -15,6 +15,7 @@ const eval = @import("eval.zig");
 const parser = @import("parser.zig");
 const context = @import("context.zig");
 const Jobserver = @import("jobserver.zig").Jobserver;
+const default_shell = @import("path.zig").default_shell;
 const Diagnostic = @import("diag.zig").Diagnostic;
 
 pub const Error = error{ Exec, OutOfMemory };
@@ -121,7 +122,7 @@ pub const Executor = struct {
     /// Build every goal.
     pub fn run(ex: *Executor) Error!Outcome {
         assert(ex.graph.order.len > 0);
-        ex.shell = if (ex.ev.lookup("SHELL")) |v| v.value else "/bin/sh";
+        ex.shell = if (ex.ev.lookup("SHELL")) |v| v.value else default_shell;
         ex.has_exports = ex.needsExports();
         try ex.setup();
         ex.contexts = context.build(ex.arena, ex.ev, ex.graph, ex.db) catch |err| return ex.evalError(err);

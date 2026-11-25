@@ -1,13 +1,13 @@
 ---
-id: "01a1d372-90f3-71a2-a315-0a79c51d672a"
+x-okfw-id: "01a1d372-90f3-71a2-a315-0a79c51d672a"
 title: "ADR-0014: Export flags decide the recipe environment"
 type: "ADR"
 tags:
   - "adr"
   - "executor"
   - "environment"
-created: "2026-11-12T23:47:43-06:00"
-timestamp: "2026-11-12T23:47:43-06:00"
+x-okfw-created: "2026-11-12T23:47:43-06:00"
+x-okfw-timestamp: "2026-11-12T23:47:43-06:00"
 description: "An export flag per name and an export-all switch decide, with the origin, which variables each job gets; the executor builds the environment per job."
 ---
 

@@ -221,3 +221,16 @@ archives on Linux: `linux-amd64` and `linux-arm64` (static binaries) and
 archive. The last job makes a build-provenance attestation and a draft
 release with `SHA256SUMS`. A person publishes the draft. The macOS binary has
 no Developer ID signature and no notarization. A later release can add them.
+
+### ADR-0029: zmake runs on Windows x86_64 with sh.exe and a semaphore jobserver
+
+zmake builds for Windows on x86_64. Each recipe line runs in `sh.exe -c`.
+Windows finds `sh.exe` through `PATH`, for example the one of Git for Windows
+or MSYS2. As in GNU Make for Windows, `\` also separates the parts of a name, and
+`C:/` starts an absolute name. `;` separates the directories of `VPATH`.
+The parser skips the `:` of a drive name. zmake gives the shell names with
+`/`. A new jobserver pool is a named semaphore `gmake_semaphore_PID`, and
+`--jobserver-style=sem` selects it. NTFS ignores case, so the exact-case check
+also runs on Windows. `make dist` adds a `windows-amd64` zip archive. CI runs
+the unit tests and a smoke test on Windows. The acceptance suite does not run
+there yet.

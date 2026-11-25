@@ -1,13 +1,13 @@
 ---
-id: "01a1d30a-e676-7686-be81-d87471a0c77f"
+x-okfw-id: "01a1d30a-e676-7686-be81-d87471a0c77f"
 title: "ADR-0002: Zig 0.17.1, standard library only, Linux first"
 type: "ADR"
 tags:
   - "adr"
   - "toolchain"
   - "zig"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T21:54:29-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T21:54:29-06:00"
 description: "zmake targets Zig 0.17.1 with no dependencies outside the standard library, and supports Linux first."
 ---
 
@@ -34,3 +34,5 @@ The original plan named Zig `0.13.0` and `0.14.0-dev`. Later releases replaced t
 - **Link libc for the jobserver.** Rejected: a static binary without libc is simpler to ship.
 
 **Update (Phase 19):** zmake also builds for macOS and FreeBSD. On those systems Zig links the C library, and the jobserver uses a named fifo ([ADR-0020](/decisions/adr-0020-a-named-fifo-shares-the-jobserver-off-linux--01a1d399e000.md)). The tests still run on Linux only.
+
+**Update (Phase 27):** zmake also builds for Windows on x86_64. The jobserver uses a named semaphore of kernel32, and recipes run in `sh.exe` ([ADR-0029](/decisions/adr-0029-zmake-runs-on-windows-x86-64-with-sh-exe-and-a-semaphore-jobserver--01a20f301514.md)).

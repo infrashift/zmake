@@ -36,7 +36,9 @@ Modern mode still reads `.PHONY`, so Makefile snippets work with no change.
 The [releases page](https://github.com/infrashift/zmake/releases) has an
 archive for Linux on x86_64 (`linux-amd64`), Linux on arm64 (`linux-arm64`)
 and macOS on Apple silicon (`macos-arm64`). Each archive holds `bin/zmake` and
-the man pages under `share/man`.
+the man pages under `share/man`. Releases after 0.1.0 also have a zip archive
+for Windows on x86_64 (`windows-amd64`) with `bin/zmake.exe`. The Windows
+binary is new and experimental.
 
 ```sh
 v=0.1.0
@@ -76,8 +78,9 @@ zmake [options] [VAR=value ...] [target ...]
   -t          Touch the out-of-date targets. Do not run their recipes.
   -B          Treat every target as out of date.
   -s          Do not echo the recipe lines.
-  --jobserver-style=fifo|pipe
-              The style of a new jobserver. Default: pipe on Linux, fifo elsewhere.
+  --jobserver-style=fifo|pipe|sem
+              The style of a new jobserver. Default: pipe on Linux, sem on
+              Windows, fifo elsewhere.
   --modern    Use modern mode for any input file.
   --legacy    Use legacy mode for any input file.
   -h, --help  Print the usage and exit.
@@ -87,7 +90,9 @@ zmake [options] [VAR=value ...] [target ...]
 
 `zmake --version` prints one line, for example `zmake 0.1.0 (5f983ea...)`. VERSION comes from `build.zig.zon`. COMMIT is the full git commit of the build. A `-dirty` suffix shows a change to a tracked file. A build outside a git work tree gives `unknown`.
 
-zmake serves and joins the GNU Make jobserver. A recursive `$(MAKE)` and a parent GNU Make share one pool of jobs. zmake builds for Linux, macOS and FreeBSD.
+zmake serves and joins the GNU Make jobserver. A recursive `$(MAKE)` and a parent GNU Make share one pool of jobs. zmake builds for Linux, macOS, FreeBSD and Windows on x86_64.
+
+Windows support is new and experimental. On Windows, zmake runs each recipe line in `sh.exe -c`. Run zmake from Git Bash or MSYS2, or put an `sh.exe` on the `PATH`. zmake reads `C:/dir/file` and `dir\file` names. See [Windows (Experimental)](https://infrashift.github.io/zmake/docs/guides/windows/).
 
 ## Compatibility
 zmake supports these GNU Make features:
@@ -109,11 +114,11 @@ Run `make check` or `zmake check`. GNU Make reads the `Makefile`. zmake reads th
 - `make lint`: `zig fmt --check` and semscope, which checks the NASA Power of 10 rules. Without semscope on the `PATH`, `scripts/nasa-lint.py` checks six of the rules
 - `make test`: the unit tests and the mode tests
 - `make acceptance`: the end-to-end scenarios, with a comparison against GNU Make
-- `make cross`: builds for macOS and FreeBSD on arm64 and x86_64
+- `make cross`: builds for macOS and FreeBSD on arm64 and x86_64, and for Windows on x86_64
 - `make wiki`: validation of the OKF wiki in `.okfw/`
 - `make docs-style`: an ASD-STE100 check of the documentation
 
-CI runs `make check` on Linux. On macOS (arm64 and x86_64) and in a FreeBSD VM, it runs the unit tests and the acceptance suite against GNU Make 4.3. macOS also runs a jobserver smoke test.
+CI runs `make check` on Linux. On macOS (arm64 and x86_64) and in a FreeBSD VM, it runs the unit tests and the acceptance suite against GNU Make 4.3. macOS also runs a jobserver smoke test. On Windows, CI runs the unit tests and a smoke test of the jobserver and the file names.
 
 The wiki in `.okfw/` holds the architecture, the specs and the design decisions. Start with the *zmake architecture overview*.
 

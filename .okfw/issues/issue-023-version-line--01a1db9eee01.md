@@ -1,15 +1,15 @@
 ---
-id: "01a1db9e-ee01-7612-9f81-83d2019c6230"
+x-okfw-id: "01a1db9e-ee01-7612-9f81-83d2019c6230"
 title: "ISSUE-023: Version line"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-23"
   - "cli"
   - "closed"
-created: "2026-11-14T13:53:08-06:00"
-timestamp: "2026-11-14T13:53:28-06:00"
+x-okfw-created: "2026-11-14T13:53:08-06:00"
+x-okfw-timestamp: "2026-11-14T13:53:28-06:00"
 description: "zmake -v and zmake --version print zmake VERSION (COMMIT) and exit 0, so a script can check the commit of an installed binary."
 ---
 

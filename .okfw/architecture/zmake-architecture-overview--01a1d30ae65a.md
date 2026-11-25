@@ -1,12 +1,12 @@
 ---
-id: "01a1d30a-e65a-79cc-94c7-fd6eda02e5d6"
+x-okfw-id: "01a1d30a-e65a-79cc-94c7-fd6eda02e5d6"
 title: "zmake architecture overview"
 type: "Architecture"
 tags:
   - "architecture"
   - "overview"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T21:54:29-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T21:54:29-06:00"
 description: "The zmake pipeline from input file to shell: modules, data flow, memory model and the two expansion phases."
 ---
 
@@ -26,6 +26,7 @@ input file → reader (lexer → parser → evaluator) → database → DAG → 
 |---|---|
 | `src/main.zig` | Calls the library modules in sequence. Prints errors and sets the exit code. Prints the version line from the `build_options` module ([ADR-0025](/decisions/adr-0025-the-version-line-names-the-git-commit-of-the-build--01a1db9effa4.md)). |
 | `src/cli.zig` | Parses the options and `VAR=value` overrides. Selects the input file and its syntax mode. |
+| `src/path.zig` | Holds the file name rules of the host: `/` on POSIX systems, and also `\` and drive names on Windows ([ADR-0029](/decisions/adr-0029-zmake-runs-on-windows-x86-64-with-sh-exe-and-a-semaphore-jobserver--01a20f301514.md)). Gives the default shell. |
 | `src/diag.zig` | Holds a fixed-size error message. Zig errors carry no payload, so each module writes the text here. |
 | `src/ast.zig` | Holds the data types: `SyntaxMode`, `TargetKind`, `VariableFlavor`, `Variable`, `RecipeLine`, `Rule`, `Makefile`. |
 | `src/lexer.zig` | Splits the input file into logical lines. Joins continuations, strips comments and marks recipe lines. |
@@ -38,8 +39,8 @@ input file → reader (lexer → parser → evaluator) → database → DAG → 
 | `src/database.zig` | Replays the statements through the evaluator. Collects the expanded rules and the special targets. Classifies each target. |
 | `src/dag.zig` | Resolves each goal through explicit rules, pattern rules and existing files. Searches `vpath` and `VPATH` for missing files ([ADR-0015](/decisions/adr-0015-directory-search-keeps-the-found-path-per-node--01a1d376370d.md)). Detects cycles with a three-color search on an explicit stack. Sorts the graph. |
 | `src/context.zig` | Builds the target-specific variable layers of each node, parents first ([ADR-0016](/decisions/adr-0016-target-contexts-are-layers-that-a-pre-pass-builds--01a1d37ca0dc.md)). |
-| `src/executor.zig` | Decides which targets are out of date. Expands each recipe before its first line runs. Runs recipe lines through `/bin/sh -c`. Schedules jobs on `Io` tasks. |
-| `src/jobserver.zig` | Holds the GNU-compatible token pool for `-j` ([ADR-0008](/decisions/adr-0008-take-jobserver-tokens-through-a-private-non-blocking-descriptor--01a1d327df28.md)). Reads and writes `MAKEFLAGS`. |
+| `src/executor.zig` | Decides which targets are out of date. Expands each recipe before its first line runs. Runs recipe lines through `$(SHELL) -c`. Schedules jobs on `Io` tasks. |
+| `src/jobserver.zig` | Holds the GNU-compatible token pool for `-j` ([ADR-0008](/decisions/adr-0008-take-jobserver-tokens-through-a-private-non-blocking-descriptor--01a1d327df28.md)): a pipe, a named fifo or, on Windows, a named semaphore. Reads and writes `MAKEFLAGS`. |
 
 ## Memory
 One arena holds all memory for one invocation ([ADR-0003](/decisions/adr-0003-adapt-the-nasa-power-of-10-rules-to-zig--01a1d30ae67c.md)). zmake frees nothing before exit. Hard limits cap the input file size, the expansion depth and the graph size.

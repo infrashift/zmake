@@ -5,6 +5,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const ast = @import("ast.zig");
 const lexer = @import("lexer.zig");
+const fpath = @import("path.zig");
 const Diagnostic = @import("diag.zig").Diagnostic;
 
 pub const Error = error{ Syntax, OutOfMemory };
@@ -137,7 +138,7 @@ pub const Parser = struct {
             if (inline_recipe.len > 0) try p.recipes.append(p.arena, recipeLine(inline_recipe, line));
         }
         var target_pattern: ?[]const u8 = null;
-        if (findTopLevel(prereq_text, ":")) |colon| {
+        if (findOutsideDrives(prereq_text, ":", fpath.dos)) |colon| {
             // `objs: %.o: %.c` is a static pattern rule (ADR-0022).
             target_pattern = std.mem.trim(u8, prereq_text[0..colon], " \t");
             prereq_text = prereq_text[colon + 1 ..];
@@ -287,7 +288,7 @@ const Separator = struct { kind: SeparatorKind, start: usize, end: usize };
 
 /// Find the first top-level `=`, `:` or `;` and classify it.
 fn findSeparator(text: []const u8) ?Separator {
-    const i = findTopLevel(text, "=:;") orelse return null;
+    const i = findOutsideDrives(text, "=:;", fpath.dos) orelse return null;
     assert(i < text.len);
     const c = text[i];
     if (c == ';') return .{ .kind = .semicolon, .start = i, .end = i + 1 };
@@ -303,6 +304,21 @@ fn findSeparator(text: []const u8) ?Separator {
     if (std.mem.startsWith(u8, rest, ":=")) return .{ .kind = .{ .assign = .simple }, .start = i, .end = i + 2 };
     if (std.mem.startsWith(u8, rest, "::")) return .{ .kind = .double_colon, .start = i, .end = i + 2 };
     return .{ .kind = .rule, .start = i, .end = i + 1 };
+}
+
+/// Like `findTopLevel`, but skip the `:` of a drive name under the DOS rules,
+/// as in `C:/out/a.o: a.c` on Windows (ADR-0029).
+pub fn findOutsideDrives(text: []const u8, set: []const u8, dos_paths: bool) ?usize {
+    assert(set.len > 0);
+    var start: usize = 0;
+    var budget: usize = text.len + 1;
+    while (budget > 0 and start <= text.len) : (budget -= 1) {
+        const i = start + (findTopLevel(text[start..], set) orelse return null);
+        if (!fpath.isDriveColon(dos_paths, text, i)) return i;
+        start = i + 1;
+    }
+    assert(start > text.len or budget == 0);
+    return null;
 }
 
 /// Return the index of the first byte from `set` outside `$(...)` and `${...}`.
@@ -431,4 +447,8 @@ test "find top level skips nested references and escapes" {
     try testing.expectEqual(@as(?usize, 13), findTopLevel("$(a $(b:c=d))=", "="));
     try testing.expectEqual(@as(?usize, null), findTopLevel("${x:y}", ":"));
     try testing.expectEqual(@as(?usize, 3), findTopLevel("$$a:", ":"));
+    try testing.expectEqual(@as(?usize, 1), findOutsideDrives("C:/x.o: C:/x.c", ":", false));
+    try testing.expectEqual(@as(?usize, 6), findOutsideDrives("C:/x.o: C:/x.c", ":", true));
+    try testing.expectEqual(@as(?usize, null), findOutsideDrives(" d:\\lib\\x.a", ":", true));
+    try testing.expectEqual(@as(?usize, 3), findOutsideDrives("a.o: b", "=:;", true));
 }

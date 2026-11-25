@@ -1,0 +1,95 @@
+---
+title: Windows (Experimental)
+description: Run zmake on Windows on x86_64. The Windows binary is new and experimental.
+---
+
+import { Aside, Badge } from '@astrojs/starlight/components';
+
+<Badge text="New" variant="tip" /> <Badge text="Experimental" variant="caution" />
+
+zmake builds and runs on Windows on x86_64. It reads the same `Makefile` and
+`ZMakefile` as on Linux and macOS.
+
+<Aside type="caution" title="Experimental">
+The Windows binary is new. CI runs the unit tests and a smoke test on Windows.
+The acceptance suite does not run on Windows yet. A later release can change
+the behavior on this page. Tell us about problems on
+[GitHub](https://github.com/infrashift/zmake/issues).
+</Aside>
+
+## Install
+
+Release 0.1.0 has no Windows archive. Later releases have a zip archive,
+`zmake-vVERSION-windows-amd64.zip`, with `bin/zmake.exe` and the man pages.
+
+1. Download the zip archive and `SHA256SUMS` from the [releases page](https://github.com/infrashift/zmake/releases).
+2. Check the archive.
+3. Unpack the archive and copy `bin/zmake.exe` to a directory on your `PATH`.
+
+For example, in Git Bash:
+
+```sh
+v=VERSION
+a=zmake-v$v-windows-amd64
+sha256sum -c SHA256SUMS --ignore-missing
+unzip $a.zip
+mkdir -p ~/bin
+cp $a/bin/zmake.exe ~/bin/
+```
+
+Git Bash puts `~/bin` on the `PATH`. To check where the archive comes from,
+use the GitHub CLI 2.49 or later:
+
+```sh
+gh attestation verify $a.zip --repo infrashift/zmake
+```
+
+To build from source, install Zig 0.17.1 and run `zig build --release`. On
+another system, `zig build --release -Dtarget=x86_64-windows` builds
+`zig-out/bin/zmake.exe`.
+
+## A POSIX shell runs the recipes
+
+zmake runs each recipe line in `sh.exe -c`. Windows finds `sh.exe` through the
+`PATH`. Git for Windows and MSYS2 have one.
+
+- Run zmake from Git Bash or from an MSYS2 shell. These shells put `sh.exe` on
+  the `PATH`.
+- In `cmd.exe` or PowerShell, add the `usr\bin` directory of Git for Windows
+  to the `PATH`.
+- To use a different shell, set `SHELL` in the input file. As on other
+  systems, zmake ignores `SHELL` from the environment.
+
+zmake has no `cmd.exe` mode. A recipe that uses `cmd.exe` commands, such as
+`del` or `copy`, does not work. Use the POSIX commands, such as `rm` and `cp`.
+
+## File names
+
+zmake reads file names as GNU Make for Windows does
+([ADR-0029](../../project/decisions/#adr-0029-zmake-runs-on-windows-x86_64-with-shexe-and-a-semaphore-jobserver)).
+
+| Rule | Example |
+|---|---|
+| `\` and `/` separate the parts of a name. | `$(notdir src\main.c)` gives `main.c`. |
+| A drive name starts an absolute name. | `C:/out/app.exe: main.o` is a rule for `C:/out/app.exe`. |
+| `;` separates the directories of `VPATH` and `vpath`. | `VPATH = src;C:/lib` |
+| zmake gives names to the shell with `/`. | `$(MAKE)`, `$(abspath .)` and `$(realpath x)` give `C:/...`. |
+| zmake compares the exact case of names. | `util.C` does not match `util.c`. |
+
+A shell reads `\` as an escape. Use `/` in the names that a recipe gives to the
+shell.
+
+## Parallel builds
+
+On Windows, a new jobserver pool is a named semaphore,
+`gmake_semaphore_PID`, as in GNU Make for Windows. A recursive `$(MAKE)` and a
+child GNU Make for Windows share the pool. `--jobserver-style=sem` selects the
+semaphore, and it is the default on Windows. The `pipe` and `fifo` styles stop
+zmake with an error on Windows. See [Parallel Builds](../parallel-builds/).
+
+## Limits
+
+- Windows on arm64 has no binary, and CI does not test it.
+- The acceptance suite, which compares zmake with GNU Make 4.3, runs on Linux,
+  macOS and FreeBSD only.
+- zmake does not read a `cmd.exe` batch line in a recipe.

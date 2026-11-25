@@ -1,13 +1,13 @@
 ---
-id: "01a1d399-e000-758d-8036-97af04d1d46c"
+x-okfw-id: "01a1d399-e000-758d-8036-97af04d1d46c"
 title: "ADR-0020: A named fifo shares the jobserver off Linux"
 type: "ADR"
 tags:
   - "adr"
   - "jobserver"
   - "platforms"
-created: "2026-11-13T00:30:39-06:00"
-timestamp: "2026-11-13T00:30:39-06:00"
+x-okfw-created: "2026-11-13T00:30:39-06:00"
+x-okfw-timestamp: "2026-11-13T00:30:39-06:00"
 description: "On macOS and the BSDs a new jobserver is a named fifo, as in GNU Make 4.4; Linux keeps the pipe; a client off Linux cannot share a pipe pool and uses -j1."
 ---
 

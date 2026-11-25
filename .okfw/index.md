@@ -1,5 +1,7 @@
 ---
-okf_version: "0.2"
+okf_version: "0.3"
+description: "Architecture, specs, design decisions, issues and daily notes for zmake, a Make-compatible build tool in Zig."
+title: "zmake wiki"
 ---
 
 # /

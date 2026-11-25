@@ -9,6 +9,7 @@ const ast = @import("ast.zig");
 const fns = @import("functions.zig");
 const database = @import("database.zig");
 const dircache = @import("dircache.zig");
+const fpath = @import("path.zig");
 const Diagnostic = @import("diag.zig").Diagnostic;
 
 pub const Error = error{ Graph, OutOfMemory };
@@ -329,7 +330,7 @@ fn known(b: *Builder, name: []const u8) Error!bool {
 fn locate(b: *Builder, name: []const u8) Error!?[]const u8 {
     assert(name.len > 0);
     if (try exists(b, name)) return name;
-    if (name[0] == '/') return null;
+    if (fpath.isAbsolute(fpath.dos, name)) return null;
     for (b.db.vpaths) |v| {
         if (fns.matchPattern(v.pattern, name) == null) continue;
         if (try firstIn(b, v.dirs, name)) |p| return p;
@@ -342,7 +343,7 @@ fn locate(b: *Builder, name: []const u8) Error!?[]const u8 {
 fn firstIn(b: *Builder, dirs: []const []const u8, name: []const u8) Error!?[]const u8 {
     assert(name.len > 0);
     for (dirs) |dir| {
-        const sep: []const u8 = if (dir[dir.len - 1] == '/') "" else "/";
+        const sep: []const u8 = if (fpath.isSep(fpath.dos, dir[dir.len - 1])) "" else "/";
         const candidate = try std.mem.concat(b.arena, u8, &.{ dir, sep, name });
         if (try exists(b, candidate)) return candidate;
     }
@@ -429,8 +430,8 @@ fn findDirectPattern(b: *Builder, name: []const u8, skip: ?*const ast.Rule) Erro
 fn matchRule(b: *Builder, rule: *const ast.Rule, name: []const u8) Error!?Match {
     assert(rule.is_pattern);
     for (rule.targets) |pattern| {
-        const slash = std.mem.lastIndexOfScalar(u8, name, '/');
-        const use_dir = std.mem.indexOfScalar(u8, pattern, '/') == null and slash != null;
+        const slash = fpath.lastSep(fpath.dos, name);
+        const use_dir = !fpath.hasSep(fpath.dos, pattern) and slash != null;
         const subject = if (use_dir) name[slash.? + 1 ..] else name;
         if (subject.len == 0) continue;
         const part = fns.matchPattern(pattern, subject) orelse continue;
@@ -655,7 +656,7 @@ test "directory search finds prerequisites through vpath and VPATH" {
     }
     const mk = try parser.parse(a, "app: main.o libz.a\n\tcc -o $@ $^\n%.o: %.c x.h\n\tcc -c $<\n", "Makefile", .legacy, &diag);
     var ev = eval.Evaluator.init(a, testing.io, tmp.dir, &diag);
-    try ev.define("VPATH", "nope:src", false, .file);
+    try ev.define("VPATH", if (fpath.dos) "nope;src" else "nope:src", false, .file);
     var b: database.Builder = .init(.legacy, "Makefile");
     for (mk.statements) |st| try b.apply(&ev, st);
     try b.vpath(&ev, "%.h", &.{"inc"});

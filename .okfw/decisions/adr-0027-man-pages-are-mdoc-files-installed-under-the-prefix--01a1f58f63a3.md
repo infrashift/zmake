@@ -1,5 +1,5 @@
 ---
-id: "01a1f58f-63a3-758e-9624-9817f65f4046"
+x-okfw-id: "01a1f58f-63a3-758e-9624-9817f65f4046"
 title: "ADR-0027: Man pages are mdoc files installed under the prefix"
 type: "ADR"
 tags:
@@ -7,8 +7,8 @@ tags:
   - "docs"
   - "man"
   - "install"
-created: "2026-11-19T14:46:17-06:00"
-timestamp: "2026-11-19T14:46:17-06:00"
+x-okfw-created: "2026-11-19T14:46:17-06:00"
+x-okfw-timestamp: "2026-11-19T14:46:17-06:00"
 description: "zmake(1) and zmakefile(5) are hand-written mdoc files in man/ that zig build installs in PREFIX/share/man, so a ~/.local prefix needs no MANPATH change."
 ---
 

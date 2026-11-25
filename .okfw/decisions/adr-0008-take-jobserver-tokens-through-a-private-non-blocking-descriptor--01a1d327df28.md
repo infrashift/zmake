@@ -1,13 +1,13 @@
 ---
-id: "01a1d327-df28-7204-adfc-f5e035306456"
+x-okfw-id: "01a1d327-df28-7204-adfc-f5e035306456"
 title: "ADR-0008: Take jobserver tokens through a private non-blocking descriptor"
 type: "ADR"
 tags:
   - "adr"
   - "jobserver"
   - "parallel"
-created: "2026-11-12T22:26:08-06:00"
-timestamp: "2026-11-12T22:26:08-06:00"
+x-okfw-created: "2026-11-12T22:26:08-06:00"
+x-okfw-timestamp: "2026-11-12T22:26:08-06:00"
 description: "zmake reopens the jobserver pipe through /proc with O_NONBLOCK, so it never blocks and never changes the pipe that child makes share."
 ---
 

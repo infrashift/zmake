@@ -1,16 +1,16 @@
 ---
-id: "01a1d30a-e6a7-7338-a296-8216af8a4d8c"
+x-okfw-id: "01a1d30a-e6a7-7338-a296-8216af8a4d8c"
 title: "ISSUE-005: Parallel executor and GNU Make jobserver"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-5"
   - "executor"
   - "jobserver"
   - "closed"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T22:26:33-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T22:26:33-06:00"
 description: "Phase 5: out-of-date checks, recipe execution, -j scheduling, the jobserver, and the acceptance scenarios."
 ---
 

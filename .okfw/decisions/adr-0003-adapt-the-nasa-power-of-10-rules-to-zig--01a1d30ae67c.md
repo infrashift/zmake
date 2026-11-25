@@ -1,13 +1,13 @@
 ---
-id: "01a1d30a-e67c-7342-8cc5-9d751de24c4a"
+x-okfw-id: "01a1d30a-e67c-7342-8cc5-9d751de24c4a"
 title: "ADR-0003: Adapt the NASA Power of 10 rules to Zig"
 type: "ADR"
 tags:
   - "adr"
   - "safety"
   - "lint"
-created: "2026-11-12T21:54:29-06:00"
-timestamp: "2026-11-12T21:54:29-06:00"
+x-okfw-created: "2026-11-12T21:54:29-06:00"
+x-okfw-timestamp: "2026-11-12T21:54:29-06:00"
 description: "zmake follows the NASA/JPL Power of 10 rules where Zig and the problem allow; nasa-lint.py enforces the checkable rules."
 ---
 

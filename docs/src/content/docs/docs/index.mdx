@@ -16,8 +16,10 @@ with no dependencies. It reads an input file in one of two syntax modes.
 | Legacy | `Makefile`, `makefile`, `GNUmakefile` | Strict POSIX and GNU Make semantics. A target is a file unless `.PHONY` names it. Recipe lines start with a tab. |
 | Modern | `ZMakefile`, `Make.zig.mk`, or `--modern` | No `.PHONY` boilerplate. `@name:` and `task name:` declare a task. Recipe lines start with a tab or with spaces. |
 
-<Aside type="note" title="No release yet">
-zmake has no binary release. Build it from source with Zig 0.17.1 on Linux. See
+<Aside type="note" title="Releases">
+zmake has release archives for Linux and macOS. Windows on x86_64 is new and
+experimental: see [Windows (Experimental)](./guides/windows/). On other
+systems, build zmake from source with Zig 0.17.1. See
 [Getting Started](./getting-started/).
 </Aside>
 
@@ -50,7 +52,7 @@ zmake has no binary release. Build it from source with Zig 0.17.1 on Linux. See
 
 <LinkCard
 	title="Getting Started"
-	description="Build zmake from source and run your first ZMakefile."
+	description="Install a release or build zmake from source, then run your first ZMakefile."
 	href="./getting-started/"
 />
 <LinkCard

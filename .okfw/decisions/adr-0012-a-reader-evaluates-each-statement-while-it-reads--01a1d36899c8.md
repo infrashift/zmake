@@ -1,13 +1,13 @@
 ---
-id: "01a1d368-99c8-740e-b7f1-21f85e1c0159"
+x-okfw-id: "01a1d368-99c8-740e-b7f1-21f85e1c0159"
 title: "ADR-0012: A reader evaluates each statement while it reads"
 type: "ADR"
 tags:
   - "adr"
   - "reader"
   - "conditionals"
-created: "2026-11-12T23:36:50-06:00"
-timestamp: "2026-11-12T23:36:50-06:00"
+x-okfw-created: "2026-11-12T23:36:50-06:00"
+x-okfw-timestamp: "2026-11-12T23:36:50-06:00"
 description: "A line-by-line reader applies each statement at once for conditionals and define, and reads queued eval texts as sources on an explicit stack instead of recursing."
 ---
 

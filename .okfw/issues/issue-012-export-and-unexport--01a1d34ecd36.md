@@ -1,15 +1,15 @@
 ---
-id: "01a1d34e-cd36-7593-810f-e468e86de8a9"
+x-okfw-id: "01a1d34e-cd36-7593-810f-e468e86de8a9"
 title: "ISSUE-012: export and unexport"
 type: "Issue"
-kind: "issue"
+x-okfw-kind: "issue"
 tags:
   - "issue"
   - "phase-12"
   - "executor"
   - "closed"
-created: "2026-11-12T23:08:39-06:00"
-timestamp: "2026-11-12T23:48:04-06:00"
+x-okfw-created: "2026-11-12T23:08:39-06:00"
+x-okfw-timestamp: "2026-11-12T23:48:04-06:00"
 description: "Phase 12: export and unexport control the environment of each recipe line."
 ---
 
