@@ -35,7 +35,7 @@ holds a mirror issue for each phase. Each phase lands as one tested commit.
 | **24. semscope** | `make lint` checks the ten Power of 10 rules with semscope | Done |
 | **25. Man pages** | `zmake(1)` and `zmakefile(5)`, installed under the `zig build` prefix | Done |
 | **26. Release 0.1.0** | Release archives for Linux (amd64, arm64) and macOS (arm64) from a tag push | Done |
-| **27. Windows x86_64** | `sh.exe` recipes, DOS file names, a semaphore jobserver, a Windows archive and CI job | In progress |
+| **27. Windows x86_64** | `sh.exe` recipes, DOS file names, a semaphore jobserver, a Windows archive and CI job | Done |
 
 ## Follow-ups
 

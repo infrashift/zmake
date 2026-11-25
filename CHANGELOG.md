@@ -3,7 +3,27 @@
 Each release has a section with the version as its heading. The release
 workflow copies the section into the notes of the GitHub release.
 
-## Unreleased
+## 0.2.0
+
+zmake 0.2.0 adds Windows on x86_64. Windows support is new and experimental.
+
+### Downloads
+
+| Archive | System |
+|---|---|
+| `zmake-v0.2.0-linux-amd64.tar.gz` | Linux on x86_64. A static binary with no libc. |
+| `zmake-v0.2.0-linux-arm64.tar.gz` | Linux on arm64. A static binary with no libc. |
+| `zmake-v0.2.0-macos-arm64.tar.gz` | macOS on Apple silicon. An ad-hoc signature, no notarization. |
+| `zmake-v0.2.0-windows-amd64.zip` | Windows on x86_64. New and experimental. |
+
+Each tar archive holds `bin/zmake`, the man pages `zmake(1)` and
+`zmakefile(5)` under `share/man`, `LICENSE` and `README.md`. The zip archive
+holds `bin/zmake.exe` and the same files. `SHA256SUMS` gives the checksum of
+each archive. Each archive also has a build-provenance attestation:
+
+```sh
+gh attestation verify zmake-v0.2.0-linux-amd64.tar.gz --repo infrashift/zmake
+```
 
 ### Windows on x86_64 (new, experimental)
 
