@@ -242,3 +242,11 @@ tries the Zig community mirrors in a random order, then ziglang.org. curl
 stops a slow source, and the script tries the next one. The script checks the
 pinned SHA-256 of each file, so a mirror cannot change the archive. A
 ziglang.org outage does not stop CI or a release.
+
+### ADR-0031: CI downloads GNU Make through ftpmirror.gnu.org with a mirror fallback
+
+The macOS jobs and the FreeBSD VM build GNU Make 4.3 from source.
+`scripts/fetch-gnu-make.sh` downloads the source archive from
+`ftpmirror.gnu.org`, then from `ftp.gnu.org`, then from five large GNU
+mirrors. `scripts/fetch.sh` tries each source and checks the pinned SHA-256,
+as for Zig. An outage of ftp.gnu.org does not stop CI.
